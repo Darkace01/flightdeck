@@ -44,12 +44,12 @@ function notify(events: AppEvent[]): void {
   })
   // Collapse bursts (e.g. a matrix finishing) into one toast.
   if (wanted.length > 3) {
-    const n = new Notification({ title: `Flightdeck · ${wanted.length} updates`, body: wanted.slice(0, 4).map((e) => e.title).join('\n') })
+    const n = new Notification({ title: `Pushback · ${wanted.length} updates`, body: wanted.slice(0, 4).map((e) => e.title).join('\n') })
     n.on('click', showWindow)
     n.show()
     return
   }
-  // Clicking a toast opens the run or PR inside Flightdeck, not the browser.
+  // Clicking a toast opens the run or PR inside Pushback, not the browser.
   for (const e of wanted) {
     const n = new Notification({ title: e.title, body: e.body, silent: e.kind === 'run-started' })
     n.on('click', () => {
@@ -64,7 +64,7 @@ function updateTray(): void {
   if (!tray) return
   const unread = poller.snapshot.events.filter((e) => !e.read).length
   const running = Object.values(poller.snapshot.repos).reduce((n, r) => n + r.runs.filter((x) => x.status !== 'completed').length, 0)
-  tray.setToolTip(`Flightdeck — ${running} running, ${unread} unread`)
+  tray.setToolTip(`Pushback — ${running} running, ${unread} unread`)
   if (process.platform === 'darwin') tray.setTitle(unread ? String(unread) : '')
   if (process.platform !== 'win32') app.setBadgeCount(unread)
 }
@@ -107,7 +107,7 @@ function createWindow(): void {
     show: false,
     backgroundColor: windowBackground(),
     autoHideMenuBar: true,
-    title: 'Flightdeck',
+    title: 'Pushback',
     icon: appIcon(64),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -141,7 +141,7 @@ function createTray(): void {
   tray = new Tray(appIcon(16))
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open Flightdeck', click: showWindow },
+      { label: 'Open Pushback', click: showWindow },
       { label: 'Refresh now', click: () => poller.pollSoon() },
       {
         label: 'Check for updates',
@@ -255,7 +255,7 @@ function registerIpc(): void {
   ipcMain.handle('settings:import', (_e, json: string): ActionResult => {
     try {
       const parsed = JSON.parse(json) as Partial<Settings>
-      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Flightdeck settings file')
+      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Pushback settings file')
       settings = normalizeSettings(parsed)
       saveSettings(settings)
       send('settings', settings)
@@ -300,7 +300,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showWindow)
   // Windows only shows toasts for an AppUserModelID that has a Start-menu shortcut. The installer
   // registers our appId; an unpackaged dev build has no shortcut, so use Electron's own exe path there.
-  app.setAppUserModelId(app.isPackaged ? 'dev.flightdeck.app' : process.execPath)
+  app.setAppUserModelId(app.isPackaged ? 'dev.pushback.app' : process.execPath)
   migrateUserData()
 
   app.whenReady().then(() => {
@@ -326,11 +326,11 @@ if (!app.requestSingleInstanceLock()) {
   })
 }
 
-/** The app was called RepoDeck before 0.2; carry its settings, history and token over once. */
+/** The app was called RepoDeck before 0.2 and Flightdeck in 0.2; carry settings, history and token over once. */
 function migrateUserData(): void {
   const dir = app.getPath('userData')
   if (existsSync(join(dir, 'settings.json'))) return
-  const old = ['RepoDeck', 'repodeck'].map((name) => join(dirname(dir), name)).find((d) => existsSync(join(d, 'settings.json')))
+  const old = ['Flightdeck', 'RepoDeck', 'repodeck'].map((name) => join(dirname(dir), name)).find((d) => existsSync(join(d, 'settings.json')))
   if (!old) return
   for (const name of ['settings.json', 'events.json', 'token.bin']) if (existsSync(join(old, name))) cpSync(join(old, name), join(dir, name))
 }

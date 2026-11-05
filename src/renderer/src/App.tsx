@@ -69,7 +69,7 @@ function UpdateButton() {
   const update = useUpdate()
   if (update.state === 'ready')
     return (
-      <button className="btn btn-sm btn-primary" title="Restarts Flightdeck to finish updating" onClick={() => void api.installUpdate()}>
+      <button className="btn btn-sm btn-primary" title="Restarts Pushback to finish updating" onClick={() => void api.installUpdate()}>
         Restart to update
       </button>
     )
@@ -92,7 +92,7 @@ function TopBar() {
     <header className="topbar">
       <div className="brand">
         <Logo />
-        Flightdeck
+        Pushback
       </div>
       <DashboardSwitcher />
       <button className="search-trigger" onClick={() => openModal({ kind: 'palette' })}>
@@ -134,7 +134,7 @@ function Onboarding() {
           </>
         ) : (
           <>
-            <p className="dim">The quickest way is the GitHub CLI — Flightdeck picks up its login automatically:</p>
+            <p className="dim">The quickest way is the GitHub CLI — Pushback picks up its login automatically:</p>
             <pre>
               <code>gh auth login</code>
             </pre>

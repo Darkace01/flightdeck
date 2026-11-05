@@ -1,7 +1,7 @@
 {
-  "name": "flightdeck",
-  "version": "0.2.0",
-  "description": "Flightdeck: a fast, customizable desktop dashboard for GitHub Actions and pull requests",
+  "name": "pushback",
+  "version": "0.3.0",
+  "description": "Pushback: a fast, customizable desktop dashboard for GitHub Actions and pull requests",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -13,12 +13,12 @@
   },
   "author": "Kazeem Quadri",
   "license": "MIT",
-  "homepage": "https://github.com/Darkace01/flightdeck",
+  "homepage": "https://github.com/Darkace01/pushback",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Darkace01/flightdeck.git"
+    "url": "https://github.com/Darkace01/pushback.git"
   },
-  "bugs": "https://github.com/Darkace01/flightdeck/issues",
+  "bugs": "https://github.com/Darkace01/pushback/issues",
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -38,10 +38,10 @@
     "react-grid-layout": "^2.3.0",
     "yaml": "^2.9.1"
   },
-  "productName": "Flightdeck",
+  "productName": "Pushback",
   "build": {
-    "appId": "dev.flightdeck.app",
-    "productName": "Flightdeck",
+    "appId": "dev.pushback.app",
+    "productName": "Pushback",
     "files": [
       "out/**",
       "package.json"
@@ -83,7 +83,7 @@
     "publish": {
       "provider": "github",
       "owner": "Darkace01",
-      "repo": "flightdeck"
+      "repo": "pushback"
     }
   }
 }

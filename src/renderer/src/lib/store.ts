@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Settings, Snapshot, UpdateStatus } from '../../../shared/types'
 
-export const api = window.flightdeck
+export const api = window.pushback
 
 let snapshot: Snapshot
 let settings: Settings

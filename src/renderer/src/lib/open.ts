@@ -8,7 +8,7 @@ const RESERVED = new Set([
 ])
 
 /**
- * Opens a GitHub link inside Flightdeck when there's a view for it (PR, workflow run, repo),
+ * Opens a GitHub link inside Pushback when there's a view for it (PR, workflow run, repo),
  * otherwise in the browser. Every click on GitHub content should go through here.
  */
 export function openInApp(url: string): void {

@@ -2,7 +2,7 @@ import { app, Notification, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateStatus } from '../shared/types'
 
-const REPO = 'Darkace01/flightdeck'
+const REPO = 'Darkace01/pushback'
 export const RELEASES_URL = `https://github.com/${REPO}/releases/latest`
 const CHECK_EVERY = 4 * 60 * 60 * 1000
 
@@ -21,8 +21,8 @@ function set(patch: Partial<UpdateStatus>): void {
   if ((status.state === 'ready' || (status.state === 'available' && !canInstall)) && status.version && notified !== status.version) {
     notified = status.version
     const n = new Notification({
-      title: `Flightdeck ${status.version} is available`,
-      body: canInstall ? 'Restart Flightdeck to update.' : 'Click to download it from GitHub.'
+      title: `Pushback ${status.version} is available`,
+      body: canInstall ? 'Restart Pushback to update.' : 'Click to download it from GitHub.'
     })
     n.on('click', () => (canInstall ? installUpdate() : void shell.openExternal(RELEASES_URL)))
     n.show()
@@ -49,7 +49,7 @@ function newer(a: string, b: string): boolean {
 
 async function checkRelease(): Promise<void> {
   const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Flightdeck' }
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Pushback' }
   })
   if (res.status === 404) return set({ state: 'none' }) // no releases yet
   if (!res.ok) throw new Error(`GitHub returned ${res.status}`)

@@ -70,7 +70,7 @@ jobs:
           files: dist/*
           generate_release_notes: true
 
-  # Keeps `brew install --cask darkace01/tap/flightdeck` current. Needs a HOMEBREW_TAP_TOKEN secret:
+  # Keeps `brew install --cask darkace01/tap/pushback` current. Needs a HOMEBREW_TAP_TOKEN secret:
   # a fine-grained token with Contents: read & write on Darkace01/homebrew-tap.
   homebrew:
     name: Update Homebrew cask
@@ -102,11 +102,11 @@ jobs:
             -e "s/^  version \".*\"/  version \"$version\"/" \
             -e "s/(sha256 arm: +)\"[0-9a-f]+\"/\1\"$arm\"/" \
             -e "s/(intel: +)\"[0-9a-f]+\"/\1\"$intel\"/" \
-            tap/Casks/flightdeck.rb
+            tap/Casks/pushback.rb
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "flightdeck $version"
+          git commit -am "pushback $version"
           git push
 
   # Opens a PR on microsoft/winget-pkgs for each release. Needs a WINGET_TOKEN secret (a classic token
@@ -124,6 +124,6 @@ jobs:
       - if: env.WINGET_TOKEN != ''
         uses: vedantmgoyal9/winget-releaser@v2
         with:
-          identifier: Darkace01.Flightdeck
+          identifier: Darkace01.Pushback
           installers-regex: '-win-x64\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}

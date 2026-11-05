@@ -42,7 +42,7 @@ function sample(x: number, y: number): number {
 }
 
 /**
- * Draws the Flightdeck icon procedurally (a launch arrow over a runway on an indigo→cyan tile)
+ * Draws the Pushback icon procedurally (a launch arrow over a runway on an indigo→cyan tile)
  * as RGBA pixels. The tray and window icons use it, and `npm run icon` renders build/icon.png from it.
  */
 export function drawIcon(size: number): Uint8Array {

@@ -1,7 +1,7 @@
-import type { FlightdeckApi } from '../../shared/types'
+import type { PushbackApi } from '../../shared/types'
 
 declare global {
   interface Window {
-    flightdeck: FlightdeckApi
+    pushback: PushbackApi
   }
 }

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="build/icon.png" width="96" alt="Flightdeck icon" />
+  <img src="build/icon.png" width="96" alt="Pushback icon" />
 </p>
 
-<h1 align="center">Flightdeck</h1>
+<h1 align="center">Pushback</h1>
 
 <p align="center">
   A fast, customizable desktop dashboard for the GitHub repos you work on.<br />
@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Darkace01/flightdeck/releases/latest"><img src="https://img.shields.io/github/v/release/Darkace01/flightdeck?label=download" alt="Latest release" /></a>
-  <a href="https://github.com/Darkace01/flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Darkace01/flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/Darkace01/pushback/releases/latest"><img src="https://img.shields.io/github/v/release/Darkace01/pushback?label=download" alt="Latest release" /></a>
+  <a href="https://github.com/Darkace01/pushback/actions/workflows/ci.yml"><img src="https://github.com/Darkace01/pushback/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational" alt="Platforms" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license" /></a>
 </p>
@@ -23,9 +23,9 @@
 - **Multiple dashboards** for different jobs (CI watching, code review, releases), started from ready-made templates or from scratch, and switched with `Ctrl/⌘+1…9`.
 - **A dashboard of widgets** you can drag, resize, duplicate and scope to particular repos: repo health, workflow runs, pull requests, run-a-workflow, an activity feed, a "My work" inbox (review requests, your PRs and issues assigned to you across all of GitHub) and CI insights (pass rate, average duration, recent outcomes).
 - **GitHub Actions**: start `workflow_dispatch` workflows with their inputs, cancel runs, and re-run failed jobs or whole runs. Open a run to watch its jobs and steps live, and read a failed job's log, which opens at the error.
-- **Pull requests, in the app**: open any PR to read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Flightdeck. Every view has an **Open in browser** button for when you want GitHub itself.
+- **Pull requests, in the app**: open any PR to read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Pushback. Every view has an **Open in browser** button for when you want GitHub itself.
 - **Repo pages**: open a repo to see its README, stats, PRs, runs, workflows and CI insights in one place, and start or stop watching it.
-- **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Flightdeck keeps running in the tray so you don't miss any.
+- **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Pushback keeps running in the tray so you don't miss any.
 - **Fast and cheap on your rate limit**: it polls with ETag requests, which GitHub doesn't count against your limit when nothing changed, and polls faster while runs are active.
 - **Command palette** (`Ctrl/⌘+K`) to jump to any PR, run, workflow, repo, theme or command.
 - **Themes**: dark, light or follow the OS. Presets include GitHub Dark/Light (the defaults), Terminal, Amber CRT, Atom One Dark/Light, Dracula, Synthwave '84, Monokai, Nord, Tokyo Night, Catppuccin, Gruvbox, Solarized, Rosé Pine Dawn and Paper. You can override any colour and choose the font and text size.
@@ -39,37 +39,37 @@
 **Windows** ([winget](https://learn.microsoft.com/windows/package-manager/winget/)):
 
 ```powershell
-winget install Darkace01.Flightdeck
+winget install Darkace01.Pushback
 ```
 
 **macOS** ([Homebrew](https://brew.sh)):
 
 ```bash
-brew install --cask darkace01/tap/flightdeck
+brew install --cask darkace01/tap/pushback
 ```
 
-Upgrade later with `winget upgrade Darkace01.Flightdeck` or `brew upgrade --cask flightdeck`. The app's own updater works too.
+Upgrade later with `winget upgrade Darkace01.Pushback` or `brew upgrade --cask pushback`. The app's own updater works too.
 
 ### Or download an installer
 
-Download the file for your system from the [latest release](https://github.com/Darkace01/flightdeck/releases/latest).
+Download the file for your system from the [latest release](https://github.com/Darkace01/pushback/releases/latest).
 
 | System | File | How to install |
 | --- | --- | --- |
-| Windows 10/11 | `Flightdeck-x.y.z-win-x64.exe` | Run it and follow the installer. |
-| macOS (Apple silicon) | `Flightdeck-x.y.z-mac-arm64.dmg` | Open it and drag Flightdeck into Applications. |
-| macOS (Intel) | `Flightdeck-x.y.z-mac-x64.dmg` | Same as above. |
-| Linux (any distro) | `Flightdeck-x.y.z-linux-x86_64.AppImage` | `chmod +x Flightdeck-*.AppImage`, then run it. |
-| Debian / Ubuntu | `Flightdeck-x.y.z-linux-amd64.deb` | `sudo apt install ./Flightdeck-*.deb` |
+| Windows 10/11 | `Pushback-x.y.z-win-x64.exe` | Run it and follow the installer. |
+| macOS (Apple silicon) | `Pushback-x.y.z-mac-arm64.dmg` | Open it and drag Pushback into Applications. |
+| macOS (Intel) | `Pushback-x.y.z-mac-x64.dmg` | Same as above. |
+| Linux (any distro) | `Pushback-x.y.z-linux-x86_64.AppImage` | `chmod +x Pushback-*.AppImage`, then run it. |
+| Debian / Ubuntu | `Pushback-x.y.z-linux-amd64.deb` | `sudo apt install ./Pushback-*.deb` |
 
 > **Heads-up: the builds aren't code-signed yet**, so your OS will warn you the first time you open one.
 >
 > - **Windows**: SmartScreen says "Windows protected your PC". Click **More info → Run anyway**.
-> - **macOS**: Gatekeeper says the app "can't be opened". (The Homebrew cask clears this for you.) Right-click Flightdeck in Applications and choose **Open**, then **Open** again. If macOS says the app is damaged, run `xattr -cr /Applications/Flightdeck.app` once.
+> - **macOS**: Gatekeeper says the app "can't be opened". (The Homebrew cask clears this for you.) Right-click Pushback in Applications and choose **Open**, then **Open** again. If macOS says the app is damaged, run `xattr -cr /Applications/Pushback.app` once.
 
 ### Updates
 
-Flightdeck checks for new versions on startup and every few hours. You can turn this off, or check by hand, in **Settings → Advanced → Updates**.
+Pushback checks for new versions on startup and every few hours. You can turn this off, or check by hand, in **Settings → Advanced → Updates**.
 
 - **Windows and AppImage** download updates in the background. When an update is ready, a **Restart to update** button appears in the top bar. If you don't click it, the update installs the next time you quit.
 - **macOS and .deb** tell you a new version is out and link to the download. macOS can only self-update signed apps, and `.deb` installs are managed by your package manager.
@@ -78,10 +78,10 @@ Flightdeck checks for new versions on startup and every few hours. You can turn 
 
 ### 1. Connect to GitHub
 
-Flightdeck needs a GitHub token. Use either of these:
+Pushback needs a GitHub token. Use either of these:
 
-- **The GitHub CLI (easiest).** If you've run `gh auth login`, Flightdeck uses that login automatically.
-- **A personal access token.** Create a [classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=Flightdeck) with the `repo` and `workflow` scopes and paste it into **Settings → Account**. It's stored encrypted with your OS keychain, never in plain text.
+- **The GitHub CLI (easiest).** If you've run `gh auth login`, Pushback uses that login automatically.
+- **A personal access token.** Create a [classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=Pushback) with the `repo` and `workflow` scopes and paste it into **Settings → Account**. It's stored encrypted with your OS keychain, never in plain text.
 
 The token never leaves your machine except to talk to `api.github.com`.
 
@@ -123,20 +123,20 @@ You can also start from a copy of an existing dashboard. **Manage dashboards…*
 
 ### 6. Review pull requests
 
-The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and diff size. **Click a PR to open it in Flightdeck**:
+The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and diff size. **Click a PR to open it in Pushback**:
 
 - **Conversation**: the description, reviews and comments. You can also leave a comment, and `Ctrl+Enter` sends it.
 - **Commits**, **Checks** (failures first) and **Files**, which shows each changed file as a diff.
-- **Approve** and **Merge…** (you choose squash, merge or rebase, then confirm). Branch protection still applies, so GitHub refuses merges that are missing required checks or reviews, and Flightdeck shows its reason.
+- **Approve** and **Merge…** (you choose squash, merge or rebase, then confirm). Branch protection still applies, so GitHub refuses merges that are missing required checks or reviews, and Pushback shows its reason.
 - **Open in browser** when you need GitHub itself.
 
 Clicking a repo tile opens that **repo's page** in the same way: its README, stats, and tabs for its PRs, runs, workflows and insights. Links inside descriptions and READMEs that point to PRs, runs or repos also open in the app. Views stack, so closing a PR you opened from a repo page takes you back to the repo.
 
 ### 7. Tune notifications
 
-In **Settings → Notifications**, choose which events you want toasts for. Turn on **Only notify about runs and PRs that are mine** to hear only about your own runs and PRs (review requests always come through). Click a notification to open that run or PR in Flightdeck.
+In **Settings → Notifications**, choose which events you want toasts for. Turn on **Only notify about runs and PRs that are mine** to hear only about your own runs and PRs (review requests always come through). Click a notification to open that run or PR in Pushback.
 
-If you see no notifications at all, check that your OS isn't in Do Not Disturb or Focus mode, and that it allows notifications from Flightdeck.
+If you see no notifications at all, check that your OS isn't in Do Not Disturb or Focus mode, and that it allows notifications from Pushback.
 
 ### 8. Make it yours
 
@@ -157,19 +157,19 @@ If you see no notifications at all, check that your OS isn't in Do Not Disturb o
 
 | Problem | Fix |
 | --- | --- |
-| "Not signed in" even though `gh` works | Flightdeck runs `gh auth token` on startup. Make sure `gh` is on your `PATH`, then click **check again**, or paste a token in Settings → Account. |
+| "Not signed in" even though `gh` works | Pushback runs `gh auth token` on startup. Make sure `gh` is on your `PATH`, then click **check again**, or paste a token in Settings → Account. |
 | A repo shows an error | The token can't see it (it's private or the name changed). Check the token's scopes, or that your organisation has approved it. |
 | "Run" is missing for a workflow | Only workflows with an `on: workflow_dispatch` trigger can be started by hand. |
 | API counter in the top bar is low | Raise the poll interval in Settings → Advanced. Requests where nothing changed are free, so this is rare. |
-| Where's my data? | Settings, the activity history and the encrypted token are in `%APPDATA%\Flightdeck` (Windows), `~/Library/Application Support/Flightdeck` (macOS) or `~/.config/Flightdeck` (Linux). |
+| Where's my data? | Settings, the activity history and the encrypted token are in `%APPDATA%\Pushback` (Windows), `~/Library/Application Support/Pushback` (macOS) or `~/.config/Pushback` (Linux). |
 
 ## Build from source
 
 You need [Node.js](https://nodejs.org) 22 or newer.
 
 ```bash
-git clone https://github.com/Darkace01/flightdeck.git
-cd flightdeck
+git clone https://github.com/Darkace01/pushback.git
+cd pushback
 npm install
 npm run dev        # run with hot reload
 npm run dist       # build an installer for your current OS into dist/

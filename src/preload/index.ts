@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { FlightdeckApi, Settings, Snapshot, UpdateStatus } from '../shared/types'
+import type { PushbackApi, Settings, Snapshot, UpdateStatus } from '../shared/types'
 
 function subscribe<T>(channel: string, cb: (value: T) => void): () => void {
   const listener = (_e: IpcRendererEvent, value: T) => cb(value)
@@ -7,7 +7,7 @@ function subscribe<T>(channel: string, cb: (value: T) => void): () => void {
   return () => ipcRenderer.removeListener(channel, listener)
 }
 
-const api: FlightdeckApi = {
+const api: PushbackApi = {
   getState: () => ipcRenderer.invoke('state:get'),
   onSnapshot: (cb) => subscribe<Snapshot>('snapshot', cb),
   onSettings: (cb) => subscribe<Settings>('settings', cb),
@@ -37,4 +37,4 @@ const api: FlightdeckApi = {
   onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 
-contextBridge.exposeInMainWorld('flightdeck', api)
+contextBridge.exposeInMainWorld('pushback', api)

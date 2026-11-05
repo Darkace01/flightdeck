@@ -53,7 +53,7 @@ export function AccountSection() {
         <p className="dim">{snapshot.authError ?? 'Not signed in.'}</p>
       )}
       <p className="dim small">
-        Flightdeck uses your <code>gh</code> CLI login automatically. To use a different account, paste a token with <code>repo</code> and <code>workflow</code>{' '}
+        Pushback uses your <code>gh</code> CLI login automatically. To use a different account, paste a token with <code>repo</code> and <code>workflow</code>{' '}
         scopes (or a fine-grained token with Actions, Contents and Pull requests read/write). It's stored encrypted with your OS keychain.
       </p>
       <div className="inline">
@@ -62,7 +62,7 @@ export function AccountSection() {
           {busy ? 'Checking…' : 'Save token'}
         </button>
       </div>
-      <button className="link" onClick={() => void api.openExternal('https://github.com/settings/tokens/new?scopes=repo,workflow&description=Flightdeck')}>
+      <button className="link" onClick={() => void api.openExternal('https://github.com/settings/tokens/new?scopes=repo,workflow&description=Pushback')}>
         Create a token on GitHub →
       </button>
     </div>
@@ -369,7 +369,7 @@ function AdvancedSection() {
           onChange={(e) => void updateSettings({ activePollSeconds: Math.max(5, Number(e.target.value)) })}
         />
       </label>
-      <p className="dim small">Unchanged data costs nothing: Flightdeck uses ETag requests, which GitHub doesn't count against your rate limit.</p>
+      <p className="dim small">Unchanged data costs nothing: Pushback uses ETag requests, which GitHub doesn't count against your rate limit.</p>
       <label className="check">
         <input type="checkbox" checked={settings.closeToTray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
         Keep running in the tray when the window is closed (so notifications keep coming)

@@ -331,7 +331,7 @@ export interface UpdateStatus {
   error?: string
 }
 
-export interface FlightdeckApi {
+export interface PushbackApi {
   getState(): Promise<InitialState>
   onSnapshot(cb: (s: Snapshot) => void): () => void
   onSettings(cb: (s: Settings) => void): () => void

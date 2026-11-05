@@ -1,11 +1,11 @@
-# Contributing to Flightdeck
+# Contributing to Pushback
 
 Thanks for helping out! Bug reports, feature ideas, docs fixes and code are all welcome. This guide covers how to get set up, how the app is put together, and what a good pull request looks like.
 
 ## Ways to contribute
 
-- **Report a bug**: [open an issue](https://github.com/Darkace01/flightdeck/issues/new?template=bug_report.md) with what you did, what you expected, and what happened. Include your OS and Flightdeck version (Settings → Advanced).
-- **Suggest a feature**: [open an issue](https://github.com/Darkace01/flightdeck/issues/new?template=feature_request.md) describing the problem you want solved, not just the solution.
+- **Report a bug**: [open an issue](https://github.com/Darkace01/pushback/issues/new?template=bug_report.md) with what you did, what you expected, and what happened. Include your OS and Pushback version (Settings → Advanced).
+- **Suggest a feature**: [open an issue](https://github.com/Darkace01/pushback/issues/new?template=feature_request.md) describing the problem you want solved, not just the solution.
 - **Send a pull request**: for anything bigger than a small fix, open an issue first so we can agree on the approach before you spend time on it.
 - **Add a theme**: the easiest first contribution. See [Adding a theme](#adding-a-theme).
 
@@ -16,8 +16,8 @@ Thanks for helping out! Bug reports, feature ideas, docs fixes and code are all 
 You need Node.js 22 or newer and Git. The [GitHub CLI](https://cli.github.com) is optional, but it makes signing in effortless.
 
 ```bash
-git clone https://github.com/Darkace01/flightdeck.git
-cd flightdeck
+git clone https://github.com/Darkace01/pushback.git
+cd pushback
 npm install
 npm run dev
 ```
@@ -34,7 +34,7 @@ npm run dev
 | `npm run dist` | Build an installer for your current OS into `dist/` |
 | `npm run icon` | Re-render `build/icon.png` after changing `src/shared/icon.ts` |
 
-**Tip:** to test without touching your real settings, use a throwaway profile: `npm run dev -- -- --user-data-dir=/tmp/flightdeck-test`.
+**Tip:** to test without touching your real settings, use a throwaway profile: `npm run dev -- -- --user-data-dir=/tmp/pushback-test`.
 
 ## How it works
 
@@ -47,7 +47,7 @@ src/
     details.ts   on-demand fetches for the PR and repo views
     store.ts     settings/events on disk, token storage
     updater.ts   auto-updates from GitHub Releases
-  preload/     typed bridge exposed to the UI as window.flightdeck
+  preload/     typed bridge exposed to the UI as window.pushback
   shared/      types, defaults, theme presets, dashboard templates, icon drawing (used by both sides)
   renderer/    React UI
     src/components/   dashboard, PR and repo views, settings, dialogs, command palette
@@ -57,7 +57,7 @@ src/
 
 The key ideas:
 
-1. **The main process owns all GitHub access.** The UI never sees the token. It calls `window.flightdeck.*` methods, which go over IPC to handlers in `main/index.ts`.
+1. **The main process owns all GitHub access.** The UI never sees the token. It calls `window.pushback.*` methods, which go over IPC to handlers in `main/index.ts`.
 2. **The poller builds a `Snapshot`.** Every cycle it fetches runs over REST and PRs over GraphQL for each tracked repo, then pushes the whole snapshot to the UI. GETs use ETags, so a 304 response costs no rate limit. It polls faster while runs are active or just after you take an action.
 3. **Events come from diffs.** `poller.ts` compares each snapshot with the previous one (a run went from in progress to failed, a PR was merged, and so on). These events feed both the Activity widget and desktop notifications.
 4. **GitHub links open in the app.** Send any click on GitHub content through `openInApp(url)` in `lib/open.ts`. It opens the PR, run or repo view if there is one, and the browser otherwise. Open views with `pushModal` so that closing them returns to where the user came from.
@@ -136,7 +136,7 @@ Add an entry to `TEMPLATES` in `src/shared/templates.ts`. Each widget gives its 
 
 The tag must match the `package.json` version, or the workflow stops.
 
-The source manifests are in `packaging/`. `packaging/winget` holds the version first submitted to winget; check changes with `winget validate --manifest <folder>`. `packaging/homebrew/flightdeck.rb` is the cask as published in the tap.
+The source manifests are in `packaging/`. `packaging/winget` holds the version first submitted to winget; check changes with `winget validate --manifest <folder>`. `packaging/homebrew/pushback.rb` is the cask as published in the tap.
 
 ## License
 

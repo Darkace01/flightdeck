@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for Flightdeck
+about: Suggest an idea for Pushback
 labels: enhancement
 ---
 

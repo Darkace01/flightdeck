@@ -15,7 +15,7 @@ A clear description of the bug.
 **What you expected**
 
 **Environment**
-- Flightdeck version (Settings → Advanced):
+- Pushback version (Settings → Advanced):
 - OS and version:
 - Signed in with: GitHub CLI / personal access token
 
