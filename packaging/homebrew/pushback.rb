@@ -1,9 +1,9 @@
 cask "pushback" do
   arch arm: "arm64", intel: "x64"
 
-  version "0.2.0"
-  sha256 arm:   "ebb91bdf71961e5e8f209201275d5803cafd34e4803d5363fe3fc46e7865db3f",
-         intel: "5e90feeecb90f40cc6ab9b5378c9873fac5f157d8c512a1b00a5fdeb220c33ab"
+  version "0.3.0"
+  sha256 arm:   "17d1cce00ab1c96d91f334bf47bccf388a0e1053dea0a8a6ea6aa07755157d6e",
+         intel: "2c6e2a3554c7c555c1264cec446a914b951147c6fc0142ce847c84dd0e23a07a"
 
   url "https://github.com/Darkace01/pushback/releases/download/v#{version}/Pushback-#{version}-mac-#{arch}.dmg"
   name "Pushback"
