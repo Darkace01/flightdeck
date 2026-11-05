@@ -10,6 +10,7 @@ import { RunsWidget } from '../widgets/RunsWidget'
 import type { WidgetProps } from '../widgets/types'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
+import { LocalSection } from './LocalGit'
 import { Markdown } from './Markdown'
 import { Empty, runTone, StatusIcon } from './ui'
 
@@ -49,7 +50,8 @@ export const SECTIONS: Section[] = [
   { id: 'releases', label: 'Releases', group: 'GitHub', component: ReleasesSection },
   { id: 'runs', label: 'Runs', group: 'Actions', widget: ['runs', RunsWidget] },
   { id: 'workflows', label: 'Workflows', group: 'Actions', widget: ['workflows', WorkflowsWidget] },
-  { id: 'insights', label: 'Insights', group: 'Actions', widget: ['insights', InsightsWidget] }
+  { id: 'insights', label: 'Insights', group: 'Actions', widget: ['insights', InsightsWidget] },
+  { id: 'local', label: 'Working copy', group: 'Local', component: LocalSection }
 ]
 
 // Each tab remembers which section it was on while you switch between tabs.

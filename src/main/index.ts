@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
+import type { ActionResult, AppEvent, EventKind, GitAction, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
+import * as git from './git'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
 import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
@@ -186,6 +187,22 @@ async function create(action: () => Promise<ActionResult>): Promise<ActionResult
   }
 }
 
+function setLocalPath(repo: string, path: string | null): void {
+  const localPaths = { ...settings.localPaths }
+  if (path) localPaths[repo] = path
+  else delete localPaths[repo]
+  settings = { ...settings, localPaths }
+  saveSettings(settings)
+  send('settings', settings)
+}
+
+/** The linked clone for a repo. Only folders the user picked in a dialog ever end up here. */
+function localPath(repo: string): string {
+  const path = settings.localPaths[repo]
+  if (!path) throw new Error(`No local clone linked for ${repo}`)
+  return path
+}
+
 function requireClient(): GitHub {
   if (!poller.client) throw new Error('Not signed in to GitHub')
   return poller.client
@@ -193,7 +210,8 @@ function requireClient(): GitHub {
 
 function registerIpc(): void {
   ipcMain.handle('state:get', () => ({ snapshot: poller.snapshot, settings }))
-  ipcMain.handle('settings:save', (_e, patch: Partial<Settings>) => {
+  ipcMain.handle('settings:save', (_e, { localPaths: _ignored, ...patch }: Partial<Settings>) => {
+    // localPaths decide where git commands run, so only the link/clone dialogs may set them.
     const reposChanged = patch.repos && patch.repos.join() !== settings.repos.join()
     const intervalChanged = patch.pollSeconds !== undefined || patch.activePollSeconds !== undefined
     settings = { ...settings, ...patch, notify: { ...settings.notify, ...patch.notify } }
@@ -273,7 +291,8 @@ function registerIpc(): void {
     try {
       const parsed = JSON.parse(json) as Partial<Settings>
       if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Pushback settings file')
-      settings = normalizeSettings(parsed)
+      // Imported settings may come from another machine; keep this machine's linked clones.
+      settings = { ...normalizeSettings(parsed), localPaths: settings.localPaths }
       saveSettings(settings)
       send('settings', settings)
       poller.pollSoon()
@@ -321,6 +340,56 @@ function registerIpc(): void {
   ipcMain.handle('releases:list', (_e, repo: string) => tools.listReleases(requireClient(), repo))
   ipcMain.handle('release:create', (_e, repo: string, release: NewRelease) => create(() => tools.createRelease(requireClient(), repo, release)))
   ipcMain.handle('pr:create', (_e, repo: string, pr: NewPr) => create(() => tools.createPr(requireClient(), repo, pr)))
+  ipcMain.handle('git:link', async (_e, repo: string): Promise<ActionResult> => {
+    const pick = await dialog.showOpenDialog(win!, { title: `Choose your local clone of ${repo}`, properties: ['openDirectory'] })
+    if (pick.canceled || !pick.filePaths[0]) return { ok: false }
+    try {
+      const root = await git.topLevel(pick.filePaths[0])
+      if (!(await git.remoteMatches(root, repo))) return { ok: false, error: `None of the remotes in ${root} point at github.com/${repo}` }
+      setLocalPath(repo, root)
+      return { ok: true }
+    } catch {
+      return { ok: false, error: `${pick.filePaths[0]} isn't a git repository` }
+    }
+  })
+  ipcMain.handle('git:clone', async (_e, repo: string): Promise<ActionResult> => {
+    const pick = await dialog.showOpenDialog(win!, { title: `Clone ${repo} into…`, properties: ['openDirectory', 'createDirectory'] })
+    if (pick.canceled || !pick.filePaths[0]) return { ok: false }
+    try {
+      setLocalPath(repo, await git.clone(repo, pick.filePaths[0]))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('git:unlink', (_e, repo: string) => setLocalPath(repo, null))
+  ipcMain.handle('git:status', (_e, repo: string) => (settings.localPaths[repo] ? git.status(localPath(repo)) : null))
+  ipcMain.handle('git:log', (_e, repo: string) => git.log(localPath(repo)))
+  ipcMain.handle('git:branches', (_e, repo: string) => git.branches(localPath(repo)))
+  ipcMain.handle('git:diff', (_e, repo: string, file: string, staged: boolean) => git.diff(localPath(repo), file, staged))
+  ipcMain.handle('git:run', async (_e, repo: string, action: GitAction, arg?: string | string[]) => {
+    try {
+      const output = await git.run(localPath(repo), action, arg)
+      // Pushing can start CI runs and change PRs; check GitHub soon.
+      if (action === 'push') poller.pollSoon(true)
+      return { ok: true, output: output.trim() }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('git:open', async (_e, repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult> => {
+    try {
+      const path = localPath(repo)
+      if (where === 'folder') {
+        const error = await shell.openPath(path)
+        return error ? { ok: false, error } : { ok: true }
+      }
+      await git.openIn(path, where, settings.editorCommand || 'code')
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:install', () => {

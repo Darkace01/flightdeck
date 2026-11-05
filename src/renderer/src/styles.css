@@ -1786,3 +1786,132 @@ input[type='range'] {
 .picker-note {
   padding: 8px 10px;
 }
+
+/* --- Local git ---------------------------------------------------------------- */
+.link-card {
+  padding: 22px 24px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 640px;
+}
+.link-card h3 {
+  margin: 0;
+}
+.link-card p {
+  margin: 0;
+}
+.git-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.git-bar .link {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.git-changes {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 12px;
+  min-height: 420px;
+}
+.git-files {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.git-files .list {
+  max-height: 260px;
+  overflow: auto;
+}
+.git-list-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.git-list-head:not(:first-child) {
+  border-top: 1px solid var(--border);
+}
+.git-file {
+  gap: 8px;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+.git-file.on {
+  background: var(--hover);
+}
+.git-code {
+  width: 16px;
+  flex: none;
+  text-align: center;
+  font: 600 11px var(--mono);
+  color: var(--warn);
+}
+.git-A,
+.git-new {
+  color: var(--ok);
+}
+.git-D {
+  color: var(--bad);
+}
+.git-U {
+  color: var(--bad);
+}
+.git-path {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+.git-hint {
+  padding: 8px 12px;
+}
+.commit-box {
+  margin-top: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+}
+.commit-box textarea {
+  width: 100%;
+}
+.git-diff {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.git-diff-head {
+  padding: 7px 12px;
+  font-size: 12px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+}
+.git-diff .diff {
+  flex: 1;
+  max-height: 640px;
+}
+.chip-head {
+  color: var(--accent);
+}

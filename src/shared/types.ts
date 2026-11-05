@@ -169,6 +169,10 @@ export interface Settings {
   openTabs: string[]
   /** "home" (the dashboard) or one of openTabs. */
   activeTab: string
+  /** Local clone folder for each repo that has one linked. */
+  localPaths: Record<string, string>
+  /** Command used for "Open in editor", given the folder as its argument (e.g. code, cursor, idea). */
+  editorCommand: string
 }
 
 export interface InboxItem {
@@ -409,6 +413,55 @@ export interface RepoInfo {
   readmeHtml: string | null
 }
 
+/** One changed file from `git status`: X (index/staged) and Y (worktree) status letters, "?" for untracked. */
+export interface GitFile {
+  path: string
+  index: string
+  worktree: string
+}
+
+export interface GitStatus {
+  path: string
+  branch: string | null
+  upstream: string | null
+  ahead: number
+  behind: number
+  files: GitFile[]
+  stashes: number
+}
+
+export interface GitCommit {
+  sha: string
+  subject: string
+  author: string
+  date: string
+  refs: string
+}
+
+export interface GitBranch {
+  name: string
+  upstream: string | null
+  /** e.g. "ahead 2, behind 1", or "gone" when the remote branch was deleted. */
+  track: string
+  current: boolean
+  date: string
+}
+
+export type GitAction =
+  | 'fetch'
+  | 'pull'
+  | 'push'
+  | 'switch'
+  | 'create-branch'
+  | 'stage'
+  | 'unstage'
+  | 'stage-all'
+  | 'unstage-all'
+  | 'discard'
+  | 'commit'
+  | 'stash'
+  | 'stash-pop'
+
 export interface UpdateStatus {
   state: 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error' | 'unsupported'
   current: string
@@ -459,6 +512,18 @@ export interface PushbackApi {
   listReleases(repo: string): Promise<ReleaseInfo[]>
   createRelease(repo: string, release: NewRelease): Promise<ActionResult>
   createPr(repo: string, pr: NewPr): Promise<ActionResult>
+  /** Asks for a folder and links it as the repo's local clone (its remote must point at the repo). */
+  gitLink(repo: string): Promise<ActionResult>
+  /** Asks for a parent folder and clones the repo into it. */
+  gitClone(repo: string): Promise<ActionResult>
+  gitUnlink(repo: string): Promise<void>
+  /** null when the repo has no local clone linked. */
+  gitStatus(repo: string): Promise<GitStatus | null>
+  gitLog(repo: string): Promise<GitCommit[]>
+  gitBranches(repo: string): Promise<GitBranch[]>
+  gitDiff(repo: string, file: string, staged: boolean): Promise<string>
+  gitRun(repo: string, action: GitAction, arg?: string | string[]): Promise<ActionResult & { output?: string }>
+  gitOpen(repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */
   onNavigate(cb: (url: string) => void): () => void
 }

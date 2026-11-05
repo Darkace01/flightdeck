@@ -370,6 +370,11 @@ function AdvancedSection() {
         />
       </label>
       <p className="dim small">Unchanged data costs nothing: Pushback uses ETag requests, which GitHub doesn't count against your rate limit.</p>
+      <label className="field">
+        <span>Editor command</span>
+        <input value={settings.editorCommand} placeholder="code" onChange={(e) => void updateSettings({ editorCommand: e.target.value })} />
+        <small>Used by “Open in editor” on a repo's Working copy. The folder is passed as the argument: code, cursor, idea, subl, zed…</small>
+      </label>
       <label className="check">
         <input type="checkbox" checked={settings.closeToTray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
         Keep running in the tray when the window is closed (so notifications keep coming)
