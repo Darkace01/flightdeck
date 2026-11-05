@@ -69,3 +69,61 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+
+  # Keeps `brew install --cask darkace01/tap/flightdeck` current. Needs a HOMEBREW_TAP_TOKEN secret:
+  # a fine-grained token with Contents: read & write on Darkace01/homebrew-tap.
+  homebrew:
+    name: Update Homebrew cask
+    needs: publish
+    runs-on: ubuntu-latest
+    env:
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - if: env.TAP_TOKEN == ''
+        run: echo "::notice::HOMEBREW_TAP_TOKEN isn't set, so the cask wasn't updated. See CONTRIBUTING.md > Releasing."
+
+      - if: env.TAP_TOKEN != ''
+        uses: actions/checkout@v4
+        with:
+          repository: Darkace01/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Bump version and checksums
+        if: env.TAP_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -p '*.dmg' -D dmg
+          arm=$(sha256sum dmg/*-mac-arm64.dmg | cut -d' ' -f1)
+          intel=$(sha256sum dmg/*-mac-x64.dmg | cut -d' ' -f1)
+          sed -i -E \
+            -e "s/^  version \".*\"/  version \"$version\"/" \
+            -e "s/(sha256 arm: +)\"[0-9a-f]+\"/\1\"$arm\"/" \
+            -e "s/(intel: +)\"[0-9a-f]+\"/\1\"$intel\"/" \
+            tap/Casks/flightdeck.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "flightdeck $version"
+          git push
+
+  # Opens a PR on microsoft/winget-pkgs for each release. Needs a WINGET_TOKEN secret (a classic token
+  # with public_repo) and a fork of winget-pkgs. The very first version has to be submitted by hand.
+  winget:
+    name: Submit to winget
+    needs: publish
+    runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - if: env.WINGET_TOKEN == ''
+        run: echo "::notice::WINGET_TOKEN isn't set, so no winget PR was opened. See CONTRIBUTING.md > Releasing."
+
+      - if: env.WINGET_TOKEN != ''
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: Darkace01.Flightdeck
+          installers-regex: '-win-x64\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
