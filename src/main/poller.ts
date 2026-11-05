@@ -117,9 +117,15 @@ export class Poller extends EventEmitter<Events> {
     const prev = this.snapshot.repos
     const refreshWorkflows = this.cycle % WORKFLOW_REFRESH_EVERY === 0
 
-    const [prResult, ...runResults] = await Promise.allSettled([
-      this.fetchPullRequests(gh, repos),
-      ...repos.map((repo) => this.fetchRuns(gh, repo))
+    // Separate small GraphQL queries per repo: one combined query gets slow enough for GitHub to 502,
+    // and this way one broken repo can't blank out the others.
+    const [inboxResult, runResults, prResults] = await Promise.all([
+      this.fetchInbox(gh).then(
+        (v) => ({ status: 'fulfilled' as const, value: v }),
+        (e: unknown) => ({ status: 'rejected' as const, reason: e })
+      ),
+      Promise.allSettled(repos.map((repo) => this.fetchRuns(gh, repo))),
+      Promise.allSettled(repos.map((repo) => this.fetchPullRequests(gh, repo)))
     ])
     const workflowResults = await Promise.allSettled(
       repos.map((repo) =>
@@ -127,11 +133,11 @@ export class Poller extends EventEmitter<Events> {
       )
     )
 
-    if (prResult.status === 'rejected' && (prResult.reason as { status?: number }).status === 401) throw prResult.reason
-    const prData = prResult.status === 'fulfilled' ? prResult.value : undefined
-    if (prData?.viewer) this.snapshot.viewer = prData.viewer
+    if (inboxResult.status === 'rejected' && (inboxResult.reason as { status?: number }).status === 401) throw inboxResult.reason
+    const inboxData = inboxResult.status === 'fulfilled' ? inboxResult.value : undefined
+    if (inboxData) this.snapshot.viewer = inboxData.viewer
     const oldInbox = this.snapshot.inbox
-    if (prData) this.snapshot.inbox = prData.inbox
+    if (inboxData) this.snapshot.inbox = inboxData.inbox
 
     const next: Record<string, RepoState> = {}
     const newEvents: AppEvent[] = []
@@ -139,11 +145,12 @@ export class Poller extends EventEmitter<Events> {
       const old = prev[repo]
       const runs = runResults[i]
       const wfs = workflowResults[i]
-      const prs = prData?.repos[repo]
+      const prResult = prResults[i]
+      const prs = prResult.status === 'fulfilled' ? prResult.value : undefined
       const errors = [
         runs.status === 'rejected' ? String((runs.reason as Error).message) : null,
-        prResult.status === 'rejected' ? String((prResult.reason as Error).message) : prs ? null : 'Repository not found or no access'
-      ].filter(Boolean)
+        prResult.status === 'rejected' ? String((prResult.reason as Error).message) : null
+      ].filter((e, j, all) => e && all.indexOf(e) === j)
 
       const state: RepoState = {
         repo,
@@ -164,9 +171,9 @@ export class Poller extends EventEmitter<Events> {
     this.snapshot.repos = next
     this.snapshot.rateLimit = gh.rate
     // Review requests in repos you don't track still deserve a ping.
-    if (oldInbox && prData) {
+    if (oldInbox && inboxData) {
       const seen = new Set(oldInbox.reviewRequests.map((i) => i.url))
-      for (const item of prData.inbox.reviewRequests) {
+      for (const item of inboxData.inbox.reviewRequests) {
         if (seen.has(item.url) || repos.includes(item.repo)) continue
         newEvents.push(
           makeEvent(item.repo, 'pr-review', `Review requested: ${item.title}`, `${item.repo}#${item.number} by ${item.author}`, item.url, this.snapshot.viewer?.login)
@@ -225,63 +232,45 @@ export class Poller extends EventEmitter<Events> {
     )
   }
 
-  private async fetchPullRequests(gh: GitHub, repos: string[]): Promise<PrFetch> {
-    const vars: Record<string, string> = {}
-    const params: string[] = []
-    const fields = repos.map((repo, i) => {
-      const [owner, name] = repo.split('/')
-      vars[`o${i}`] = owner
-      vars[`n${i}`] = name
-      params.push(`$o${i}: String!`, `$n${i}: String!`)
-      return `r${i}: repository(owner: $o${i}, name: $n${i}) { ...RepoFields }`
-    })
-    const query = `
-      query(${params.join(', ') || ''}) {
-        viewer { login avatarUrl }
-        reviewRequests: search(type: ISSUE, first: 30, query: "is:open is:pr review-requested:@me archived:false") { ${INBOX_NODES} }
-        myPrs: search(type: ISSUE, first: 30, query: "is:open is:pr author:@me archived:false") { ${INBOX_NODES} }
-        assigned: search(type: ISSUE, first: 30, query: "is:open is:issue assignee:@me archived:false") { ${INBOX_NODES} }
-        ${fields.join('\n')}
-      }
-      ${repos.length ? PR_FRAGMENT : ''}`.replace('query()', 'query')
-    const data = await gh.graphql<Record<string, unknown>>(query, vars)
+  private async fetchInbox(gh: GitHub): Promise<InboxFetch> {
+    const data = await gh.graphql<Record<string, unknown>>(INBOX_QUERY, {})
     const search = (key: string) =>
       ((data[key] as { nodes: GqlInboxNode[] } | undefined)?.nodes ?? []).filter((n) => n.number).map(toInboxItem)
-
-    const out: PrFetch = {
-      viewer: data.viewer as PrFetch['viewer'],
-      inbox: { reviewRequests: search('reviewRequests'), myPrs: search('myPrs'), assigned: search('assigned') },
-      repos: {}
+    return {
+      viewer: data.viewer as InboxFetch['viewer'],
+      inbox: { reviewRequests: search('reviewRequests'), myPrs: search('myPrs'), assigned: search('assigned') }
     }
-    repos.forEach((repo, i) => {
-      const r = data[`r${i}`] as GqlRepo | null
-      if (!r) return
-      out.repos[repo] = {
-        defaultBranch: r.defaultBranchRef?.name,
-        prs: r.pullRequests.nodes.map((p) => ({
-          repo,
-          number: p.number,
-          title: p.title,
-          url: p.url,
-          author: p.author?.login ?? 'ghost',
-          authorAvatar: p.author?.avatarUrl ?? '',
-          isDraft: p.isDraft,
-          createdAt: p.createdAt,
-          updatedAt: p.updatedAt,
-          branch: p.headRefName,
-          additions: p.additions,
-          deletions: p.deletions,
-          comments: p.comments.totalCount,
-          reviewDecision: p.reviewDecision,
-          checks: p.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,
-          labels: p.labels.nodes,
-          reviewers: p.reviewRequests.nodes
-            .map((n) => n.requestedReviewer?.login ?? n.requestedReviewer?.slug)
-            .filter((x): x is string => Boolean(x))
-        }))
-      }
-    })
-    return out
+  }
+
+  private async fetchPullRequests(gh: GitHub, repo: string): Promise<{ defaultBranch?: string; prs: PullRequest[] }> {
+    const [owner, name] = repo.split('/')
+    const data = await gh.graphql<{ repository: GqlRepo | null }>(PR_QUERY, { owner, name })
+    const r = data.repository
+    if (!r) throw new Error('Repository not found or no access')
+    return {
+      defaultBranch: r.defaultBranchRef?.name,
+      prs: r.pullRequests.nodes.map((p) => ({
+        repo,
+        number: p.number,
+        title: p.title,
+        url: p.url,
+        author: p.author?.login ?? 'ghost',
+        authorAvatar: p.author?.avatarUrl ?? '',
+        isDraft: p.isDraft,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        branch: p.headRefName,
+        additions: p.additions,
+        deletions: p.deletions,
+        comments: p.comments.totalCount,
+        reviewDecision: p.reviewDecision,
+        checks: p.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,
+        labels: p.labels.nodes,
+        reviewers: p.reviewRequests.nodes
+          .map((n) => n.requestedReviewer?.login ?? n.requestedReviewer?.slug)
+          .filter((x): x is string => Boolean(x))
+      }))
+    }
   }
 
   private diffPrs(repo: string, old: RepoState, next: RepoState): AppEvent[] {
@@ -383,10 +372,9 @@ export function parseDispatch(source: string): Pick<Workflow, 'dispatchable' | '
   return { dispatchable: true, inputs }
 }
 
-interface PrFetch {
-  viewer?: { login: string; avatarUrl: string }
+interface InboxFetch {
+  viewer: { login: string; avatarUrl: string }
   inbox: Inbox
-  repos: Record<string, { defaultBranch?: string; prs: PullRequest[] }>
 }
 
 const INBOX_NODES = `nodes {
@@ -426,8 +414,16 @@ function toInboxItem(n: GqlInboxNode): InboxItem {
   }
 }
 
-const PR_FRAGMENT = `
-fragment RepoFields on Repository {
+const INBOX_QUERY = `
+query {
+  viewer { login avatarUrl }
+  reviewRequests: search(type: ISSUE, first: 30, query: "is:open is:pr review-requested:@me archived:false") { ${INBOX_NODES} }
+  myPrs: search(type: ISSUE, first: 30, query: "is:open is:pr author:@me archived:false") { ${INBOX_NODES} }
+  assigned: search(type: ISSUE, first: 30, query: "is:open is:issue assignee:@me archived:false") { ${INBOX_NODES} }
+}`
+
+const PR_QUERY = `
+query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) {
   defaultBranchRef { name }
   pullRequests(states: OPEN, first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) {
     nodes {
@@ -439,7 +435,7 @@ fragment RepoFields on Repository {
       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
     }
   }
-}`
+} }`
 
 interface GqlRepo {
   defaultBranchRef: { name: string } | null

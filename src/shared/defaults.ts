@@ -1,3 +1,4 @@
+import { DEFAULT_DARK, DEFAULT_LIGHT } from './themes'
 import type { LayoutItem, Settings, WidgetConfig, WidgetType } from './types'
 
 export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: number; options: WidgetConfig['options'] }> = {
@@ -45,8 +46,13 @@ export const DEFAULT_SETTINGS: Settings = {
     checksFailed: true,
     onlyMine: false
   },
-  theme: 'dark',
-  accent: '#58a6ff',
+  mode: 'dark',
+  darkTheme: DEFAULT_DARK,
+  lightTheme: DEFAULT_LIGHT,
+  colorOverrides: { dark: {}, light: {} },
+  font: 'theme',
+  customFont: '',
+  fontSize: 13,
   density: 'comfortable',
   closeToTray: true,
   widgets,

@@ -7,29 +7,8 @@ import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
 import { timeAgo, useNow } from './lib/format'
 import { api, useSettings, useSnapshot } from './lib/store'
+import { useApplyAppearance } from './lib/theme'
 import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
-
-/** Black or white text, whichever reads better on the accent colour. */
-function contrastText(hex: string): string {
-  const n = parseInt(hex.replace('#', ''), 16)
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-  return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#0d1117' : '#ffffff'
-}
-
-function useAppearance(): void {
-  const { theme, accent, density } = useSettings()
-  useEffect(() => {
-    const root = document.documentElement
-    const media = window.matchMedia('(prefers-color-scheme: light)')
-    const apply = () => (root.dataset.theme = theme === 'system' ? (media.matches ? 'light' : 'dark') : theme)
-    apply()
-    root.dataset.density = density
-    root.style.setProperty('--accent', accent)
-    root.style.setProperty('--accent-fg', contrastText(accent))
-    media.addEventListener('change', apply)
-    return () => media.removeEventListener('change', apply)
-  }, [theme, accent, density])
-}
 
 function useShortcuts(): void {
   const editing = useEditing()
@@ -154,7 +133,7 @@ function Modals() {
 export function App() {
   const snapshot = useSnapshot()
   const settings = useSettings()
-  useAppearance()
+  useApplyAppearance()
   useShortcuts()
   useEffect(() => closeModal, [])
 

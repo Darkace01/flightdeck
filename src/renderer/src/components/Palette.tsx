@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
+import { THEMES } from '../../../shared/themes'
 import type { WidgetType } from '../../../shared/types'
 import { matches, shortRepo } from '../lib/format'
 import { api, getSettings, updateSettings, useSettings, useSnapshot } from '../lib/store'
@@ -36,11 +37,20 @@ export function Palette() {
       { id: 'c-settings', kind: 'Command', label: 'Open settings', keywords: 'preferences config', action: () => openModal({ kind: 'settings' }) },
       { id: 'c-edit', kind: 'Command', label: 'Edit dashboard layout', keywords: 'customize arrange move resize', action: () => (setEditing(true), closeModal()) },
       {
-        id: 'c-theme',
+        id: 'c-mode',
         kind: 'Command',
-        label: `Switch to ${settings.theme === 'light' ? 'dark' : 'light'} theme`,
-        action: () => (void updateSettings({ theme: getSettings().theme === 'light' ? 'dark' : 'light' }), closeModal())
+        label: `Switch to ${settings.mode === 'light' ? 'dark' : 'light'} mode`,
+        keywords: 'theme toggle',
+        action: () => (void updateSettings({ mode: getSettings().mode === 'light' ? 'dark' : 'light' }), closeModal())
       },
+      ...THEMES.map((t) => ({
+        id: `c-theme-${t.id}`,
+        kind: 'Theme',
+        label: `Theme: ${t.name}`,
+        sub: `${t.mode} theme`,
+        icon: <span className="palette-swatch" style={{ background: t.colors.bg, borderColor: t.colors.accent }} />,
+        action: () => (void updateSettings(t.mode === 'dark' ? { darkTheme: t.id, mode: 'dark' } : { lightTheme: t.id, mode: 'light' }), closeModal())
+      })),
       { id: 'c-read', kind: 'Command', label: 'Mark all activity read', action: () => (void api.markRead(), closeModal()) },
       ...(Object.keys(WIDGET_DEFAULTS) as WidgetType[]).map((t) => ({
         id: `c-add-${t}`,

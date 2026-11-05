@@ -1,10 +1,10 @@
-import { app, BrowserWindow, ipcMain, Menu, Notification, shell, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { join } from 'node:path'
-import { DEFAULT_SETTINGS } from '../shared/defaults'
 import type { ActionResult, AppEvent, EventKind, Job, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { GitHub } from './github'
 import { Poller } from './poller'
-import { loadEvents, loadSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
+import { findTheme } from '../shared/themes'
+import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
 import { trayIcon } from './icon'
 
 let win: BrowserWindow | null = null
@@ -84,6 +84,13 @@ function showWindow(): void {
   win.focus()
 }
 
+/** Paint the window in the theme's background before the page loads, so there's no white flash. */
+function windowBackground(): string {
+  const light = settings.mode === 'light' || (settings.mode === 'system' && !nativeTheme.shouldUseDarkColors)
+  const mode = light ? 'light' : 'dark'
+  return settings.colorOverrides[mode].bg ?? findTheme(light ? settings.lightTheme : settings.darkTheme, mode).colors.bg
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1440,
@@ -91,7 +98,7 @@ function createWindow(): void {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    backgroundColor: '#0d1117',
+    backgroundColor: windowBackground(),
     autoHideMenuBar: true,
     title: 'RepoDeck',
     icon: trayIcon(64),
@@ -165,6 +172,7 @@ function registerIpc(): void {
     const intervalChanged = patch.pollSeconds !== undefined || patch.activePollSeconds !== undefined
     settings = { ...settings, ...patch, notify: { ...settings.notify, ...patch.notify } }
     saveSettings(settings)
+    if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) win?.setBackgroundColor(windowBackground())
     if (reposChanged || intervalChanged) poller.pollSoon()
     return settings
   })
@@ -234,7 +242,7 @@ function registerIpc(): void {
     try {
       const parsed = JSON.parse(json) as Partial<Settings>
       if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a RepoDeck settings file')
-      settings = { ...DEFAULT_SETTINGS, ...parsed, notify: { ...DEFAULT_SETTINGS.notify, ...parsed.notify } }
+      settings = normalizeSettings(parsed)
       saveSettings(settings)
       send('settings', settings)
       poller.pollSoon()

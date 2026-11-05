@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
+import { COLOR_LABELS, findTheme, FONT_CHOICES, THEMES, type ThemeColors, type ThemePreset } from '../../../shared/themes'
 import type { NotifySettings, RepoOption } from '../../../shared/types'
 import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import { useAppearance } from '../lib/theme'
 import { closeModal } from '../lib/ui'
 import { Avatar, IconButton, Modal, Segmented } from './ui'
 
 type Tab = 'account' | 'repos' | 'notify' | 'look' | 'advanced'
-
-const ACCENTS = ['#58a6ff', '#3fb950', '#a371f7', '#f778ba', '#f0883e', '#e3b341', '#39c5cf']
 
 const NOTIFY_LABELS: [keyof NotifySettings, string][] = [
   ['runFailure', 'Workflow run failed or was cancelled'],
@@ -166,37 +166,134 @@ function NotifySection() {
   )
 }
 
+function ThemeCard({ theme, selected, onPick }: { theme: ThemePreset; selected: boolean; onPick: () => void }) {
+  const c = theme.colors
+  return (
+    <button className={`theme-card${selected ? ' on' : ''}`} onClick={onPick} aria-pressed={selected} title={theme.name}>
+      <span className="theme-preview" style={{ background: c.bg, borderRadius: Math.min(theme.radius ?? 10, 8) }}>
+        <span className="theme-panel" style={{ background: c.panel, borderColor: c.border }}>
+          <span className="theme-line" style={{ background: c.text, width: '70%' }} />
+          <span className="theme-line" style={{ background: c.dim, width: '45%' }} />
+          <span className="theme-dots">
+            {[c.ok, c.bad, c.warn, c.accent].map((color, i) => (
+              <i key={i} style={{ background: color }} />
+            ))}
+          </span>
+        </span>
+      </span>
+      <span className="theme-name" style={{ fontFamily: theme.font }}>
+        {theme.name}
+      </span>
+    </button>
+  )
+}
+
 function LookSection() {
   const settings = useSettings()
+  const appearance = useAppearance()
+  const [paletteMode, setPaletteMode] = useState<'dark' | 'light'>(appearance.mode)
+  const preset = findTheme(paletteMode === 'dark' ? settings.darkTheme : settings.lightTheme, paletteMode)
+  const overrides = settings.colorOverrides[paletteMode]
+
+  const pick = (t: ThemePreset) => {
+    setPaletteMode(t.mode)
+    void updateSettings({
+      ...(t.mode === 'dark' ? { darkTheme: t.id } : { lightTheme: t.id }),
+      // Show the choice straight away unless the OS is in charge.
+      ...(settings.mode === 'system' ? {} : { mode: t.mode })
+    })
+  }
+  const setColor = (key: keyof ThemeColors, value: string | null) => {
+    const next = { ...overrides }
+    if (value === null) delete next[key]
+    else next[key] = value
+    void updateSettings({ colorOverrides: { ...settings.colorOverrides, [paletteMode]: next } })
+  }
+
   return (
     <div className="stack">
       <div className="field">
-        <span>Theme</span>
+        <span>Mode</span>
         <Segmented
-          value={settings.theme}
-          onChange={(theme) => void updateSettings({ theme })}
+          value={settings.mode}
+          onChange={(mode) => void updateSettings({ mode })}
           options={[
-            ['dark', 'Dark'],
-            ['light', 'Light'],
-            ['system', 'System']
+            ['dark', '🌙 Dark'],
+            ['light', '☀️ Light'],
+            ['system', 'Match system']
           ]}
         />
       </div>
+      {(['dark', 'light'] as const).map((mode) => (
+        <div key={mode} className="field">
+          <span>{mode === 'dark' ? 'Dark theme' : 'Light theme'}</span>
+          <div className="theme-grid">
+            {THEMES.filter((t) => t.mode === mode).map((t) => (
+              <ThemeCard key={t.id} theme={t} selected={(mode === 'dark' ? settings.darkTheme : settings.lightTheme) === t.id} onPick={() => pick(t)} />
+            ))}
+          </div>
+        </div>
+      ))}
+
       <div className="field">
-        <span>Accent</span>
+        <span>Customise colours</span>
         <div className="inline">
-          {ACCENTS.map((c) => (
-            <button
-              key={c}
-              className={`swatch${settings.accent === c ? ' on' : ''}`}
-              style={{ background: c }}
-              aria-label={c}
-              onClick={() => void updateSettings({ accent: c })}
-            />
-          ))}
-          <input type="color" value={settings.accent} onChange={(e) => void updateSettings({ accent: e.target.value })} />
+          <Segmented
+            value={paletteMode}
+            onChange={setPaletteMode}
+            options={[
+              ['dark', `Dark · ${findTheme(settings.darkTheme, 'dark').name}`],
+              ['light', `Light · ${findTheme(settings.lightTheme, 'light').name}`]
+            ]}
+          />
+          <span className="spacer" />
+          {Object.keys(overrides).length > 0 && (
+            <button className="btn btn-sm" onClick={() => void updateSettings({ colorOverrides: { ...settings.colorOverrides, [paletteMode]: {} } })}>
+              Reset {paletteMode} colours
+            </button>
+          )}
+        </div>
+        <div className="color-grid">
+          {COLOR_LABELS.map(([key, label]) => {
+            const value = overrides[key] ?? preset.colors[key]
+            return (
+              <label key={key} className={`color-field${overrides[key] ? ' changed' : ''}`}>
+                <input type="color" value={value} onChange={(e) => setColor(key, e.target.value)} />
+                <span>{label}</span>
+                {overrides[key] && (
+                  <button className="link small" onClick={(e) => (e.preventDefault(), setColor(key, null))} title={`Back to ${preset.colors[key]}`}>
+                    reset
+                  </button>
+                )}
+              </label>
+            )
+          })}
         </div>
       </div>
+
+      <div className="field">
+        <span>Font</span>
+        <div className="inline">
+          <select value={settings.font} onChange={(e) => void updateSettings({ font: e.target.value })}>
+            {FONT_CHOICES.map(([value, label]) => (
+              <option key={value} value={value} style={value !== 'theme' && value !== 'custom' && value !== 'system' ? { fontFamily: value } : undefined}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {settings.font === 'custom' && (
+            <input
+              placeholder="Any installed font, e.g. Iosevka"
+              value={settings.customFont}
+              onChange={(e) => void updateSettings({ customFont: e.target.value })}
+            />
+          )}
+        </div>
+      </div>
+      <label className="field">
+        <span>Text size · {settings.fontSize}px</span>
+        <input type="range" min={11} max={18} value={settings.fontSize} onChange={(e) => void updateSettings({ fontSize: Number(e.target.value) })} />
+      </label>
       <div className="field">
         <span>Density</span>
         <Segmented
@@ -279,7 +376,7 @@ export function SettingsModal() {
   const settings = useSettings()
   const [tab, setTab] = useState<Tab>(settings.repos.length ? 'notify' : 'repos')
   return (
-    <Modal title="Settings" onClose={closeModal} width={620}>
+    <Modal title="Settings" onClose={closeModal} width={680}>
       <Segmented<Tab>
         value={tab}
         onChange={setTab}

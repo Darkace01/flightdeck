@@ -22,12 +22,22 @@ function writeJson(name: string, value: unknown): void {
 }
 
 export function loadSettings(): Settings {
-  const saved = readJson<Partial<Settings>>('settings.json', {})
-  return {
+  return normalizeSettings(readJson<Partial<Settings>>('settings.json', {}))
+}
+
+/** Fills in defaults and migrates settings from older versions. */
+export function normalizeSettings(saved: Partial<Settings> & { theme?: string; accent?: string }): Settings {
+  const { theme, accent, ...rest } = saved
+  const settings: Settings = {
     ...DEFAULT_SETTINGS,
-    ...saved,
-    notify: { ...DEFAULT_SETTINGS.notify, ...saved.notify }
+    ...rest,
+    notify: { ...DEFAULT_SETTINGS.notify, ...rest.notify },
+    colorOverrides: { dark: {}, light: {}, ...rest.colorOverrides }
   }
+  // v0.1 had a single `theme` mode and `accent` colour.
+  if (!rest.mode && (theme === 'dark' || theme === 'light' || theme === 'system')) settings.mode = theme
+  if (accent && accent !== '#58a6ff' && !rest.colorOverrides) settings.colorOverrides = { dark: { accent }, light: { accent } }
+  return settings
 }
 
 export function saveSettings(settings: Settings): void {

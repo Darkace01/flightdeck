@@ -58,7 +58,7 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
             <div className="row-main">
               <div className="row-title">
                 <span className="strong">{run.name}</span>
-                <span className="dim"> · {run.title}</span>
+                {run.title !== run.name && <span className="dim"> · {run.title}</span>}
               </div>
               <div className="row-meta">
                 {multiRepo && <span className="chip">{shortRepo(run.repo)}</span>}

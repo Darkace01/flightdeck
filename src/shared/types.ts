@@ -1,5 +1,7 @@
 // Types shared between the main process, preload bridge and renderer.
 
+import type { ThemeColors } from './themes'
+
 export type RunStatus = 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending'
 
 export interface WorkflowRun {
@@ -138,8 +140,16 @@ export interface Settings {
   /** Faster interval used while any run is queued or in progress. */
   activePollSeconds: number
   notify: NotifySettings
-  theme: 'dark' | 'light' | 'system'
-  accent: string
+  /** Which palette is active; 'system' follows the OS light/dark setting. */
+  mode: 'dark' | 'light' | 'system'
+  darkTheme: string
+  lightTheme: string
+  /** Per-mode colour overrides layered on top of the chosen preset. */
+  colorOverrides: { dark: Partial<ThemeColors>; light: Partial<ThemeColors> }
+  /** 'theme' (preset's font), 'system', 'custom' (uses customFont) or a CSS font-family. */
+  font: string
+  customFont: string
+  fontSize: number
   density: 'comfortable' | 'compact'
   closeToTray: boolean
   widgets: WidgetConfig[]
