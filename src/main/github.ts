@@ -55,6 +55,14 @@ export class GitHub {
     return data as T
   }
 
+  /** GET a plain-text resource (e.g. job logs, which redirect to blob storage). */
+  async text(path: string): Promise<string> {
+    const res = await fetch(API + path, { headers: this.headers() })
+    this.trackRate(res)
+    if (!res.ok) throw await toError(res)
+    return res.text()
+  }
+
   async send(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<unknown> {
     const res = await fetch(API + path, {
       method,

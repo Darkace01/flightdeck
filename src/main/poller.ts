@@ -4,6 +4,8 @@ import type {
   AppEvent,
   ChecksState,
   DispatchInput,
+  Inbox,
+  InboxItem,
   PullRequest,
   RepoState,
   Settings,
@@ -128,6 +130,8 @@ export class Poller extends EventEmitter<Events> {
     if (prResult.status === 'rejected' && (prResult.reason as { status?: number }).status === 401) throw prResult.reason
     const prData = prResult.status === 'fulfilled' ? prResult.value : undefined
     if (prData?.viewer) this.snapshot.viewer = prData.viewer
+    const oldInbox = this.snapshot.inbox
+    if (prData) this.snapshot.inbox = prData.inbox
 
     const next: Record<string, RepoState> = {}
     const newEvents: AppEvent[] = []
@@ -159,6 +163,16 @@ export class Poller extends EventEmitter<Events> {
     })
     this.snapshot.repos = next
     this.snapshot.rateLimit = gh.rate
+    // Review requests in repos you don't track still deserve a ping.
+    if (oldInbox && prData) {
+      const seen = new Set(oldInbox.reviewRequests.map((i) => i.url))
+      for (const item of prData.inbox.reviewRequests) {
+        if (seen.has(item.url) || repos.includes(item.repo)) continue
+        newEvents.push(
+          makeEvent(item.repo, 'pr-review', `Review requested: ${item.title}`, `${item.repo}#${item.number} by ${item.author}`, item.url, this.snapshot.viewer?.login)
+        )
+      }
+    }
 
     const closed = newEvents.filter((e) => e.kind === 'pr-closed')
     await Promise.all(closed.map((e) => this.resolveClosed(gh, e)))
@@ -224,12 +238,21 @@ export class Poller extends EventEmitter<Events> {
     const query = `
       query(${params.join(', ') || ''}) {
         viewer { login avatarUrl }
+        reviewRequests: search(type: ISSUE, first: 30, query: "is:open is:pr review-requested:@me archived:false") { ${INBOX_NODES} }
+        myPrs: search(type: ISSUE, first: 30, query: "is:open is:pr author:@me archived:false") { ${INBOX_NODES} }
+        assigned: search(type: ISSUE, first: 30, query: "is:open is:issue assignee:@me archived:false") { ${INBOX_NODES} }
         ${fields.join('\n')}
       }
       ${repos.length ? PR_FRAGMENT : ''}`.replace('query()', 'query')
-    const data = await gh.graphql<Record<string, GqlRepo | null> & { viewer: { login: string; avatarUrl: string } }>(query, vars)
+    const data = await gh.graphql<Record<string, unknown>>(query, vars)
+    const search = (key: string) =>
+      ((data[key] as { nodes: GqlInboxNode[] } | undefined)?.nodes ?? []).filter((n) => n.number).map(toInboxItem)
 
-    const out: PrFetch = { viewer: data.viewer, repos: {} }
+    const out: PrFetch = {
+      viewer: data.viewer as PrFetch['viewer'],
+      inbox: { reviewRequests: search('reviewRequests'), myPrs: search('myPrs'), assigned: search('assigned') },
+      repos: {}
+    }
     repos.forEach((repo, i) => {
       const r = data[`r${i}`] as GqlRepo | null
       if (!r) return
@@ -362,7 +385,45 @@ export function parseDispatch(source: string): Pick<Workflow, 'dispatchable' | '
 
 interface PrFetch {
   viewer?: { login: string; avatarUrl: string }
+  inbox: Inbox
   repos: Record<string, { defaultBranch?: string; prs: PullRequest[] }>
+}
+
+const INBOX_NODES = `nodes {
+  ... on PullRequest {
+    number title url updatedAt isDraft reviewDecision
+    repository { nameWithOwner } author { login avatarUrl }
+    commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+  }
+  ... on Issue { number title url updatedAt repository { nameWithOwner } author { login avatarUrl } }
+}`
+
+interface GqlInboxNode {
+  number: number
+  title: string
+  url: string
+  updatedAt: string
+  isDraft?: boolean
+  reviewDecision?: PullRequest['reviewDecision']
+  repository: { nameWithOwner: string }
+  author: { login: string; avatarUrl: string } | null
+  commits?: { nodes: { commit: { statusCheckRollup: { state: ChecksState } | null } }[] }
+}
+
+function toInboxItem(n: GqlInboxNode): InboxItem {
+  return {
+    repo: n.repository.nameWithOwner,
+    number: n.number,
+    title: n.title,
+    url: n.url,
+    kind: n.commits ? 'pr' : 'issue',
+    author: n.author?.login ?? 'ghost',
+    authorAvatar: n.author?.avatarUrl ?? '',
+    updatedAt: n.updatedAt,
+    isDraft: n.isDraft,
+    reviewDecision: n.reviewDecision ?? null,
+    checks: n.commits?.nodes[0]?.commit.statusCheckRollup?.state ?? null
+  }
 }
 
 const PR_FRAGMENT = `

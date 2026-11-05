@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, Notification, shell, Tray } from 'electron'
 import { join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, NotifySettings, RepoOption, Settings } from '../shared/types'
+import { DEFAULT_SETTINGS } from '../shared/defaults'
+import type { ActionResult, AppEvent, EventKind, Job, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { GitHub } from './github'
 import { Poller } from './poller'
 import { loadEvents, loadSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
@@ -197,6 +198,51 @@ function registerIpc(): void {
   ipcMain.handle('run:cancel', (_e, repo: string, id: number) =>
     run(() => requireClient().send('POST', `/repos/${repo}/actions/runs/${id}/cancel`))
   )
+  ipcMain.handle('run:jobs', async (_e, repo: string, id: number): Promise<Job[]> => {
+    const data = await requireClient().get<{ jobs: GhJob[] }>(`/repos/${repo}/actions/runs/${id}/jobs?per_page=100`)
+    return data.jobs.map((j) => ({
+      id: j.id,
+      name: j.name,
+      status: j.status,
+      conclusion: j.conclusion,
+      startedAt: j.started_at,
+      completedAt: j.completed_at,
+      url: j.html_url,
+      steps: (j.steps ?? []).map((s) => ({
+        name: s.name,
+        status: s.status,
+        conclusion: s.conclusion,
+        number: s.number,
+        startedAt: s.started_at ?? null,
+        completedAt: s.completed_at ?? null
+      }))
+    }))
+  })
+  ipcMain.handle('job:log', async (_e, repo: string, jobId: number): Promise<string> => {
+    const log = await requireClient().text(`/repos/${repo}/actions/jobs/${jobId}/logs`)
+    // Keep the tail: that's where failures are, and full logs can be many MB.
+    return log.split(/\r?\n/).slice(-400).join('\n')
+  })
+  ipcMain.handle('pr:approve', (_e, repo: string, num: number) =>
+    run(() => requireClient().send('POST', `/repos/${repo}/pulls/${num}/reviews`, { event: 'APPROVE' }), false)
+  )
+  ipcMain.handle('pr:merge', (_e, repo: string, num: number, method: 'merge' | 'squash' | 'rebase') =>
+    run(() => requireClient().send('PUT', `/repos/${repo}/pulls/${num}/merge`, { merge_method: method }), false)
+  )
+  ipcMain.handle('settings:export', () => JSON.stringify(settings, null, 2))
+  ipcMain.handle('settings:import', (_e, json: string): ActionResult => {
+    try {
+      const parsed = JSON.parse(json) as Partial<Settings>
+      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a RepoDeck settings file')
+      settings = { ...DEFAULT_SETTINGS, ...parsed, notify: { ...DEFAULT_SETTINGS.notify, ...parsed.notify } }
+      saveSettings(settings)
+      send('settings', settings)
+      poller.pollSoon()
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
   ipcMain.handle('open', (_e, url: string) => {
     if (/^https:\/\//.test(url)) return shell.openExternal(url)
   })
@@ -238,4 +284,15 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     if (!settings.closeToTray) app.quit()
   })
+}
+
+interface GhJob {
+  id: number
+  name: string
+  status: string
+  conclusion: string | null
+  started_at: string | null
+  completed_at: string | null
+  html_url: string
+  steps?: { name: string; status: string; conclusion: string | null; number: number; started_at?: string; completed_at?: string }[]
 }

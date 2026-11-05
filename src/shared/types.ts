@@ -100,7 +100,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights'
 
 export interface WidgetConfig {
   id: string
@@ -146,6 +146,46 @@ export interface Settings {
   layout: LayoutItem[]
 }
 
+export interface InboxItem {
+  repo: string
+  number: number
+  title: string
+  url: string
+  kind: 'pr' | 'issue'
+  author: string
+  authorAvatar: string
+  updatedAt: string
+  isDraft?: boolean
+  checks?: ChecksState
+  reviewDecision?: PullRequest['reviewDecision']
+}
+
+export interface Inbox {
+  reviewRequests: InboxItem[]
+  myPrs: InboxItem[]
+  assigned: InboxItem[]
+}
+
+export interface JobStep {
+  name: string
+  status: string
+  conclusion: string | null
+  number: number
+  startedAt: string | null
+  completedAt: string | null
+}
+
+export interface Job {
+  id: number
+  name: string
+  status: string
+  conclusion: string | null
+  startedAt: string | null
+  completedAt: string | null
+  url: string
+  steps: JobStep[]
+}
+
 export interface RateLimit {
   limit: number
   remaining: number
@@ -158,6 +198,7 @@ export interface Snapshot {
   authError?: string
   viewer?: { login: string; avatarUrl: string }
   repos: Record<string, RepoState>
+  inbox?: Inbox
   events: AppEvent[]
   rateLimit?: RateLimit
   lastPoll?: number
@@ -193,6 +234,12 @@ export interface RepoDeckApi {
   dispatch(repo: string, workflowId: number, ref: string, inputs: Record<string, string>): Promise<ActionResult>
   rerun(repo: string, runId: number, failedOnly: boolean): Promise<ActionResult>
   cancel(repo: string, runId: number): Promise<ActionResult>
+  runJobs(repo: string, runId: number): Promise<Job[]>
+  jobLog(repo: string, jobId: number): Promise<string>
+  approvePr(repo: string, num: number): Promise<ActionResult>
+  mergePr(repo: string, num: number, method: 'merge' | 'squash' | 'rebase'): Promise<ActionResult>
+  exportSettings(): Promise<string>
+  importSettings(json: string): Promise<ActionResult>
   openExternal(url: string): Promise<void>
   markRead(ids?: string[]): Promise<void>
   clearEvents(): Promise<void>

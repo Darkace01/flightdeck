@@ -5,7 +5,9 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: 
   runs: { title: 'Workflow runs', w: 7, h: 9, options: { filter: 'all', branch: '', limit: 30 } },
   prs: { title: 'Pull requests', w: 5, h: 9, options: { filter: 'all', hideDrafts: false } },
   workflows: { title: 'Run a workflow', w: 5, h: 7, options: { dispatchableOnly: true } },
-  events: { title: 'Activity', w: 7, h: 7, options: { unreadOnly: false } }
+  events: { title: 'Activity', w: 7, h: 7, options: { unreadOnly: false } },
+  inbox: { title: 'My work', w: 5, h: 8, options: { tab: 'reviewRequests' } },
+  insights: { title: 'CI insights', w: 7, h: 8, options: {} }
 }
 
 const widgets: WidgetConfig[] = [
@@ -13,7 +15,9 @@ const widgets: WidgetConfig[] = [
   { id: 'w-runs', type: 'runs', repos: [], options: { ...WIDGET_DEFAULTS.runs.options } },
   { id: 'w-prs', type: 'prs', repos: [], options: { ...WIDGET_DEFAULTS.prs.options } },
   { id: 'w-workflows', type: 'workflows', repos: [], options: { ...WIDGET_DEFAULTS.workflows.options } },
-  { id: 'w-events', type: 'events', repos: [], options: { ...WIDGET_DEFAULTS.events.options } }
+  { id: 'w-events', type: 'events', repos: [], options: { ...WIDGET_DEFAULTS.events.options } },
+  { id: 'w-inbox', type: 'inbox', repos: [], options: { ...WIDGET_DEFAULTS.inbox.options } },
+  { id: 'w-insights', type: 'insights', repos: [], options: { ...WIDGET_DEFAULTS.insights.options } }
 ]
 
 const layout: LayoutItem[] = [
@@ -21,7 +25,9 @@ const layout: LayoutItem[] = [
   { i: 'w-runs', x: 0, y: 3, w: 7, h: 9 },
   { i: 'w-prs', x: 7, y: 3, w: 5, h: 9 },
   { i: 'w-workflows', x: 0, y: 12, w: 5, h: 7 },
-  { i: 'w-events', x: 5, y: 12, w: 7, h: 7 }
+  { i: 'w-events', x: 5, y: 12, w: 7, h: 7 },
+  { i: 'w-inbox', x: 0, y: 19, w: 5, h: 8 },
+  { i: 'w-insights', x: 5, y: 19, w: 7, h: 8 }
 ]
 
 export const DEFAULT_SETTINGS: Settings = {
