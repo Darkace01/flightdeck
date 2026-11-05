@@ -136,7 +136,7 @@ Add an entry to `TEMPLATES` in `src/shared/templates.ts`. Each widget gives its 
 
 The tag must match the `package.json` version, or the workflow stops.
 
-The source manifests are in `packaging/`. `packaging/winget` holds the version first submitted to winget; check changes with `winget validate --manifest <folder>`. `packaging/homebrew/pushback.rb` is the cask as published in the tap.
+The source manifests are in `packaging/`. `packaging/winget` holds the version first submitted to winget, under `manifests/<first letter of the publisher>/` (`d/Darkace01/…`) as winget-pkgs requires; check changes with `winget validate --manifest <folder>`. `packaging/homebrew/pushback.rb` is the cask as published in the tap.
 
 ## License
 
