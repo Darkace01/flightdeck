@@ -57,5 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   closeToTray: true,
   autoUpdate: true,
   widgets,
-  layout
+  layout,
+  dashboards: [{ id: 'main', name: 'Main', widgets, layout }],
+  activeDashboard: 'main'
 }

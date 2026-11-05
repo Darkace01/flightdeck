@@ -16,6 +16,12 @@ export async function cancel(run: WorkflowRun): Promise<void> {
   toast(r.ok ? `Cancelling ${run.name} #${run.runNumber}` : `Cancel failed: ${r.error}`, r.ok ? 'ok' : 'error')
 }
 
+const EMPTY: Record<string, string> = {
+  active: 'Nothing running right now.',
+  failed: 'No failed runs. 🎉',
+  mine: "You haven't triggered any runs recently."
+}
+
 export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetProps) {
   const snapshot = useSnapshot()
   const settings = useSettings()
@@ -44,7 +50,7 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
     return all.slice(0, Number(limit) || 30)
   }, [snapshot.repos, repos.join(), mode, branch, latestOnly, filter, limit, viewer])
 
-  if (!runs.length) return <Empty>No workflow runs{mode !== 'all' ? ` matching "${mode}"` : ''}.</Empty>
+  if (!runs.length) return <Empty>{EMPTY[mode as string] ?? 'No workflow runs.'}</Empty>
   const multiRepo = repos.length > 1
 
   return (

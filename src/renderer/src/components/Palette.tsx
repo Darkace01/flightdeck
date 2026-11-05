@@ -5,6 +5,7 @@ import type { WidgetType } from '../../../shared/types'
 import { matches, shortRepo } from '../lib/format'
 import { api, getSettings, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { closeModal, openModal, setEditing } from '../lib/ui'
+import { switchDashboard } from '../lib/dashboards'
 import { openInApp } from '../lib/open'
 import { addWidget } from './Dashboard'
 import { checksTone, runTone, StatusIcon } from './ui'
@@ -52,6 +53,15 @@ export function Palette() {
         icon: <span className="palette-swatch" style={{ background: t.colors.bg, borderColor: t.colors.accent }} />,
         action: () => (void updateSettings(t.mode === 'dark' ? { darkTheme: t.id, mode: 'dark' } : { lightTheme: t.id, mode: 'light' }), closeModal())
       })),
+      ...settings.dashboards.map((d) => ({
+        id: `c-dash-${d.id}`,
+        kind: 'Dashboard',
+        label: `Dashboard: ${d.name}`,
+        keywords: 'switch layout view',
+        action: () => (switchDashboard(d.id), closeModal())
+      })),
+      { id: 'c-dash-new', kind: 'Command', label: 'New dashboard…', keywords: 'create template layout', action: () => openModal({ kind: 'new-dashboard' }) },
+      { id: 'c-dash-manage', kind: 'Command', label: 'Manage dashboards…', keywords: 'rename delete reorder', action: () => openModal({ kind: 'dashboards' }) },
       { id: 'c-read', kind: 'Command', label: 'Mark all activity read', action: () => (void api.markRead(), closeModal()) },
       ...(Object.keys(WIDGET_DEFAULTS) as WidgetType[]).map((t) => ({
         id: `c-add-${t}`,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import { COLOR_LABELS, findTheme, FONT_CHOICES, THEMES, type ThemeColors, type ThemePreset } from '../../../shared/themes'
 import type { NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
+import { applyTemplate } from '../lib/dashboards'
 import { api, toast, updateSettings, useSettings, useSnapshot, useUpdate } from '../lib/store'
 import { useAppearance } from '../lib/theme'
 import { closeModal } from '../lib/ui'
@@ -389,11 +389,11 @@ function AdvancedSection() {
           <button
             className="btn"
             onClick={() => {
-              void updateSettings({ widgets: DEFAULT_SETTINGS.widgets, layout: DEFAULT_SETTINGS.layout })
-              toast('Dashboard reset', 'ok')
+              applyTemplate('overview')
+              toast('Dashboard reset to the Overview layout', 'ok')
             }}
           >
-            Reset dashboard layout
+            Reset this dashboard
           </button>
         </div>
         <textarea rows={4} placeholder="Paste settings JSON to import…" value={json} onChange={(e) => setJson(e.target.value)} />

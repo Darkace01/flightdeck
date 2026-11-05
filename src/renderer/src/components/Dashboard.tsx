@@ -118,6 +118,7 @@ export function Dashboard() {
     <div ref={containerRef} className={`dashboard${editing ? ' editing' : ''}`}>
       {mounted && (
         <ReactGridLayout
+          key={settings.activeDashboard}
           width={width}
           layout={layout}
           gridConfig={{ cols: 12, rowHeight, margin: [12, 12], containerPadding: [16, 12] }}

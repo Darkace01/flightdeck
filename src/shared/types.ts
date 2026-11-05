@@ -113,6 +113,14 @@ export interface WidgetConfig {
   options: Record<string, string | number | boolean>
 }
 
+/** A saved dashboard. The open one's widgets and layout are mirrored in Settings.widgets/layout while it's active. */
+export interface SavedDashboard {
+  id: string
+  name: string
+  widgets: WidgetConfig[]
+  layout: LayoutItem[]
+}
+
 export interface LayoutItem {
   i: string
   x: number
@@ -155,6 +163,8 @@ export interface Settings {
   autoUpdate: boolean
   widgets: WidgetConfig[]
   layout: LayoutItem[]
+  dashboards: SavedDashboard[]
+  activeDashboard: string
 }
 
 export interface InboxItem {

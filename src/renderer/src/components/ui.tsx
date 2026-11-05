@@ -55,6 +55,7 @@ const ICONS = {
   search: 'M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10zM14 14l-3.5-3.5',
   grid: 'M2.5 2.5h4.5v4.5H2.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5H2.5zM9 9h4.5v4.5H9z',
   check: 'M3.5 8.5l3 3 6-7',
+  up: 'M8 13V3M4 7l4-4 4 4',
   bell: 'M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3',
   trash: 'M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5l.7 9h5.6l.7-9',
   comment: 'M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z',

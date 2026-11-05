@@ -37,6 +37,9 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
   // v0.1 had a single `theme` mode and `accent` colour.
   if (!rest.mode && (theme === 'dark' || theme === 'light' || theme === 'system')) settings.mode = theme
   if (accent && accent !== '#58a6ff' && !rest.colorOverrides) settings.colorOverrides = { dark: { accent }, light: { accent } }
+  // Before 0.3 there was one dashboard: keep the user's layout as "Main".
+  if (!rest.dashboards?.length) settings.dashboards = [{ id: 'main', name: 'Main', widgets: settings.widgets, layout: settings.layout }]
+  if (!settings.dashboards.some((d) => d.id === settings.activeDashboard)) settings.activeDashboard = settings.dashboards[0].id
   return settings
 }
 

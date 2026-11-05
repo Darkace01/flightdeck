@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { DispatchModal, MergeModal, RunDetailsModal } from './components/ActionModals'
 import { Dashboard } from './components/Dashboard'
+import { DashboardSwitcher, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
 import { PrModal } from './components/PrView'
 import { RepoModal } from './components/RepoView'
@@ -8,7 +9,8 @@ import { AccountSection, ReposSection, SettingsModal } from './components/Settin
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
 import { timeAgo, useNow } from './lib/format'
-import { api, useSettings, useSnapshot, useUpdate } from './lib/store'
+import { api, getSettings, useSettings, useSnapshot, useUpdate } from './lib/store'
+import { switchDashboard } from './lib/dashboards'
 import { openInApp } from './lib/open'
 import { useApplyAppearance } from './lib/theme'
 import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
@@ -22,6 +24,10 @@ function useShortcuts(): void {
       if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         openModal({ kind: 'palette' })
+      } else if (mod && /^[1-9]$/.test(e.key)) {
+        e.preventDefault()
+        const d = getSettings().dashboards[Number(e.key) - 1]
+        if (d) switchDashboard(d.id)
       } else if (mod && e.key === ',') {
         e.preventDefault()
         openModal({ kind: 'settings' })
@@ -88,6 +94,7 @@ function TopBar() {
         <Logo />
         Flightdeck
       </div>
+      <DashboardSwitcher />
       <button className="search-trigger" onClick={() => openModal({ kind: 'palette' })}>
         <Icon name="search" />
         Search or run a command…
@@ -165,6 +172,10 @@ function Modals() {
       return <PrModal key={`${modal.repo}#${modal.number}`} repo={modal.repo} number={modal.number} />
     case 'repo':
       return <RepoModal key={modal.repo} repo={modal.repo} />
+    case 'new-dashboard':
+      return <NewDashboardModal />
+    case 'dashboards':
+      return <ManageDashboardsModal />
   }
 }
 
