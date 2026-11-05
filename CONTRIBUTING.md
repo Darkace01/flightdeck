@@ -44,14 +44,15 @@ src/
     index.ts     window, tray, notifications, IPC handlers
     poller.ts    polls GitHub, diffs snapshots into events
     github.ts    REST + GraphQL client with ETag caching
+    details.ts   on-demand fetches for the PR and repo views
     store.ts     settings/events on disk, token storage
     updater.ts   auto-updates from GitHub Releases
   preload/     typed bridge exposed to the UI as window.flightdeck
-  shared/      types, defaults, theme presets, icon drawing (used by both sides)
+  shared/      types, defaults, theme presets, dashboard templates, icon drawing (used by both sides)
   renderer/    React UI
-    src/components/   dashboard, settings, dialogs, command palette
+    src/components/   dashboard, PR and repo views, settings, dialogs, command palette
     src/widgets/      one file per widget
-    src/lib/          store, theme application, formatting helpers
+    src/lib/          store, modal stack, dashboards, in-app link routing, theme, formatting
 ```
 
 The key ideas:
@@ -59,7 +60,9 @@ The key ideas:
 1. **The main process owns all GitHub access.** The UI never sees the token. It calls `window.flightdeck.*` methods, which go over IPC to handlers in `main/index.ts`.
 2. **The poller builds a `Snapshot`.** Every cycle it fetches runs over REST and PRs over GraphQL for each tracked repo, then pushes the whole snapshot to the UI. GETs use ETags, so a 304 response costs no rate limit. It polls faster while runs are active or just after you take an action.
 3. **Events come from diffs.** `poller.ts` compares each snapshot with the previous one (a run went from in progress to failed, a PR was merged, and so on). These events feed both the Activity widget and desktop notifications.
-4. **Settings live in the main process.** The UI applies changes optimistically (`updateSettings` in `lib/store.ts`), and the main process persists them to `settings.json`. When you add a setting, also give it a default in `shared/defaults.ts`. Old settings files are filled in from the defaults, so no migration is needed for new fields.
+4. **GitHub links open in the app.** Send any click on GitHub content through `openInApp(url)` in `lib/open.ts`. It opens the PR, run or repo view if there is one, and the browser otherwise. Open views with `pushModal` so that closing them returns to where the user came from.
+5. **Dashboards.** The open dashboard's widgets and layout live in `settings.widgets` / `settings.layout`, so widget code doesn't need to know about dashboards. `lib/dashboards.ts` writes them back into `settings.dashboards` when switching. Templates are in `shared/templates.ts`.
+6. **Settings live in the main process.** The UI applies changes optimistically (`updateSettings` in `lib/store.ts`), and the main process persists them to `settings.json`. When you add a setting, also give it a default in `shared/defaults.ts`. Old settings files are filled in from the defaults, so no migration is needed for new fields.
 
 ## Adding a widget
 
@@ -113,13 +116,27 @@ CI runs the type check and build on every pull request.
 - In the PR description, say what changed and why, and how you tested it. Add a screenshot for anything visual.
 - Update the README if you change user-facing behaviour.
 
+## Adding a dashboard template
+
+Add an entry to `TEMPLATES` in `src/shared/templates.ts`. Each widget gives its type, its position as `[x, y, w, h]` on the 12-column grid, and optionally a title and options. The New dashboard dialog draws the preview from the same data.
+
 ## Releasing (maintainers)
 
 1. Bump `version` in `package.json` (and run `npm install` to update the lockfile), then commit.
 2. Tag and push: `git tag v0.3.0 && git push origin main v0.3.0`.
 3. The **Release** workflow builds Windows, macOS and Linux installers and publishes them to a GitHub Release with generated notes. Installed copies pick up the update automatically.
+4. The same workflow updates the package managers, if their secrets are set (repo **Settings → Secrets and variables → Actions**):
+
+   | Secret | What it does | Token needed |
+   | --- | --- | --- |
+   | `HOMEBREW_TAP_TOKEN` | Bumps the version and checksums in [Darkace01/homebrew-tap](https://github.com/Darkace01/homebrew-tap) | Fine-grained, *Contents: read and write* on `homebrew-tap` |
+   | `WINGET_TOKEN` | Opens a PR on [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) for the new version | Classic, `public_repo` scope (you also need a fork of winget-pkgs) |
+
+   Without a secret, that step is skipped and the workflow says so.
 
 The tag must match the `package.json` version, or the workflow stops.
+
+The source manifests are in `packaging/`. `packaging/winget` holds the version first submitted to winget; check changes with `winget validate --manifest <folder>`. `packaging/homebrew/flightdeck.rb` is the cask as published in the tap.
 
 ## License
 

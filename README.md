@@ -20,9 +20,11 @@
 
 ## Features
 
+- **Multiple dashboards** for different jobs (CI watching, code review, releases), started from ready-made templates or from scratch, and switched with `Ctrl/⌘+1…9`.
 - **A dashboard of widgets** you can drag, resize, duplicate and scope to particular repos: repo health, workflow runs, pull requests, run-a-workflow, an activity feed, a "My work" inbox (review requests, your PRs and issues assigned to you across all of GitHub) and CI insights (pass rate, average duration, recent outcomes).
 - **GitHub Actions**: start `workflow_dispatch` workflows with their inputs, cancel runs, and re-run failed jobs or whole runs. Open a run to watch its jobs and steps live, and read a failed job's log, which opens at the error.
-- **Pull requests**: see checks, review state, labels and diff size. Approve or merge (squash, merge or rebase) after a confirmation step.
+- **Pull requests, in the app**: open any PR to read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Flightdeck. Every view has an **Open in browser** button for when you want GitHub itself.
+- **Repo pages**: open a repo to see its README, stats, PRs, runs, workflows and CI insights in one place, and start or stop watching it.
 - **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Flightdeck keeps running in the tray so you don't miss any.
 - **Fast and cheap on your rate limit**: it polls with ETag requests, which GitHub doesn't count against your limit when nothing changed, and polls faster while runs are active.
 - **Command palette** (`Ctrl/⌘+K`) to jump to any PR, run, workflow, repo, theme or command.
@@ -31,6 +33,24 @@
 - **Portable config**: export and import all your settings as JSON.
 
 ## Install
+
+### With a package manager
+
+**Windows** ([winget](https://learn.microsoft.com/windows/package-manager/winget/)):
+
+```powershell
+winget install Darkace01.Flightdeck
+```
+
+**macOS** ([Homebrew](https://brew.sh)):
+
+```bash
+brew install --cask darkace01/tap/flightdeck
+```
+
+Upgrade later with `winget upgrade Darkace01.Flightdeck` or `brew upgrade --cask flightdeck`. The app's own updater works too.
+
+### Or download an installer
 
 Download the file for your system from the [latest release](https://github.com/Darkace01/flightdeck/releases/latest).
 
@@ -45,7 +65,7 @@ Download the file for your system from the [latest release](https://github.com/D
 > **Heads-up: the builds aren't code-signed yet**, so your OS will warn you the first time you open one.
 >
 > - **Windows**: SmartScreen says "Windows protected your PC". Click **More info → Run anyway**.
-> - **macOS**: Gatekeeper says the app "can't be opened". Right-click Flightdeck in Applications and choose **Open**, then **Open** again. If macOS says the app is damaged, run `xattr -cr /Applications/Flightdeck.app` once.
+> - **macOS**: Gatekeeper says the app "can't be opened". (The Homebrew cask clears this for you.) Right-click Flightdeck in Applications and choose **Open**, then **Open** again. If macOS says the app is damaged, run `xattr -cr /Applications/Flightdeck.app` once.
 
 ### Updates
 
@@ -80,23 +100,45 @@ Press **`E`** (or click the grid icon) to edit the layout:
 
 Press `E` or `Esc` when you're done. The layout saves automatically.
 
-### 4. Work with Actions
+### 4. Set up more dashboards
+
+Click the dashboard name next to the logo (or press `Ctrl/⌘+K` and type `dashboard`) to switch dashboards or create a new one. Each dashboard keeps its own widgets and layout. Start from a template:
+
+| Template | What's on it |
+| --- | --- |
+| **Overview** | A bit of everything: repo health, runs, PRs, workflows, activity, your inbox and insights. |
+| **CI monitor** | Runs in progress, failed runs, pass rates per workflow and the activity feed. |
+| **Code review** | Reviews waiting on you, your own PRs and PRs with failing checks. |
+| **Release manager** | Workflows to trigger, the latest run of each workflow and CI insights. |
+| **Focus** | Repo health, your inbox and the activity feed. |
+| **Blank** | Nothing yet: add your own widgets. |
+
+You can also start from a copy of an existing dashboard. **Manage dashboards…** lets you rename, reorder, duplicate and delete them. `Ctrl/⌘+1` to `9` jumps straight to a dashboard.
+
+### 5. Work with Actions
 
 - **Run a workflow**: click **Run** in the *Run a workflow* widget. Pick a branch or tag, fill in the inputs (text, number, choice and checkbox inputs are all supported) and start it. The run appears within seconds.
 - **Inspect a run**: click any run to see its jobs and steps update live. Click **Log** on a job to read its output; failed logs open at the first error.
 - **Cancel or re-run** from the run row or the run window. *Re-run failed jobs* only repeats what broke.
 
-### 5. Review pull requests
+### 6. Review pull requests
 
-The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and diff size. Use the row buttons to **approve**, **merge** (you choose squash, merge or rebase, then confirm) or open the PR on GitHub. Branch protection still applies, so GitHub refuses merges that are missing required checks or reviews, and Flightdeck shows its reason.
+The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and diff size. **Click a PR to open it in Flightdeck**:
 
-### 6. Tune notifications
+- **Conversation**: the description, reviews and comments. You can also leave a comment, and `Ctrl+Enter` sends it.
+- **Commits**, **Checks** (failures first) and **Files**, which shows each changed file as a diff.
+- **Approve** and **Merge…** (you choose squash, merge or rebase, then confirm). Branch protection still applies, so GitHub refuses merges that are missing required checks or reviews, and Flightdeck shows its reason.
+- **Open in browser** when you need GitHub itself.
 
-In **Settings → Notifications**, choose which events you want toasts for. Turn on **Only notify about runs and PRs that are mine** to hear only about your own runs and PRs (review requests always come through). Click a notification to open the run or PR on GitHub.
+Clicking a repo tile opens that **repo's page** in the same way: its README, stats, and tabs for its PRs, runs, workflows and insights. Links inside descriptions and READMEs that point to PRs, runs or repos also open in the app. Views stack, so closing a PR you opened from a repo page takes you back to the repo.
+
+### 7. Tune notifications
+
+In **Settings → Notifications**, choose which events you want toasts for. Turn on **Only notify about runs and PRs that are mine** to hear only about your own runs and PRs (review requests always come through). Click a notification to open that run or PR in Flightdeck.
 
 If you see no notifications at all, check that your OS isn't in Do Not Disturb or Focus mode, and that it allows notifications from Flightdeck.
 
-### 7. Make it yours
+### 8. Make it yours
 
 **Settings → Appearance** has light, dark and system modes, separate themes for dark and light, per-colour overrides, a font picker (or any installed font), text size and density. You can also switch themes from the command palette: type `theme`.
 
@@ -106,9 +148,10 @@ If you see no notifications at all, check that your OS isn't in Do Not Disturb o
 | --- | --- |
 | `Ctrl/⌘+K` or `/` | Command palette |
 | `Ctrl/⌘+R` or `F5` | Refresh now |
+| `Ctrl/⌘+1` … `9` | Switch to dashboard 1–9 |
 | `E` | Edit the layout (toggle) |
 | `Ctrl/⌘+,` | Settings |
-| `Esc` | Close a dialog or stop editing |
+| `Esc` | Close a view or dialog (back to the previous one), or stop editing |
 
 ## Troubleshooting
 
