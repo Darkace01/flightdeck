@@ -1,0 +1,432 @@
+import { EventEmitter } from 'node:events'
+import { parse as parseYaml } from 'yaml'
+import type {
+  AppEvent,
+  ChecksState,
+  DispatchInput,
+  PullRequest,
+  RepoState,
+  Settings,
+  Snapshot,
+  Workflow,
+  WorkflowRun
+} from '../shared/types'
+import { GitHub } from './github'
+
+const MAX_EVENTS = 300
+/** Workflow definitions change rarely; refresh them every N polls. */
+const WORKFLOW_REFRESH_EVERY = 10
+/** After a dispatch / rerun, poll at the active rate for this long so the new run shows up quickly. */
+const BOOST_MS = 90_000
+
+interface Events {
+  update: [Snapshot]
+  events: [AppEvent[]]
+}
+
+export class Poller extends EventEmitter<Events> {
+  snapshot: Snapshot
+  private gh?: GitHub
+  private timer?: NodeJS.Timeout
+  private running = false
+  private queued = false
+  private cycle = 0
+  private boostUntil = 0
+
+  constructor(
+    private readonly getSettings: () => Settings,
+    events: AppEvent[]
+  ) {
+    super()
+    this.snapshot = { auth: 'missing', repos: {}, events, polling: false }
+  }
+
+  get client(): GitHub | undefined {
+    return this.gh
+  }
+
+  setClient(gh: GitHub | undefined, source?: 'pat' | 'gh'): void {
+    this.gh = gh
+    this.cycle = 0
+    this.snapshot = {
+      ...this.snapshot,
+      auth: gh ? 'ok' : 'missing',
+      authSource: source,
+      authError: undefined,
+      viewer: undefined,
+      repos: {}
+    }
+  }
+
+  /** Poll now (or as soon as the in-flight poll finishes). */
+  pollSoon(boost = false): void {
+    if (boost) this.boostUntil = Date.now() + BOOST_MS
+    if (this.running) {
+      this.queued = true
+      return
+    }
+    this.schedule(0)
+  }
+
+  stop(): void {
+    clearTimeout(this.timer)
+  }
+
+  private schedule(ms: number): void {
+    clearTimeout(this.timer)
+    this.snapshot.nextPoll = Date.now() + ms
+    this.timer = setTimeout(() => void this.poll(), ms)
+  }
+
+  private publish(): void {
+    this.emit('update', this.snapshot)
+  }
+
+  private async poll(): Promise<void> {
+    const settings = this.getSettings()
+    this.running = true
+    this.snapshot.polling = true
+    this.publish()
+    try {
+      if (this.gh) await this.pollAll(this.gh, settings)
+    } catch (err) {
+      const status = (err as { status?: number }).status
+      if (status === 401) {
+        this.snapshot.auth = 'error'
+        this.snapshot.authError = 'GitHub rejected the token. Sign in again in Settings.'
+      }
+    } finally {
+      this.running = false
+      this.snapshot.polling = false
+      this.snapshot.lastPoll = Date.now()
+      this.cycle++
+      const active =
+        Date.now() < this.boostUntil ||
+        Object.values(this.snapshot.repos).some((r) => r.runs.some((run) => run.status !== 'completed'))
+      const seconds = active ? Math.min(settings.activePollSeconds, settings.pollSeconds) : settings.pollSeconds
+      this.schedule(this.queued ? 0 : Math.max(5, seconds) * 1000)
+      this.queued = false
+      this.publish()
+    }
+  }
+
+  private async pollAll(gh: GitHub, settings: Settings): Promise<void> {
+    const repos = settings.repos
+    const prev = this.snapshot.repos
+    const refreshWorkflows = this.cycle % WORKFLOW_REFRESH_EVERY === 0
+
+    const [prResult, ...runResults] = await Promise.allSettled([
+      this.fetchPullRequests(gh, repos),
+      ...repos.map((repo) => this.fetchRuns(gh, repo))
+    ])
+    const workflowResults = await Promise.allSettled(
+      repos.map((repo) =>
+        refreshWorkflows || !prev[repo]?.workflows.length ? this.fetchWorkflows(gh, repo) : Promise.resolve(prev[repo].workflows)
+      )
+    )
+
+    if (prResult.status === 'rejected' && (prResult.reason as { status?: number }).status === 401) throw prResult.reason
+    const prData = prResult.status === 'fulfilled' ? prResult.value : undefined
+    if (prData?.viewer) this.snapshot.viewer = prData.viewer
+
+    const next: Record<string, RepoState> = {}
+    const newEvents: AppEvent[] = []
+    repos.forEach((repo, i) => {
+      const old = prev[repo]
+      const runs = runResults[i]
+      const wfs = workflowResults[i]
+      const prs = prData?.repos[repo]
+      const errors = [
+        runs.status === 'rejected' ? String((runs.reason as Error).message) : null,
+        prResult.status === 'rejected' ? String((prResult.reason as Error).message) : prs ? null : 'Repository not found or no access'
+      ].filter(Boolean)
+
+      const state: RepoState = {
+        repo,
+        defaultBranch: prs?.defaultBranch ?? old?.defaultBranch,
+        runs: runs.status === 'fulfilled' ? runs.value : (old?.runs ?? []),
+        prs: prs?.prs ?? old?.prs ?? [],
+        workflows: wfs.status === 'fulfilled' ? wfs.value : (old?.workflows ?? []),
+        error: errors.length ? errors.join('; ') : undefined,
+        fetchedAt: Date.now()
+      }
+      next[repo] = state
+      // Only diff once we have a baseline, so a fresh start doesn't fire a notification storm.
+      if (old?.fetchedAt) {
+        if (runs.status === 'fulfilled') newEvents.push(...diffRuns(repo, old.runs, state.runs))
+        if (prs) newEvents.push(...this.diffPrs(repo, old, state))
+      }
+    })
+    this.snapshot.repos = next
+    this.snapshot.rateLimit = gh.rate
+
+    const closed = newEvents.filter((e) => e.kind === 'pr-closed')
+    await Promise.all(closed.map((e) => this.resolveClosed(gh, e)))
+    const events = newEvents.filter((e) => e.kind !== 'pr-closed' || e.title)
+    if (events.length) {
+      this.snapshot.events = [...events, ...this.snapshot.events].slice(0, MAX_EVENTS)
+      this.emit('events', events)
+    }
+  }
+
+  private async fetchRuns(gh: GitHub, repo: string): Promise<WorkflowRun[]> {
+    const data = await gh.get<{ workflow_runs: GhRun[] }>(`/repos/${repo}/actions/runs?per_page=40`)
+    return data.workflow_runs.map((r) => ({
+      repo,
+      id: r.id,
+      workflowId: r.workflow_id,
+      name: r.name ?? 'workflow',
+      title: r.display_title,
+      status: r.status as WorkflowRun['status'],
+      conclusion: r.conclusion,
+      event: r.event,
+      branch: r.head_branch ?? '',
+      sha: r.head_sha,
+      actor: r.triggering_actor?.login ?? r.actor?.login ?? '',
+      actorAvatar: r.triggering_actor?.avatar_url ?? r.actor?.avatar_url ?? '',
+      runNumber: r.run_number,
+      attempt: r.run_attempt ?? 1,
+      createdAt: r.created_at,
+      startedAt: r.run_started_at ?? r.created_at,
+      updatedAt: r.updated_at,
+      url: r.html_url
+    }))
+  }
+
+  private async fetchWorkflows(gh: GitHub, repo: string): Promise<Workflow[]> {
+    const data = await gh.get<{ workflows: GhWorkflow[] }>(`/repos/${repo}/actions/workflows?per_page=100`)
+    const active = data.workflows.filter((w) => w.state === 'active')
+    return Promise.all(
+      active.map(async (w) => {
+        const base: Workflow = { repo, id: w.id, name: w.name, path: w.path, state: w.state, url: w.html_url, dispatchable: false, inputs: [] }
+        // Dynamic workflows (e.g. Dependabot, CodeQL default setup) have no file in the repo.
+        if (!w.path.startsWith('.github/workflows/')) return base
+        try {
+          const file = await gh.get<{ content: string }>(`/repos/${repo}/contents/${encodeURI(w.path)}`)
+          return { ...base, ...parseDispatch(Buffer.from(file.content, 'base64').toString('utf8')) }
+        } catch {
+          return base
+        }
+      })
+    )
+  }
+
+  private async fetchPullRequests(gh: GitHub, repos: string[]): Promise<PrFetch> {
+    const vars: Record<string, string> = {}
+    const params: string[] = []
+    const fields = repos.map((repo, i) => {
+      const [owner, name] = repo.split('/')
+      vars[`o${i}`] = owner
+      vars[`n${i}`] = name
+      params.push(`$o${i}: String!`, `$n${i}: String!`)
+      return `r${i}: repository(owner: $o${i}, name: $n${i}) { ...RepoFields }`
+    })
+    const query = `
+      query(${params.join(', ') || ''}) {
+        viewer { login avatarUrl }
+        ${fields.join('\n')}
+      }
+      ${repos.length ? PR_FRAGMENT : ''}`.replace('query()', 'query')
+    const data = await gh.graphql<Record<string, GqlRepo | null> & { viewer: { login: string; avatarUrl: string } }>(query, vars)
+
+    const out: PrFetch = { viewer: data.viewer, repos: {} }
+    repos.forEach((repo, i) => {
+      const r = data[`r${i}`] as GqlRepo | null
+      if (!r) return
+      out.repos[repo] = {
+        defaultBranch: r.defaultBranchRef?.name,
+        prs: r.pullRequests.nodes.map((p) => ({
+          repo,
+          number: p.number,
+          title: p.title,
+          url: p.url,
+          author: p.author?.login ?? 'ghost',
+          authorAvatar: p.author?.avatarUrl ?? '',
+          isDraft: p.isDraft,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+          branch: p.headRefName,
+          additions: p.additions,
+          deletions: p.deletions,
+          comments: p.comments.totalCount,
+          reviewDecision: p.reviewDecision,
+          checks: p.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null,
+          labels: p.labels.nodes,
+          reviewers: p.reviewRequests.nodes
+            .map((n) => n.requestedReviewer?.login ?? n.requestedReviewer?.slug)
+            .filter((x): x is string => Boolean(x))
+        }))
+      }
+    })
+    return out
+  }
+
+  private diffPrs(repo: string, old: RepoState, next: RepoState): AppEvent[] {
+    const viewer = this.snapshot.viewer?.login
+    const events: AppEvent[] = []
+    const oldMap = new Map(old.prs.map((p) => [p.number, p]))
+    const nextMap = new Map(next.prs.map((p) => [p.number, p]))
+    // Only treat a PR as new if it was created since the last poll; an old PR can enter the
+    // top-50-by-updated window just by being touched.
+    const since = (old.fetchedAt ?? 0) - 5 * 60_000
+
+    for (const pr of next.prs) {
+      const prev = oldMap.get(pr.number)
+      const ref = `${repo}#${pr.number}`
+      if (!prev) {
+        if (Date.parse(pr.createdAt) >= since)
+          events.push(makeEvent(repo, 'pr-opened', `PR opened: ${pr.title}`, `${ref} by ${pr.author}`, pr.url, pr.author))
+        continue
+      }
+      if (prev.isDraft && !pr.isDraft)
+        events.push(makeEvent(repo, 'pr-ready', `Ready for review: ${pr.title}`, ref, pr.url, pr.author))
+      if (viewer && pr.reviewers.includes(viewer) && !prev.reviewers.includes(viewer))
+        events.push(makeEvent(repo, 'pr-review', `Review requested: ${pr.title}`, `${ref} by ${pr.author}`, pr.url, viewer))
+      if (pr.author === viewer && pr.checks === 'FAILURE' && prev.checks !== 'FAILURE')
+        events.push(makeEvent(repo, 'pr-checks-failed', `Checks failed: ${pr.title}`, ref, pr.url, pr.author))
+    }
+    for (const pr of old.prs) {
+      if (!nextMap.has(pr.number)) {
+        // Title filled in by resolveClosed once we know whether it was merged.
+        const e = makeEvent(repo, 'pr-closed', '', `${repo}#${pr.number} by ${pr.author}`, pr.url, pr.author)
+        events.push(Object.assign(e, { meta: pr }))
+      }
+    }
+    return events
+  }
+
+  private async resolveClosed(gh: GitHub, e: AppEvent): Promise<void> {
+    const pr = (e as AppEvent & { meta: PullRequest }).meta
+    delete (e as { meta?: unknown }).meta
+    try {
+      const data = await gh.get<{ state: string; merged: boolean }>(`/repos/${pr.repo}/pulls/${pr.number}`)
+      if (data.state === 'open') return // just fell out of the window
+      e.kind = data.merged ? 'pr-merged' : 'pr-closed'
+      e.title = `${data.merged ? 'Merged' : 'Closed'}: ${pr.title}`
+    } catch {
+      // leave title empty so it is dropped
+    }
+  }
+}
+
+function diffRuns(repo: string, old: WorkflowRun[], next: WorkflowRun[]): AppEvent[] {
+  const events: AppEvent[] = []
+  const oldMap = new Map(old.map((r) => [r.id, r]))
+  const oldest = old.reduce((min, r) => Math.min(min, Date.parse(r.createdAt)), Infinity)
+  for (const run of next) {
+    const prev = oldMap.get(run.id)
+    if (!prev) {
+      if (old.length && Date.parse(run.createdAt) < oldest) continue
+      events.push(runEvent(run))
+    } else if (prev.status !== run.status && (run.status === 'completed' || prev.status === 'completed')) {
+      events.push(runEvent(run))
+    }
+  }
+  return events
+}
+
+function runEvent(run: WorkflowRun): AppEvent {
+  const where = `${run.repo} · ${run.branch} · ${run.title}`
+  if (run.status !== 'completed') return makeEvent(run.repo, 'run-started', `▶ ${run.name} started`, where, run.url, run.actor)
+  if (run.conclusion === 'success') return makeEvent(run.repo, 'run-success', `✓ ${run.name} succeeded`, where, run.url, run.actor)
+  if (run.conclusion === 'cancelled' || run.conclusion === 'skipped')
+    return makeEvent(run.repo, 'run-cancelled', `⊘ ${run.name} ${run.conclusion}`, where, run.url, run.actor)
+  return makeEvent(run.repo, 'run-failure', `✗ ${run.name} failed`, where, run.url, run.actor)
+}
+
+let seq = 0
+function makeEvent(repo: string, kind: AppEvent['kind'], title: string, body: string, url: string, actor?: string): AppEvent {
+  return { id: `${Date.now()}-${seq++}`, ts: Date.now(), repo, kind, title, body, url, actor, read: false }
+}
+
+/** Reads the `workflow_dispatch` trigger and its inputs from a workflow file. */
+export function parseDispatch(source: string): Pick<Workflow, 'dispatchable' | 'inputs'> {
+  const doc = parseYaml(source) as { on?: unknown; true?: unknown } | null
+  // YAML 1.1 parsers turn a bare `on:` key into `true`; handle both.
+  const on = doc?.on ?? doc?.true
+  if (!on) return { dispatchable: false, inputs: [] }
+  if (on === 'workflow_dispatch') return { dispatchable: true, inputs: [] }
+  if (Array.isArray(on)) return { dispatchable: on.includes('workflow_dispatch'), inputs: [] }
+  if (typeof on !== 'object' || !('workflow_dispatch' in on)) return { dispatchable: false, inputs: [] }
+  const wd = (on as Record<string, { inputs?: Record<string, Record<string, unknown>> } | null>).workflow_dispatch
+  const inputs: DispatchInput[] = Object.entries(wd?.inputs ?? {}).map(([name, spec]) => ({
+    name,
+    description: spec?.description as string | undefined,
+    required: Boolean(spec?.required),
+    default: spec?.default === undefined ? undefined : String(spec.default),
+    type: ((spec?.type as string) ?? 'string') as DispatchInput['type'],
+    options: Array.isArray(spec?.options) ? (spec.options as unknown[]).map(String) : undefined
+  }))
+  return { dispatchable: true, inputs }
+}
+
+interface PrFetch {
+  viewer?: { login: string; avatarUrl: string }
+  repos: Record<string, { defaultBranch?: string; prs: PullRequest[] }>
+}
+
+const PR_FRAGMENT = `
+fragment RepoFields on Repository {
+  defaultBranchRef { name }
+  pullRequests(states: OPEN, first: 50, orderBy: { field: UPDATED_AT, direction: DESC }) {
+    nodes {
+      number title url isDraft createdAt updatedAt headRefName additions deletions reviewDecision
+      author { login avatarUrl }
+      comments { totalCount }
+      labels(first: 6) { nodes { name color } }
+      reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } ... on Team { slug } } } }
+      commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+    }
+  }
+}`
+
+interface GqlRepo {
+  defaultBranchRef: { name: string } | null
+  pullRequests: {
+    nodes: {
+      number: number
+      title: string
+      url: string
+      isDraft: boolean
+      createdAt: string
+      updatedAt: string
+      headRefName: string
+      additions: number
+      deletions: number
+      reviewDecision: PullRequest['reviewDecision']
+      author: { login: string; avatarUrl: string } | null
+      comments: { totalCount: number }
+      labels: { nodes: { name: string; color: string }[] }
+      reviewRequests: { nodes: { requestedReviewer: { login?: string; slug?: string } | null }[] }
+      commits: { nodes: { commit: { statusCheckRollup: { state: ChecksState } | null } }[] }
+    }[]
+  }
+}
+
+interface GhRun {
+  id: number
+  workflow_id: number
+  name: string | null
+  display_title: string
+  status: string
+  conclusion: string | null
+  event: string
+  head_branch: string | null
+  head_sha: string
+  run_number: number
+  run_attempt?: number
+  created_at: string
+  updated_at: string
+  run_started_at?: string
+  html_url: string
+  actor?: { login: string; avatar_url: string }
+  triggering_actor?: { login: string; avatar_url: string }
+}
+
+interface GhWorkflow {
+  id: number
+  name: string
+  path: string
+  state: string
+  html_url: string
+}
