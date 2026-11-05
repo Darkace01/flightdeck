@@ -1,53 +1,141 @@
-# RepoDeck
+<p align="center">
+  <img src="build/icon.png" width="96" alt="Flightdeck icon" />
+</p>
 
-A fast, customizable desktop dashboard for the GitHub repos you work on: Actions runs, pull requests, workflow dispatch and desktop notifications. Runs on Windows, macOS and Linux (Electron + React).
+<h1 align="center">Flightdeck</h1>
+
+<p align="center">
+  A fast, customizable desktop dashboard for the GitHub repos you work on.<br />
+  Watch Actions runs and pull requests, launch workflows, and get notified the moment something lands or breaks.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Darkace01/flightdeck/releases/latest"><img src="https://img.shields.io/github/v/release/Darkace01/flightdeck?label=download" alt="Latest release" /></a>
+  <a href="https://github.com/Darkace01/flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Darkace01/flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational" alt="Platforms" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license" /></a>
+</p>
+
+---
 
 ## Features
 
-- **Dashboard of widgets** you can drag, resize, add more than once and scope to specific repos: repo health, workflow runs, pull requests, run-a-workflow, activity feed, "My work" inbox (review requests / your PRs / assigned issues across all of GitHub) and CI insights (pass rate, average duration, recent outcomes).
-- **Actions**: trigger `workflow_dispatch` workflows with their inputs, cancel, re-run failed jobs or the whole run. You can also open a run to see its jobs and steps live and read the tail of a failed job's log.
-- **Pull requests**: checks status, review state, labels and diff size. You can approve, or merge (squash / merge / rebase) after a confirm step.
-- **Notifications** for failed/succeeded/started runs, PRs opened/merged/closed/ready, review requests and failing checks on your PRs. Each type can be turned on or off, and an "only mine" filter limits them to your own runs and PRs. Keeps running in the tray.
-- **Fast**: polls with ETag conditional requests, which don't count against the GitHub rate limit. While runs are active it polls faster (every 10s by default).
+- **A dashboard of widgets** you can drag, resize, duplicate and scope to particular repos: repo health, workflow runs, pull requests, run-a-workflow, an activity feed, a "My work" inbox (review requests, your PRs and issues assigned to you across all of GitHub) and CI insights (pass rate, average duration, recent outcomes).
+- **GitHub Actions**: start `workflow_dispatch` workflows with their inputs, cancel runs, and re-run failed jobs or whole runs. Open a run to watch its jobs and steps live, and read a failed job's log, which opens at the error.
+- **Pull requests**: see checks, review state, labels and diff size. Approve or merge (squash, merge or rebase) after a confirmation step.
+- **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Flightdeck keeps running in the tray so you don't miss any.
+- **Fast and cheap on your rate limit**: it polls with ETag requests, which GitHub doesn't count against your limit when nothing changed, and polls faster while runs are active.
 - **Command palette** (`Ctrl/⌘+K`) to jump to any PR, run, workflow, repo, theme or command.
-- **Themes**: dark, light or follow the OS. Presets include GitHub Dark/Light (default), Terminal, Amber CRT, Atom One Dark/Light, Dracula, Synthwave '84, Monokai, Nord, Tokyo Night, Catppuccin, Gruvbox, Solarized, Rosé Pine Dawn and Paper. You can override any colour, and pick the font and text size.
-- **Portable config**: export or import all settings as JSON.
+- **Themes**: dark, light or follow the OS. Presets include GitHub Dark/Light (the defaults), Terminal, Amber CRT, Atom One Dark/Light, Dracula, Synthwave '84, Monokai, Nord, Tokyo Night, Catppuccin, Gruvbox, Solarized, Rosé Pine Dawn and Paper. You can override any colour and choose the font and text size.
+- **Auto-updates** from GitHub Releases.
+- **Portable config**: export and import all your settings as JSON.
 
-## Run it
+## Install
 
-```bash
-npm install
-npm run dev        # hot-reloading dev build
-```
+Download the file for your system from the [latest release](https://github.com/Darkace01/flightdeck/releases/latest).
 
-Sign in by either:
+| System | File | How to install |
+| --- | --- | --- |
+| Windows 10/11 | `Flightdeck-x.y.z-win-x64.exe` | Run it and follow the installer. |
+| macOS (Apple silicon) | `Flightdeck-x.y.z-mac-arm64.dmg` | Open it and drag Flightdeck into Applications. |
+| macOS (Intel) | `Flightdeck-x.y.z-mac-x64.dmg` | Same as above. |
+| Linux (any distro) | `Flightdeck-x.y.z-linux-x86_64.AppImage` | `chmod +x Flightdeck-*.AppImage`, then run it. |
+| Debian / Ubuntu | `Flightdeck-x.y.z-linux-amd64.deb` | `sudo apt install ./Flightdeck-*.deb` |
 
-- having the GitHub CLI logged in (`gh auth login`); RepoDeck picks up its token automatically, or
-- pasting a personal access token in **Settings → Account**. It needs the `repo` and `workflow` scopes, and is stored encrypted with your OS keychain.
+> **Heads-up: the builds aren't code-signed yet**, so your OS will warn you the first time you open one.
+>
+> - **Windows**: SmartScreen says "Windows protected your PC". Click **More info → Run anyway**.
+> - **macOS**: Gatekeeper says the app "can't be opened". Right-click Flightdeck in Applications and choose **Open**, then **Open** again. If macOS says the app is damaged, run `xattr -cr /Applications/Flightdeck.app` once.
 
-## Build installers
+### Updates
 
-```bash
-npm run dist       # NSIS installer on Windows, DMG on macOS, AppImage/deb on Linux → dist/
-```
+Flightdeck checks for new versions on startup and every few hours. You can turn this off, or check by hand, in **Settings → Advanced → Updates**.
+
+- **Windows and AppImage** download updates in the background. When an update is ready, a **Restart to update** button appears in the top bar. If you don't click it, the update installs the next time you quit.
+- **macOS and .deb** tell you a new version is out and link to the download. macOS can only self-update signed apps, and `.deb` installs are managed by your package manager.
+
+## Getting started
+
+### 1. Connect to GitHub
+
+Flightdeck needs a GitHub token. Use either of these:
+
+- **The GitHub CLI (easiest).** If you've run `gh auth login`, Flightdeck uses that login automatically.
+- **A personal access token.** Create a [classic token](https://github.com/settings/tokens/new?scopes=repo,workflow&description=Flightdeck) with the `repo` and `workflow` scopes and paste it into **Settings → Account**. It's stored encrypted with your OS keychain, never in plain text.
+
+The token never leaves your machine except to talk to `api.github.com`.
+
+### 2. Pick repositories
+
+Choose the repos to watch from the list of repos you own or collaborate on, or type any `owner/name`, including public repos you don't own. You can change the list any time in **Settings → Repositories**.
+
+### 3. Shape your dashboard
+
+Press **`E`** (or click the grid icon) to edit the layout:
+
+- **Move** a widget by dragging its header, and **resize** it from the bottom-right corner.
+- **Add** a widget with **+ Add widget**. You can add the same type more than once, for example one Runs widget per team.
+- Click a widget's **⚙** to rename it, limit it to certain repos, or set its options (status filter, branch, hide drafts and so on).
+- Use the **🔍** in any widget header to filter its rows as you type.
+
+Press `E` or `Esc` when you're done. The layout saves automatically.
+
+### 4. Work with Actions
+
+- **Run a workflow**: click **Run** in the *Run a workflow* widget. Pick a branch or tag, fill in the inputs (text, number, choice and checkbox inputs are all supported) and start it. The run appears within seconds.
+- **Inspect a run**: click any run to see its jobs and steps update live. Click **Log** on a job to read its output; failed logs open at the first error.
+- **Cancel or re-run** from the run row or the run window. *Re-run failed jobs* only repeats what broke.
+
+### 5. Review pull requests
+
+The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and diff size. Use the row buttons to **approve**, **merge** (you choose squash, merge or rebase, then confirm) or open the PR on GitHub. Branch protection still applies, so GitHub refuses merges that are missing required checks or reviews, and Flightdeck shows its reason.
+
+### 6. Tune notifications
+
+In **Settings → Notifications**, choose which events you want toasts for. Turn on **Only notify about runs and PRs that are mine** to hear only about your own runs and PRs (review requests always come through). Click a notification to open the run or PR on GitHub.
+
+If you see no notifications at all, check that your OS isn't in Do Not Disturb or Focus mode, and that it allows notifications from Flightdeck.
+
+### 7. Make it yours
+
+**Settings → Appearance** has light, dark and system modes, separate themes for dark and light, per-colour overrides, a font picker (or any installed font), text size and density. You can also switch themes from the command palette: type `theme`.
 
 ## Keyboard shortcuts
 
 | Keys | Action |
 | --- | --- |
 | `Ctrl/⌘+K` or `/` | Command palette |
-| `Ctrl/⌘+R` / `F5` | Refresh now |
-| `E` | Toggle layout editing |
+| `Ctrl/⌘+R` or `F5` | Refresh now |
+| `E` | Edit the layout (toggle) |
 | `Ctrl/⌘+,` | Settings |
-| `Esc` | Close dialog / stop editing |
+| `Esc` | Close a dialog or stop editing |
 
-## Layout
+## Troubleshooting
 
+| Problem | Fix |
+| --- | --- |
+| "Not signed in" even though `gh` works | Flightdeck runs `gh auth token` on startup. Make sure `gh` is on your `PATH`, then click **check again**, or paste a token in Settings → Account. |
+| A repo shows an error | The token can't see it (it's private or the name changed). Check the token's scopes, or that your organisation has approved it. |
+| "Run" is missing for a workflow | Only workflows with an `on: workflow_dispatch` trigger can be started by hand. |
+| API counter in the top bar is low | Raise the poll interval in Settings → Advanced. Requests where nothing changed are free, so this is rare. |
+| Where's my data? | Settings, the activity history and the encrypted token are in `%APPDATA%\Flightdeck` (Windows), `~/Library/Application Support/Flightdeck` (macOS) or `~/.config/Flightdeck` (Linux). |
+
+## Build from source
+
+You need [Node.js](https://nodejs.org) 22 or newer.
+
+```bash
+git clone https://github.com/Darkace01/flightdeck.git
+cd flightdeck
+npm install
+npm run dev        # run with hot reload
+npm run dist       # build an installer for your current OS into dist/
 ```
-src/main      Electron main process: GitHub client, poller, notifications, tray, IPC
-src/preload   Typed bridge exposed to the UI as window.repodeck
-src/shared    Types, defaults and theme presets shared by both sides
-src/renderer  React UI: dashboard, widgets, dialogs, command palette
-```
 
-Settings, the activity history and the encrypted token live in the Electron user-data folder (`%APPDATA%/repodeck` on Windows).
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to set up the project, how it's put together, and how to add a widget or theme.
+
+## License
+
+[MIT](LICENSE) © Kazeem Quadri
