@@ -7,6 +7,7 @@ import { api, getSettings, updateSettings, useSettings, useSnapshot } from '../l
 import { closeModal, openModal, setEditing } from '../lib/ui'
 import { switchDashboard } from '../lib/dashboards'
 import { openInApp } from '../lib/open'
+import { openRepoTab } from '../lib/tabs'
 import { addWidget } from './Dashboard'
 import { checksTone, runTone, StatusIcon } from './ui'
 
@@ -74,7 +75,7 @@ export function Palette() {
       id: `r-${repo}`,
       kind: 'Repo',
       label: repo,
-      action: () => openModal({ kind: 'repo', repo })
+      action: () => openRepoTab(repo)
     }))
     const all = settings.repos.map((r) => snapshot.repos[r]).filter(Boolean)
     const prs: Item[] = all.flatMap((s) =>

@@ -4,7 +4,8 @@ import { Dashboard } from './components/Dashboard'
 import { DashboardSwitcher, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
 import { PrModal } from './components/PrView'
-import { RepoModal } from './components/RepoView'
+import { RepoWorkspace } from './components/RepoWorkspace'
+import { TabBar } from './components/Tabs'
 import { AccountSection, ReposSection, SettingsModal } from './components/SettingsModal'
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
@@ -12,6 +13,7 @@ import { timeAgo, useNow } from './lib/format'
 import { api, getSettings, useSettings, useSnapshot, useUpdate } from './lib/store'
 import { switchDashboard } from './lib/dashboards'
 import { openInApp } from './lib/open'
+import { cycleTab, HOME } from './lib/tabs'
 import { useApplyAppearance } from './lib/theme'
 import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
 
@@ -24,6 +26,9 @@ function useShortcuts(): void {
       if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         openModal({ kind: 'palette' })
+      } else if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault()
+        cycleTab(e.shiftKey ? -1 : 1)
       } else if (mod && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const d = getSettings().dashboards[Number(e.key) - 1]
@@ -170,8 +175,6 @@ function Modals() {
       return <MergeModal pr={modal.pr} />
     case 'pr':
       return <PrModal key={`${modal.repo}#${modal.number}`} repo={modal.repo} number={modal.number} />
-    case 'repo':
-      return <RepoModal key={modal.repo} repo={modal.repo} />
     case 'new-dashboard':
       return <NewDashboardModal />
     case 'dashboards':
@@ -191,7 +194,14 @@ export function App() {
   return (
     <div className="app">
       <TopBar />
-      {ready ? <Dashboard /> : <Onboarding />}
+      {ready ? (
+        <>
+          <TabBar />
+          {settings.activeTab === HOME ? <Dashboard /> : <RepoWorkspace key={settings.activeTab} repo={settings.activeTab} />}
+        </>
+      ) : (
+        <Onboarding />
+      )}
       <Modals />
       <Toasts />
     </div>

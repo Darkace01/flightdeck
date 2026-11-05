@@ -59,5 +59,7 @@ export const DEFAULT_SETTINGS: Settings = {
   widgets,
   layout,
   dashboards: [{ id: 'main', name: 'Main', widgets, layout }],
-  activeDashboard: 'main'
+  activeDashboard: 'main',
+  openTabs: [],
+  activeTab: 'home'
 }

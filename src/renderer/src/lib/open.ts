@@ -1,4 +1,5 @@
 import { api, getSnapshot } from './store'
+import { openRepoTab } from './tabs'
 import { pushModal } from './ui'
 
 // github.com/<these>/… are site pages, not owner/repo.
@@ -27,9 +28,9 @@ export function openInApp(url: string): void {
     return found ? pushModal({ kind: 'run', run: found }) : void api.openExternal(url)
   }
 
-  if (rest === '' || rest === '/') return pushModal({ kind: 'repo', repo })
+  if (rest === '' || rest === '/') return openRepoTab(repo)
   void api.openExternal(url)
 }
 
 export const openPr = (repo: string, number: number) => pushModal({ kind: 'pr', repo, number })
-export const openRepo = (repo: string) => pushModal({ kind: 'repo', repo })
+export const openRepo = openRepoTab

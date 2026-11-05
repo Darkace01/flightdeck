@@ -1,0 +1,168 @@
+import { useEffect, useState, type ComponentType } from 'react'
+import { WIDGET_DEFAULTS } from '../../../shared/defaults'
+import type { RepoInfo, WidgetType } from '../../../shared/types'
+import { timeAgo, useNow } from '../lib/format'
+import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import { InsightsWidget } from '../widgets/InsightsWidget'
+import { PrsWidget } from '../widgets/PrsWidget'
+import { RunsWidget } from '../widgets/RunsWidget'
+import type { WidgetProps } from '../widgets/types'
+import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
+import { Markdown } from './Markdown'
+import { Empty, runTone, StatusIcon } from './ui'
+
+export interface SectionProps {
+  repo: string
+  info?: RepoInfo
+}
+
+interface Section {
+  id: string
+  label: string
+  group: 'GitHub' | 'Actions' | 'Local'
+  /** Sections built from dashboard widgets need the repo to be watched (polled). */
+  widget?: [WidgetType, ComponentType<WidgetProps>]
+  component?: ComponentType<SectionProps>
+  count?: (repo: string) => number | undefined
+}
+
+function Overview({ repo, info }: SectionProps) {
+  if (!info) return <p className="dim">Loading…</p>
+  return info.readmeHtml ? (
+    <div className="readme">
+      <Markdown html={info.readmeHtml} repo={repo} branch={info.defaultBranch} />
+    </div>
+  ) : (
+    <Empty>This repository has no README.</Empty>
+  )
+}
+
+/** The sections every repo tab has. Later features add entries here. */
+export const SECTIONS: Section[] = [
+  { id: 'overview', label: 'Overview', group: 'GitHub', component: Overview },
+  { id: 'pulls', label: 'Pull requests', group: 'GitHub', widget: ['prs', PrsWidget] },
+  { id: 'runs', label: 'Runs', group: 'Actions', widget: ['runs', RunsWidget] },
+  { id: 'workflows', label: 'Workflows', group: 'Actions', widget: ['workflows', WorkflowsWidget] },
+  { id: 'insights', label: 'Insights', group: 'Actions', widget: ['insights', InsightsWidget] }
+]
+
+// Each tab remembers which section it was on while you switch between tabs.
+const lastSection = new Map<string, string>()
+
+export function RepoWorkspace({ repo }: { repo: string }) {
+  const settings = useSettings()
+  const snapshot = useSnapshot()
+  const now = useNow()
+  const state = snapshot.repos[repo]
+  const tracked = settings.repos.includes(repo)
+  const [info, setInfo] = useState<RepoInfo>()
+  const [error, setError] = useState<string>()
+  const [section, setSectionState] = useState(lastSection.get(repo) ?? 'overview')
+  const setSection = (id: string) => {
+    lastSection.set(repo, id)
+    setSectionState(id)
+  }
+
+  useEffect(() => {
+    api.repoInfo(repo).then(setInfo, (e: Error) => setError(e.message))
+  }, [repo])
+
+  const latest = state?.runs.find((r) => r.branch === (info?.defaultBranch ?? state.defaultBranch) && r.status === 'completed')
+  const running = state?.runs.filter((r) => r.status !== 'completed').length ?? 0
+  const counts: Record<string, number | undefined> = { pulls: state?.prs.length, runs: running || undefined }
+  const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0]
+  const groups = [...new Set(SECTIONS.map((s) => s.group))]
+
+  return (
+    <div className="workspace">
+      <aside className="ws-nav">
+        {groups.map((g) => (
+          <div key={g} className="ws-group">
+            <div className="ws-group-label">{g}</div>
+            {SECTIONS.filter((s) => s.group === g).map((s) => {
+              const n = counts[s.id] ?? s.count?.(repo)
+              return (
+                <button key={s.id} className={`ws-link${s.id === current.id ? ' on' : ''}`} onClick={() => setSection(s.id)}>
+                  {s.label}
+                  {!!n && <span className="count">{n}</span>}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </aside>
+
+      <main className="ws-main">
+        <header className="pr-head">
+          <h1 className="pr-title">
+            <span>
+              <span className="dim">{repo.split('/')[0]}/</span>
+              {repo.split('/')[1]}
+            </span>
+            {info?.private && <span className="badge badge-muted">Private</span>}
+            {info?.archived && <span className="badge badge-warn">Archived</span>}
+          </h1>
+          {info?.description && <p>{info.description}</p>}
+          {info && (
+            <div className="row-meta">
+              {latest && (
+                <span className="inline">
+                  <StatusIcon tone={runTone(latest)} size={13} /> {info.defaultBranch}
+                </span>
+              )}
+              {info.language && <span>{info.language}</span>}
+              <span>★ {info.stars.toLocaleString()}</span>
+              <span>⑂ {info.forks.toLocaleString()}</span>
+              <span>pushed {timeAgo(info.pushedAt, now)}</span>
+              {info.homepage && (
+                <button className="link" onClick={() => void api.openExternal(info.homepage!)}>
+                  {info.homepage.replace(/^https?:\/\//, '')}
+                </button>
+              )}
+              {info.topics.map((t) => (
+                <span key={t} className="chip">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="inline">
+            <button
+              className={`btn btn-sm${tracked ? '' : ' btn-primary'}`}
+              onClick={() => {
+                void updateSettings({ repos: tracked ? settings.repos.filter((r) => r !== repo) : [...settings.repos, repo] })
+                toast(tracked ? `Stopped watching ${repo}` : `Watching ${repo}`, 'ok')
+              }}
+            >
+              {tracked ? 'Watching ✓' : '+ Watch'}
+            </button>
+            <span className="spacer" />
+            <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(`gh repo clone ${repo}`).then(() => toast('Clone command copied', 'ok'))}>
+              Copy clone command
+            </button>
+            <button className="btn btn-sm" onClick={() => void api.openExternal(`https://github.com/${repo}`)}>
+              Open in browser
+            </button>
+          </div>
+        </header>
+
+        {error && <p className="del">Couldn't load {repo}: {error}</p>}
+
+        {current.component && <current.component repo={repo} info={info} />}
+        {current.widget &&
+          (tracked ? (
+            (() => {
+              const [type, Body] = current.widget
+              return (
+                <div className="repo-tab">
+                  <Body widget={{ id: `repo-${type}`, type, repos: [repo], options: { ...WIDGET_DEFAULTS[type].options } }} filter="" />
+                </div>
+              )
+            })()
+          ) : (
+            <Empty>Watch this repo to see its {current.label.toLowerCase()} here. Watched repos are refreshed in the background.</Empty>
+          ))}
+      </main>
+    </div>
+  )
+}

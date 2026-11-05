@@ -165,6 +165,10 @@ export interface Settings {
   layout: LayoutItem[]
   dashboards: SavedDashboard[]
   activeDashboard: string
+  /** Repos open as tabs, in order. The dashboard tab is always first and isn't listed. */
+  openTabs: string[]
+  /** "home" (the dashboard) or one of openTabs. */
+  activeTab: string
 }
 
 export interface InboxItem {
