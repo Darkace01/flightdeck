@@ -20,7 +20,7 @@ There is no test suite. Verify with `typecheck` + `build`, then run the app (see
 
 ## Layout
 
-- `src/main/`: Electron main process. All GitHub access lives here: `github.ts` (ETag-cached REST + GraphQL), `poller.ts` (snapshots, diffed into events), `details.ts` (PR and repo views), `updater.ts`, `store.ts` (settings, events, encrypted token).
+- `src/main/`: Electron main process. All GitHub access lives here: `github.ts` (ETag-cached REST + GraphQL), `poller.ts` (snapshots, diffed into events), `details.ts` (PR and repo views), `repoTools.ts` (issues, branches, commits, releases, new PRs), `git.ts` (local git), `updater.ts`, `store.ts` (settings, events, encrypted token).
 - `src/preload/index.ts`: the `window.pushback` bridge.
 - `src/shared/`: types, defaults, themes, dashboard templates and the icon drawing. Used by both processes, so keep it free of Node and DOM APIs.
 - `src/renderer/src/`: React UI. `components/` (views and dialogs), `widgets/` (one file per widget), `lib/` (store, modal stack, dashboards, link routing, theme).
@@ -29,7 +29,9 @@ There is no test suite. Verify with `typecheck` + `build`, then run the app (see
 
 - **Adding an IPC call means touching 3 places**: the `PushbackApi` interface in `shared/types.ts`, `preload/index.ts`, and an `ipcMain.handle` in `main/index.ts`. The renderer is sandboxed with context isolation. Never give it Node access, and never pass it the token.
 - **New settings fields** need a default in `shared/defaults.ts`. Anything that renames or restructures an existing field needs a migration in `normalizeSettings` (`main/store.ts`). Users' old `settings.json` files must keep loading.
-- **Clicks on GitHub content** go through `openInApp(url)` (`lib/open.ts`). Open views from inside other views with `pushModal`, so that Esc goes back. Keep an "Open in browser" button on every view.
+- **Clicks on GitHub content** go through `openInApp(url)` (`lib/open.ts`): PRs, issues and runs open as views, and repos open as tabs (`lib/tabs.ts`). Open views from inside other views with `pushModal`, so that Esc goes back. Keep an "Open in browser" button on every view.
+- **Repo tab sections** are entries in `SECTIONS` (`components/RepoWorkspace.tsx`). Load data with `useLoad(repo, …)` and call `invalidate(repo)` after any write, so open sections refresh.
+- **Local git safety**: the renderer passes repo names, never paths. Folders come only from `settings.localPaths`, which only the link and clone dialogs in `main/index.ts` may set (`settings:save` and imports strip it). Run git with `execFile` (no shell), put user input after `--` or validate it, and keep **Pull** fast-forward only. Confirm before anything destructive (discard, delete branch).
 - **The open dashboard** is `settings.widgets` / `settings.layout`. `lib/dashboards.ts` syncs it into `settings.dashboards` on switch. Widget code shouldn't care which dashboard it's on.
 - **GitHub-rendered HTML** (`body_html`, READMEs) must go through `<Markdown>`, which sanitises it again. Never `dangerouslySetInnerHTML` raw API content anywhere else.
 - **Mind the rate limit.** Every tracked repo is polled every cycle. Prefer REST GETs (ETag 304s are free) and add new per-poll requests only when unavoidable. GraphQL is split into one inbox query plus one query per repo, because a single combined query returned 502s.

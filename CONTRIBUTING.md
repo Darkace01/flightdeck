@@ -45,6 +45,8 @@ src/
     poller.ts    polls GitHub, diffs snapshots into events
     github.ts    REST + GraphQL client with ETag caching
     details.ts   on-demand fetches for the PR and repo views
+    repoTools.ts issues, branches, commits, releases, creating PRs (repo tab sections)
+    git.ts       local git: status, diff, commit, sync, branches; runs `git` with execFile
     store.ts     settings/events on disk, token storage
     updater.ts   auto-updates from GitHub Releases
   preload/     typed bridge exposed to the UI as window.pushback
@@ -61,8 +63,10 @@ The key ideas:
 2. **The poller builds a `Snapshot`.** Every cycle it fetches runs over REST and PRs over GraphQL for each tracked repo, then pushes the whole snapshot to the UI. GETs use ETags, so a 304 response costs no rate limit. It polls faster while runs are active or just after you take an action.
 3. **Events come from diffs.** `poller.ts` compares each snapshot with the previous one (a run went from in progress to failed, a PR was merged, and so on). These events feed both the Activity widget and desktop notifications.
 4. **GitHub links open in the app.** Send any click on GitHub content through `openInApp(url)` in `lib/open.ts`. It opens the PR, run or repo view if there is one, and the browser otherwise. Open views with `pushModal` so that closing them returns to where the user came from.
-5. **Dashboards.** The open dashboard's widgets and layout live in `settings.widgets` / `settings.layout`, so widget code doesn't need to know about dashboards. `lib/dashboards.ts` writes them back into `settings.dashboards` when switching. Templates are in `shared/templates.ts`.
-6. **Settings live in the main process.** The UI applies changes optimistically (`updateSettings` in `lib/store.ts`), and the main process persists them to `settings.json`. When you add a setting, also give it a default in `shared/defaults.ts`. Old settings files are filled in from the defaults, so no migration is needed for new fields.
+5. **Repo tabs.** `settings.openTabs` / `settings.activeTab` hold the open tabs (`lib/tabs.ts`). A repo tab is `components/RepoWorkspace.tsx`: add a section by adding an entry to `SECTIONS`, either a component that gets `{ repo, info }` or a dashboard widget scoped to the repo. Sections load their data on demand with `useLoad(repo, …)` from `lib/useLoad.ts`. After creating or changing something, call `invalidate(repo)` so every section showing that repo reloads.
+6. **Local git is locked to linked folders.** The renderer only ever passes a repo name; `main/index.ts` looks up the folder in `settings.localPaths`, and only the link and clone dialogs can set those. Keep it that way: never accept a path from the renderer, and pass user-typed values to git after `--` or validate them (see `branchName` in `git.ts`).
+7. **Dashboards.** The open dashboard's widgets and layout live in `settings.widgets` / `settings.layout`, so widget code doesn't need to know about dashboards. `lib/dashboards.ts` writes them back into `settings.dashboards` when switching. Templates are in `shared/templates.ts`.
+8. **Settings live in the main process.** The UI applies changes optimistically (`updateSettings` in `lib/store.ts`), and the main process persists them to `settings.json`. When you add a setting, also give it a default in `shared/defaults.ts`. Old settings files are filled in from the defaults, so no migration is needed for new fields.
 
 ## Adding a widget
 
