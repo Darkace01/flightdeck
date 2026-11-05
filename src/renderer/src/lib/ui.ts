@@ -10,6 +10,10 @@ export type ModalState =
   | { kind: 'run'; run: WorkflowRun }
   | { kind: 'merge'; pr: Pick<PullRequest, 'repo' | 'number' | 'title' | 'url'> }
   | { kind: 'pr'; repo: string; number: number }
+  | { kind: 'issue'; repo: string; number: number }
+  | { kind: 'new-pr'; repo: string; head?: string }
+  | { kind: 'new-issue'; repo: string }
+  | { kind: 'new-release'; repo: string }
   | { kind: 'new-dashboard' }
   | { kind: 'dashboards' }
   | null

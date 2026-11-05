@@ -4,6 +4,8 @@ import { Dashboard } from './components/Dashboard'
 import { DashboardSwitcher, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
 import { PrModal } from './components/PrView'
+import { NewIssueModal, NewPrModal, NewReleaseModal } from './components/CreateModals'
+import { IssueModal } from './components/IssueView'
 import { RepoWorkspace } from './components/RepoWorkspace'
 import { TabBar } from './components/Tabs'
 import { AccountSection, ReposSection, SettingsModal } from './components/SettingsModal'
@@ -175,6 +177,14 @@ function Modals() {
       return <MergeModal pr={modal.pr} />
     case 'pr':
       return <PrModal key={`${modal.repo}#${modal.number}`} repo={modal.repo} number={modal.number} />
+    case 'issue':
+      return <IssueModal key={`${modal.repo}#${modal.number}`} repo={modal.repo} number={modal.number} />
+    case 'new-pr':
+      return <NewPrModal repo={modal.repo} head={modal.head} />
+    case 'new-issue':
+      return <NewIssueModal repo={modal.repo} />
+    case 'new-release':
+      return <NewReleaseModal repo={modal.repo} />
     case 'new-dashboard':
       return <NewDashboardModal />
     case 'dashboards':

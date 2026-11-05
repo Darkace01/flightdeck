@@ -1,9 +1,10 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, Job, NotifySettings, RepoOption, Settings } from '../shared/types'
+import type { ActionResult, AppEvent, EventKind, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
+import * as tools from './repoTools'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
 import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
@@ -174,6 +175,17 @@ async function run(action: () => Promise<unknown>, boost = true): Promise<Action
   }
 }
 
+/** Like run(), for actions that create something: passes the new item's url/number back to the UI. */
+async function create(action: () => Promise<ActionResult>): Promise<ActionResult> {
+  try {
+    const result = await action()
+    poller.pollSoon()
+    return result
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
 function requireClient(): GitHub {
   if (!poller.client) throw new Error('Not signed in to GitHub')
   return poller.client
@@ -206,9 +218,14 @@ function registerIpc(): void {
   ipcMain.handle('poll:now', () => poller.pollSoon())
   ipcMain.handle('repos:mine', async (): Promise<RepoOption[]> => {
     const gh = requireClient()
-    const repos = await gh.get<{ full_name: string; description: string | null; private: boolean; pushed_at: string }[]>(
-      '/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member'
-    )
+    type GhRepo = { full_name: string; description: string | null; private: boolean; pushed_at: string }
+    // Up to 500 repos, most recently pushed first; a short page means we've reached the end.
+    const repos: GhRepo[] = []
+    for (let page = 1; page <= 5; page++) {
+      const batch = await gh.get<GhRepo[]>(`/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`)
+      repos.push(...batch)
+      if (batch.length < 100) break
+    }
     return repos.map((r) => ({ fullName: r.full_name, description: r.description, private: r.private, pushedAt: r.pushed_at }))
   })
   ipcMain.handle('wf:dispatch', (_e, repo: string, id: number, ref: string, inputs: Record<string, string>) =>
@@ -286,6 +303,24 @@ function registerIpc(): void {
     run(() => requireClient().send('POST', `/repos/${repo}/issues/${num}/comments`, { body }), false)
   )
   ipcMain.handle('repo:info', (_e, repo: string) => fetchRepoInfo(requireClient(), repo))
+  ipcMain.handle('issues:list', (_e, repo: string, state: 'open' | 'closed') => tools.listIssues(requireClient(), repo, state))
+  ipcMain.handle('issue:detail', (_e, repo: string, num: number) => tools.issueDetail(requireClient(), repo, num))
+  ipcMain.handle('issue:create', (_e, repo: string, issue: { title: string; body: string; labels: string[] }) =>
+    create(() => tools.createIssue(requireClient(), repo, issue))
+  )
+  ipcMain.handle('issue:state', (_e, repo: string, num: number, state: 'open' | 'closed', reason?: string) =>
+    run(() => requireClient().send('PATCH', `/repos/${repo}/issues/${num}`, { state, ...(reason && { state_reason: reason }) }), false)
+  )
+  ipcMain.handle('labels:list', (_e, repo: string) => tools.listLabels(requireClient(), repo))
+  ipcMain.handle('branches:list', (_e, repo: string, defaultBranch: string) => tools.listBranches(requireClient(), repo, defaultBranch))
+  ipcMain.handle('branch:create', (_e, repo: string, name: string, from: string) => create(() => tools.createBranch(requireClient(), repo, name, from)))
+  ipcMain.handle('branch:delete', (_e, repo: string, name: string) =>
+    run(() => requireClient().send('DELETE', `/repos/${repo}/git/refs/heads/${tools.refPath(name)}`), false)
+  )
+  ipcMain.handle('commits:list', (_e, repo: string, ref?: string) => tools.listCommits(requireClient(), repo, ref))
+  ipcMain.handle('releases:list', (_e, repo: string) => tools.listReleases(requireClient(), repo))
+  ipcMain.handle('release:create', (_e, repo: string, release: NewRelease) => create(() => tools.createRelease(requireClient(), repo, release)))
+  ipcMain.handle('pr:create', (_e, repo: string, pr: NewPr) => create(() => tools.createPr(requireClient(), repo, pr)))
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:install', () => {

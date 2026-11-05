@@ -246,6 +246,91 @@ export interface RepoOption {
 export interface ActionResult {
   ok: boolean
   error?: string
+  /** Set when the action created something (an issue, PR, release…). */
+  url?: string
+  number?: number
+}
+
+export interface Label {
+  name: string
+  color: string
+  description?: string | null
+}
+
+export interface IssueSummary {
+  repo: string
+  number: number
+  title: string
+  url: string
+  state: 'open' | 'closed'
+  author: string
+  authorAvatar: string
+  createdAt: string
+  updatedAt: string
+  comments: number
+  labels: Label[]
+  assignees: string[]
+}
+
+export interface IssueDetail extends Omit<IssueSummary, 'comments'> {
+  bodyHtml: string
+  stateReason: string | null
+  timeline: PrComment[]
+}
+
+export interface BranchInfo {
+  name: string
+  sha: string
+  isDefault: boolean
+  date: string
+  message: string
+  author: string
+  authorAvatar?: string
+  /** Commits on this branch that the default branch doesn't have, and vice versa. */
+  ahead: number
+  behind: number
+  openPr?: number
+}
+
+export interface CommitInfo {
+  sha: string
+  message: string
+  author: string
+  authorAvatar?: string
+  date: string
+  url: string
+}
+
+export interface ReleaseInfo {
+  id: number
+  tag: string
+  name: string
+  url: string
+  draft: boolean
+  prerelease: boolean
+  publishedAt: string | null
+  createdAt: string
+  author: string
+  bodyHtml: string
+  assets: { name: string; size: number; downloads: number; url: string }[]
+}
+
+export interface NewPr {
+  title: string
+  head: string
+  base: string
+  body: string
+  draft: boolean
+}
+
+export interface NewRelease {
+  tag: string
+  target: string
+  name: string
+  body: string
+  draft: boolean
+  prerelease: boolean
+  generateNotes: boolean
 }
 
 export interface PrComment {
@@ -362,6 +447,18 @@ export interface PushbackApi {
   prDetail(repo: string, num: number): Promise<PrDetail>
   commentPr(repo: string, num: number, body: string): Promise<ActionResult>
   repoInfo(repo: string): Promise<RepoInfo>
+  listIssues(repo: string, state: 'open' | 'closed'): Promise<IssueSummary[]>
+  issueDetail(repo: string, num: number): Promise<IssueDetail>
+  createIssue(repo: string, issue: { title: string; body: string; labels: string[] }): Promise<ActionResult>
+  setIssueState(repo: string, num: number, state: 'open' | 'closed', reason?: 'completed' | 'not_planned'): Promise<ActionResult>
+  listLabels(repo: string): Promise<Label[]>
+  listBranches(repo: string, defaultBranch: string): Promise<BranchInfo[]>
+  createBranch(repo: string, name: string, from: string): Promise<ActionResult>
+  deleteBranch(repo: string, name: string): Promise<ActionResult>
+  listCommits(repo: string, ref?: string): Promise<CommitInfo[]>
+  listReleases(repo: string): Promise<ReleaseInfo[]>
+  createRelease(repo: string, release: NewRelease): Promise<ActionResult>
+  createPr(repo: string, pr: NewPr): Promise<ActionResult>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */
   onNavigate(cb: (url: string) => void): () => void
 }

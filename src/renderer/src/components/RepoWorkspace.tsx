@@ -3,11 +3,13 @@ import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import type { RepoInfo, WidgetType } from '../../../shared/types'
 import { timeAgo, useNow } from '../lib/format'
 import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import { pushModal } from '../lib/ui'
 import { InsightsWidget } from '../widgets/InsightsWidget'
 import { PrsWidget } from '../widgets/PrsWidget'
 import { RunsWidget } from '../widgets/RunsWidget'
 import type { WidgetProps } from '../widgets/types'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
+import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { Markdown } from './Markdown'
 import { Empty, runTone, StatusIcon } from './ui'
 
@@ -41,6 +43,10 @@ function Overview({ repo, info }: SectionProps) {
 export const SECTIONS: Section[] = [
   { id: 'overview', label: 'Overview', group: 'GitHub', component: Overview },
   { id: 'pulls', label: 'Pull requests', group: 'GitHub', widget: ['prs', PrsWidget] },
+  { id: 'issues', label: 'Issues', group: 'GitHub', component: IssuesSection },
+  { id: 'branches', label: 'Branches', group: 'GitHub', component: BranchesSection },
+  { id: 'commits', label: 'Commits', group: 'GitHub', component: CommitsSection },
+  { id: 'releases', label: 'Releases', group: 'GitHub', component: ReleasesSection },
   { id: 'runs', label: 'Runs', group: 'Actions', widget: ['runs', RunsWidget] },
   { id: 'workflows', label: 'Workflows', group: 'Actions', widget: ['workflows', WorkflowsWidget] },
   { id: 'insights', label: 'Insights', group: 'Actions', widget: ['insights', InsightsWidget] }
@@ -135,6 +141,12 @@ export function RepoWorkspace({ repo }: { repo: string }) {
               }}
             >
               {tracked ? 'Watching ✓' : '+ Watch'}
+            </button>
+            <button className="btn btn-sm" onClick={() => pushModal({ kind: 'new-pr', repo })}>
+              New pull request
+            </button>
+            <button className="btn btn-sm" onClick={() => pushModal({ kind: 'new-issue', repo })}>
+              New issue
             </button>
             <span className="spacer" />
             <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(`gh repo clone ${repo}`).then(() => toast('Clone command copied', 'ok'))}>

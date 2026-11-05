@@ -1678,3 +1678,111 @@ input[type='range'] {
   gap: 8px;
   flex-wrap: wrap;
 }
+.ws-filter {
+  width: 260px;
+}
+.inline-form {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel2);
+}
+.inline-form input {
+  flex: 1;
+  min-width: 180px;
+}
+.inline.wrap {
+  flex-wrap: wrap;
+}
+.form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.form-row > .field {
+  flex: 1;
+}
+.form-arrow {
+  padding-bottom: 8px;
+  color: var(--dim);
+}
+.label-pick {
+  cursor: pointer;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.55;
+}
+.label-pick.on {
+  opacity: 1;
+  font-weight: 600;
+}
+.ahead-behind {
+  font: 11.5px var(--mono);
+  white-space: nowrap;
+}
+.releases {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.release-head {
+  cursor: pointer;
+}
+.releases .comment > .markdown {
+  padding: 12px 16px;
+}
+.assets {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  border-top: 1px solid var(--border);
+}
+.assets td {
+  padding: 6px 16px;
+}
+.assets tr + tr td {
+  border-top: 1px solid var(--border);
+}
+.repo-picker {
+  width: 440px;
+  max-height: min(70vh, 520px);
+}
+.repo-picker > input {
+  margin: 2px 2px 6px;
+}
+.picker-list {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.picker-list button {
+  align-items: center;
+}
+.picker-list button.sel {
+  background: var(--hover);
+}
+.picker-main {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  min-width: 0;
+}
+.picker-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.picker-desc {
+  font-size: 11.5px;
+  color: var(--dim);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block !important;
+}
+.picker-note {
+  padding: 8px 10px;
+}

@@ -34,6 +34,18 @@ const api: PushbackApi = {
   prDetail: (repo, num) => ipcRenderer.invoke('pr:detail', repo, num),
   commentPr: (repo, num, body) => ipcRenderer.invoke('pr:comment', repo, num, body),
   repoInfo: (repo) => ipcRenderer.invoke('repo:info', repo),
+  listIssues: (repo, state) => ipcRenderer.invoke('issues:list', repo, state),
+  issueDetail: (repo, num) => ipcRenderer.invoke('issue:detail', repo, num),
+  createIssue: (repo, issue) => ipcRenderer.invoke('issue:create', repo, issue),
+  setIssueState: (repo, num, state, reason) => ipcRenderer.invoke('issue:state', repo, num, state, reason),
+  listLabels: (repo) => ipcRenderer.invoke('labels:list', repo),
+  listBranches: (repo, defaultBranch) => ipcRenderer.invoke('branches:list', repo, defaultBranch),
+  createBranch: (repo, name, from) => ipcRenderer.invoke('branch:create', repo, name, from),
+  deleteBranch: (repo, name) => ipcRenderer.invoke('branch:delete', repo, name),
+  listCommits: (repo, ref) => ipcRenderer.invoke('commits:list', repo, ref),
+  listReleases: (repo) => ipcRenderer.invoke('releases:list', repo),
+  createRelease: (repo, release) => ipcRenderer.invoke('release:create', repo, release),
+  createPr: (repo, pr) => ipcRenderer.invoke('pr:create', repo, pr),
   onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 
