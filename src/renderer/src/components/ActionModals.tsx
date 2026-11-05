@@ -1,0 +1,295 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { Job, PullRequest, Workflow, WorkflowRun } from '../../../shared/types'
+import { duration, timeAgo, useNow } from '../lib/format'
+import { api, toast, useSnapshot } from '../lib/store'
+import { closeModal } from '../lib/ui'
+import { cancel, rerun } from '../widgets/RunsWidget'
+import { Avatar, Modal, runTone, Segmented, StatusIcon } from './ui'
+
+export function DispatchModal({ workflow }: { workflow: Workflow }) {
+  const snapshot = useSnapshot()
+  const repo = snapshot.repos[workflow.repo]
+  const [ref, setRef] = useState(repo?.defaultBranch ?? 'main')
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(workflow.inputs.map((i) => [i.name, i.default ?? (i.type === 'boolean' ? 'false' : i.options?.[0] ?? '')]))
+  )
+  const [busy, setBusy] = useState(false)
+  const branches = useMemo(
+    () => [...new Set([repo?.defaultBranch, ...(repo?.prs.map((p) => p.branch) ?? []), ...(repo?.runs.map((r) => r.branch) ?? [])].filter(Boolean))] as string[],
+    [repo]
+  )
+  const missing = workflow.inputs.filter((i) => i.required && !values[i.name]?.trim())
+
+  const submit = async () => {
+    setBusy(true)
+    const r = await api.dispatch(workflow.repo, workflow.id, ref.trim(), values)
+    setBusy(false)
+    if (r.ok) {
+      toast(`Started ${workflow.name} on ${ref}`, 'ok')
+      closeModal()
+    } else toast(`Couldn't start workflow: ${r.error}`, 'error')
+  }
+
+  return (
+    <Modal title={`Run “${workflow.name}”`} onClose={closeModal} width={500}>
+      <p className="dim small">
+        {workflow.repo} · <span className="mono">{workflow.path}</span>
+      </p>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!missing.length) void submit()
+        }}
+      >
+        <label className="field">
+          <span>Branch or tag</span>
+          <input list="dispatch-refs" value={ref} onChange={(e) => setRef(e.target.value)} autoFocus />
+          <datalist id="dispatch-refs">
+            {branches.map((b) => (
+              <option key={b} value={b} />
+            ))}
+          </datalist>
+        </label>
+        {workflow.inputs.map((input) => {
+          const value = values[input.name] ?? ''
+          const set = (v: string) => setValues({ ...values, [input.name]: v })
+          const label = (
+            <>
+              {input.name}
+              {input.required && <span className="del"> *</span>}
+            </>
+          )
+          if (input.type === 'boolean')
+            return (
+              <label key={input.name} className="check">
+                <input type="checkbox" checked={value === 'true'} onChange={(e) => set(String(e.target.checked))} />
+                <span>
+                  <span className="strong">{label}</span> {input.description && <span className="dim">— {input.description}</span>}
+                </span>
+              </label>
+            )
+          return (
+            <label key={input.name} className="field">
+              <span>{label}</span>
+              {input.type === 'choice' && input.options ? (
+                <select value={value} onChange={(e) => set(e.target.value)}>
+                  {input.options.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              ) : (
+                <input type={input.type === 'number' ? 'number' : 'text'} value={value} onChange={(e) => set(e.target.value)} />
+              )}
+              {input.description && <small>{input.description}</small>}
+            </label>
+          )
+        })}
+        <footer className="modal-actions">
+          <span className="spacer" />
+          <button type="button" className="btn" onClick={closeModal}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={busy || !ref.trim() || missing.length > 0}>
+            {busy ? 'Starting…' : '▶ Run workflow'}
+          </button>
+        </footer>
+      </form>
+    </Modal>
+  )
+}
+
+function JobView({ job, repo, initiallyOpen }: { job: Job; repo: string; initiallyOpen: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen)
+  const [log, setLog] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const now = useNow(5000)
+  const tone = runTone({ status: job.status as WorkflowRun['status'], conclusion: job.conclusion })
+
+  const loadLog = async () => {
+    setLoading(true)
+    try {
+      setLog(await api.jobLog(repo, job.id))
+    } catch (err) {
+      setLog(`Couldn't load log: ${(err as Error).message}`)
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="job">
+      <div className="job-head" onClick={() => setOpen(!open)}>
+        <StatusIcon tone={tone} />
+        <span className="strong">{job.name}</span>
+        <span className="dim small">{job.startedAt ? duration(job.startedAt, job.completedAt ?? now) : 'queued'}</span>
+        {job.status === 'completed' && (
+          <button
+            className="btn btn-sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              setOpen(true)
+              void loadLog()
+            }}
+          >
+            {loading ? 'Loading…' : 'Log'}
+          </button>
+        )}
+        <button
+          className="btn btn-sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            void api.openExternal(job.url)
+          }}
+        >
+          Open
+        </button>
+      </div>
+      {open && (
+        <ul className="steps">
+          {job.steps.map((s) => (
+            <li key={s.number}>
+              <StatusIcon tone={runTone({ status: s.status as WorkflowRun['status'], conclusion: s.conclusion })} size={13} />
+              <span>{s.name}</span>
+              <span className="dim">{s.startedAt ? duration(s.startedAt, s.completedAt ?? now) : ''}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && log !== null && (
+        <pre className="log">
+          {log.split('\n').map((line, i) => (
+            <div key={i} className={/##\[error\]|\berror\b|FAILED|Error:/i.test(line) ? 'err' : undefined}>
+              {line.replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /, '')}
+            </div>
+          ))}
+        </pre>
+      )}
+    </div>
+  )
+}
+
+export function RunDetailsModal({ run: initial }: { run: WorkflowRun }) {
+  const snapshot = useSnapshot()
+  const run = snapshot.repos[initial.repo]?.runs.find((r) => r.id === initial.id) ?? initial
+  const [jobs, setJobs] = useState<Job[] | null>(null)
+  const [error, setError] = useState<string>()
+  const active = run.status !== 'completed'
+  const now = useNow(5000)
+
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      api.runJobs(run.repo, run.id).then(
+        (j) => alive && setJobs(j),
+        (e: Error) => alive && setError(e.message)
+      )
+    void load()
+    // Jobs aren't part of the regular poll, so refresh them while the run is live.
+    const t = active ? setInterval(load, 5000) : undefined
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [run.repo, run.id, active, run.attempt])
+
+  const tone = runTone(run)
+  return (
+    <Modal title={`${run.name} #${run.runNumber}`} onClose={closeModal} width={760}>
+      <div className="account">
+        <StatusIcon tone={tone} size={22} />
+        <div>
+          <div className="strong">{run.title}</div>
+          <div className="row-meta">
+            <span>{run.repo}</span>
+            <span className="mono">{run.branch}</span>
+            <span className="mono">{run.sha.slice(0, 7)}</span>
+            <span>{run.event}</span>
+            <Avatar src={run.actorAvatar} login={run.actor} size={14} />
+            <span>{run.actor}</span>
+            <span>{timeAgo(run.createdAt, now)}</span>
+            <span>{active ? duration(run.startedAt, now) : duration(run.startedAt, run.updatedAt)}</span>
+          </div>
+        </div>
+      </div>
+      <div className="inline">
+        {active && (
+          <button className="btn" onClick={() => void cancel(run)}>
+            Cancel run
+          </button>
+        )}
+        {!active && tone === 'bad' && (
+          <button className="btn btn-primary" onClick={() => void rerun(run, true)}>
+            Re-run failed jobs
+          </button>
+        )}
+        {!active && (
+          <button className="btn" onClick={() => void rerun(run, false)}>
+            Re-run all jobs
+          </button>
+        )}
+        <span className="spacer" />
+        <button className="btn" onClick={() => void navigator.clipboard.writeText(run.url).then(() => toast('Link copied', 'ok'))}>
+          Copy link
+        </button>
+        <button className="btn" onClick={() => void api.openExternal(run.url)}>
+          Open on GitHub
+        </button>
+      </div>
+      {error && <p className="del">{error}</p>}
+      {!jobs && !error && <p className="dim">Loading jobs…</p>}
+      {jobs && (
+        <div className="jobs">
+          {jobs.map((job) => (
+            <JobView key={job.id} job={job} repo={run.repo} initiallyOpen={job.conclusion === 'failure' || job.status === 'in_progress'} />
+          ))}
+          {!jobs.length && <p className="dim">No jobs.</p>}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+export function MergeModal({ pr }: { pr: Pick<PullRequest, 'repo' | 'number' | 'title' | 'url'> }) {
+  const [method, setMethod] = useState<'squash' | 'merge' | 'rebase'>('squash')
+  const [busy, setBusy] = useState(false)
+  const merge = async () => {
+    setBusy(true)
+    const r = await api.mergePr(pr.repo, pr.number, method)
+    setBusy(false)
+    if (r.ok) {
+      toast(`Merged ${pr.repo}#${pr.number}`, 'ok')
+      closeModal()
+    } else toast(`Merge failed: ${r.error}`, 'error')
+  }
+  return (
+    <Modal title={`Merge #${pr.number}`} onClose={closeModal} width={460}>
+      <p>
+        <span className="strong">{pr.title}</span>
+        <br />
+        <span className="dim">{pr.repo}</span>
+      </p>
+      <Segmented
+        value={method}
+        onChange={setMethod}
+        options={[
+          ['squash', 'Squash and merge'],
+          ['merge', 'Merge commit'],
+          ['rebase', 'Rebase and merge']
+        ]}
+      />
+      <p className="dim small">Branch protection rules still apply — GitHub will refuse the merge if required checks or reviews are missing.</p>
+      <footer className="modal-actions">
+        <button className="link" onClick={() => void api.openExternal(pr.url)}>
+          Review on GitHub first →
+        </button>
+        <span className="spacer" />
+        <button className="btn" onClick={closeModal}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" disabled={busy} onClick={() => void merge()}>
+          {busy ? 'Merging…' : 'Confirm merge'}
+        </button>
+      </footer>
+    </Modal>
+  )
+}

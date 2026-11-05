@@ -5,5 +5,3 @@ declare global {
     repodeck: RepoDeckApi
   }
 }
-
-declare module '*.css'
