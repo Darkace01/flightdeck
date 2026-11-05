@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Job, PullRequest, Workflow, WorkflowRun } from '../../../shared/types'
 import { duration, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSnapshot } from '../lib/store'
@@ -103,6 +103,7 @@ function JobView({ job, repo, initiallyOpen }: { job: Job; repo: string; initial
   const [open, setOpen] = useState(initiallyOpen)
   const [log, setLog] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const logRef = useRef<HTMLPreElement>(null)
   const now = useNow(5000)
   const tone = runTone({ status: job.status as WorkflowRun['status'], conclusion: job.conclusion })
 
@@ -115,6 +116,16 @@ function JobView({ job, repo, initiallyOpen }: { job: Job; repo: string; initial
     }
     setLoading(false)
   }
+
+  // Failures are near the end of a log, so land on the first error line (or the bottom), not the setup noise.
+  useEffect(() => {
+    const pre = logRef.current
+    if (!pre || log === null) return
+    // Prefer GitHub's own ##[error] annotations over lines that merely mention "error".
+    const loose = pre.querySelectorAll<HTMLElement>('.err')
+    const err = pre.querySelector<HTMLElement>('.err.annotated') ?? loose[loose.length - 1]
+    pre.scrollTop = err ? err.offsetTop - pre.clientHeight / 3 : pre.scrollHeight
+  }, [log])
 
   return (
     <div className="job">
@@ -156,12 +167,20 @@ function JobView({ job, repo, initiallyOpen }: { job: Job; repo: string; initial
         </ul>
       )}
       {open && log !== null && (
-        <pre className="log">
-          {log.split('\n').map((line, i) => (
-            <div key={i} className={/##\[error\]|\berror\b|FAILED|Error:/i.test(line) ? 'err' : undefined}>
-              {line.replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /, '')}
-            </div>
-          ))}
+        <pre className="log" ref={logRef}>
+          {log.split('\n').map((raw, i) => {
+            // Drop the timestamp prefix and ANSI colour codes.
+            const line = raw.replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /, '').replace(/\x1b\[[0-9;]*m/g, '')
+            if (line.startsWith('##[endgroup]')) return null
+            if (line.startsWith('##[group]')) return <div key={i} className="log-group">▸ {line.slice(9)}</div>
+            const annotated = line.startsWith('##[error]')
+            const isError = annotated || /\berror\b|FAILED|Error:/i.test(line)
+            return (
+              <div key={i} className={isError ? `err${annotated ? ' annotated' : ''}` : undefined}>
+                {line.replace(/^##\[(error|warning|notice|debug)\]/, (_, kind: string) => `${kind}: `)}
+              </div>
+            )
+          })}
         </pre>
       )}
     </div>

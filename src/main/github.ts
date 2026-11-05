@@ -91,8 +91,10 @@ export class GitHub {
 async function toError(res: Response): Promise<GitHubError> {
   let message = `${res.status} ${res.statusText}`
   try {
-    const body = (await res.json()) as { message?: string }
-    if (body.message) message = `${body.message} (${res.status})`
+    // Validation failures (422) put the useful reason in `errors`, e.g. "Can not approve your own pull request".
+    const body = (await res.json()) as { message?: string; errors?: (string | { message?: string; code?: string })[] }
+    const details = (body.errors ?? []).map((e) => (typeof e === 'string' ? e : (e.message ?? e.code))).filter(Boolean)
+    if (body.message) message = `${details.length ? details.join('; ') : body.message} (${res.status})`
   } catch {
     // non-JSON error body
   }

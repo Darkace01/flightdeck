@@ -273,7 +273,9 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   app.on('second-instance', showWindow)
-  app.setAppUserModelId('dev.repodeck.app') // required for Windows toast notifications
+  // Windows only shows toasts for an AppUserModelID that has a Start-menu shortcut. The installer
+  // registers our appId; an unpackaged dev build has no shortcut, so use Electron's own exe path there.
+  app.setAppUserModelId(app.isPackaged ? 'dev.repodeck.app' : process.execPath)
 
   app.whenReady().then(() => {
     settings = loadSettings()

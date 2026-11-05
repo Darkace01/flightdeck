@@ -1124,3 +1124,10 @@ input[type='range'] {
   background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0) 0 2px, rgb(0 0 0 / 0.18) 2px 3px);
   mix-blend-mode: multiply;
 }
+.log {
+  position: relative;
+}
+.log .log-group {
+  color: #8b949e;
+  font-weight: 600;
+}
