@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { DEFAULT_SETTINGS } from '../../../shared/defaults'
 import { COLOR_LABELS, findTheme, FONT_CHOICES, THEMES, type ThemeColors, type ThemePreset } from '../../../shared/themes'
-import type { NotifySettings, RepoOption } from '../../../shared/types'
-import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import type { NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
+import { api, toast, updateSettings, useSettings, useSnapshot, useUpdate } from '../lib/store'
 import { useAppearance } from '../lib/theme'
 import { closeModal } from '../lib/ui'
 import { Avatar, IconButton, Modal, Segmented } from './ui'
@@ -53,7 +53,7 @@ export function AccountSection() {
         <p className="dim">{snapshot.authError ?? 'Not signed in.'}</p>
       )}
       <p className="dim small">
-        RepoDeck uses your <code>gh</code> CLI login automatically. To use a different account, paste a token with <code>repo</code> and <code>workflow</code>{' '}
+        Flightdeck uses your <code>gh</code> CLI login automatically. To use a different account, paste a token with <code>repo</code> and <code>workflow</code>{' '}
         scopes (or a fine-grained token with Actions, Contents and Pull requests read/write). It's stored encrypted with your OS keychain.
       </p>
       <div className="inline">
@@ -62,7 +62,7 @@ export function AccountSection() {
           {busy ? 'Checking…' : 'Save token'}
         </button>
       </div>
-      <button className="link" onClick={() => void api.openExternal('https://github.com/settings/tokens/new?scopes=repo,workflow&description=RepoDeck')}>
+      <button className="link" onClick={() => void api.openExternal('https://github.com/settings/tokens/new?scopes=repo,workflow&description=Flightdeck')}>
         Create a token on GitHub →
       </button>
     </div>
@@ -309,11 +309,52 @@ function LookSection() {
   )
 }
 
+function UpdatesField() {
+  const settings = useSettings()
+  const update = useUpdate()
+  const status: Record<UpdateStatus['state'], string> = {
+    idle: '',
+    checking: 'Checking…',
+    none: "You're on the latest version.",
+    available: update.canInstall ? `Version ${update.version} is available.` : `Version ${update.version} is available to download.`,
+    downloading: `Downloading ${update.version}… ${update.percent ?? 0}%`,
+    ready: `Version ${update.version} is ready. Restart to finish updating.`,
+    error: `Couldn't check for updates: ${update.error}`,
+    unsupported: 'Updates are only checked in installed builds.'
+  }
+  return (
+    <div className="field">
+      <span>Updates · version {update.current}</span>
+      <label className="check">
+        <input type="checkbox" checked={settings.autoUpdate} onChange={(e) => void updateSettings({ autoUpdate: e.target.checked })} />
+        Check for updates automatically{update.canInstall ? ' and download them in the background' : ''}
+      </label>
+      <div className="inline">
+        {update.state === 'ready' ? (
+          <button className="btn btn-primary" onClick={() => void api.installUpdate()}>
+            Restart and update
+          </button>
+        ) : update.state === 'available' && !update.canInstall ? (
+          <button className="btn btn-primary" onClick={() => void api.openExternal(update.url!)}>
+            Download {update.version}
+          </button>
+        ) : (
+          <button className="btn" disabled={update.state === 'checking' || update.state === 'downloading' || update.state === 'unsupported'} onClick={() => void api.checkForUpdates()}>
+            Check now
+          </button>
+        )}
+        <span className={`small ${update.state === 'error' ? 'del' : 'dim'}`}>{status[update.state]}</span>
+      </div>
+    </div>
+  )
+}
+
 function AdvancedSection() {
   const settings = useSettings()
   const [json, setJson] = useState('')
   return (
     <div className="stack">
+      <UpdatesField />
       <label className="field">
         <span>Poll every (seconds)</span>
         <input type="number" min={15} max={3600} value={settings.pollSeconds} onChange={(e) => void updateSettings({ pollSeconds: Math.max(15, Number(e.target.value)) })} />
@@ -328,7 +369,7 @@ function AdvancedSection() {
           onChange={(e) => void updateSettings({ activePollSeconds: Math.max(5, Number(e.target.value)) })}
         />
       </label>
-      <p className="dim small">Unchanged data costs nothing: RepoDeck uses ETag requests, which GitHub doesn't count against your rate limit.</p>
+      <p className="dim small">Unchanged data costs nothing: Flightdeck uses ETag requests, which GitHub doesn't count against your rate limit.</p>
       <label className="check">
         <input type="checkbox" checked={settings.closeToTray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
         Keep running in the tray when the window is closed (so notifications keep coming)

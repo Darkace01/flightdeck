@@ -28,7 +28,7 @@ export class GitHub {
       Authorization: `Bearer ${this.token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'RepoDeck',
+      'User-Agent': 'Flightdeck',
       ...extra
     }
   }

@@ -1,11 +1,13 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
-import { join } from 'node:path'
+import { cpSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import type { ActionResult, AppEvent, EventKind, Job, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { GitHub } from './github'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
 import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
-import { trayIcon } from './icon'
+import { appIcon } from './icon'
+import { checkForUpdates, initUpdater, installUpdate, RELEASES_URL, updateStatus } from './updater'
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -41,7 +43,7 @@ function notify(events: AppEvent[]): void {
   })
   // Collapse bursts (e.g. a matrix finishing) into one toast.
   if (wanted.length > 3) {
-    const n = new Notification({ title: `RepoDeck · ${wanted.length} updates`, body: wanted.slice(0, 4).map((e) => e.title).join('\n') })
+    const n = new Notification({ title: `Flightdeck · ${wanted.length} updates`, body: wanted.slice(0, 4).map((e) => e.title).join('\n') })
     n.on('click', showWindow)
     n.show()
     return
@@ -57,7 +59,7 @@ function updateTray(): void {
   if (!tray) return
   const unread = poller.snapshot.events.filter((e) => !e.read).length
   const running = Object.values(poller.snapshot.repos).reduce((n, r) => n + r.runs.filter((x) => x.status !== 'completed').length, 0)
-  tray.setToolTip(`RepoDeck — ${running} running, ${unread} unread`)
+  tray.setToolTip(`Flightdeck — ${running} running, ${unread} unread`)
   if (process.platform === 'darwin') tray.setTitle(unread ? String(unread) : '')
   if (process.platform !== 'win32') app.setBadgeCount(unread)
 }
@@ -100,8 +102,8 @@ function createWindow(): void {
     show: false,
     backgroundColor: windowBackground(),
     autoHideMenuBar: true,
-    title: 'RepoDeck',
-    icon: trayIcon(64),
+    title: 'Flightdeck',
+    icon: appIcon(64),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -131,11 +133,18 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  tray = new Tray(trayIcon(16))
+  tray = new Tray(appIcon(16))
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open RepoDeck', click: showWindow },
+      { label: 'Open Flightdeck', click: showWindow },
       { label: 'Refresh now', click: () => poller.pollSoon() },
+      {
+        label: 'Check for updates',
+        click: () =>
+          void checkForUpdates().then((s) => {
+            if (s.state === 'available' && !s.canInstall) void shell.openExternal(s.url ?? RELEASES_URL)
+          })
+      },
       { type: 'separator' },
       {
         label: 'Quit',
@@ -241,7 +250,7 @@ function registerIpc(): void {
   ipcMain.handle('settings:import', (_e, json: string): ActionResult => {
     try {
       const parsed = JSON.parse(json) as Partial<Settings>
-      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a RepoDeck settings file')
+      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Flightdeck settings file')
       settings = normalizeSettings(parsed)
       saveSettings(settings)
       send('settings', settings)
@@ -267,6 +276,12 @@ function registerIpc(): void {
     send('snapshot', poller.snapshot)
     updateTray()
   })
+  ipcMain.handle('update:status', () => updateStatus())
+  ipcMain.handle('update:check', () => checkForUpdates())
+  ipcMain.handle('update:install', () => {
+    quitting = true
+    installUpdate()
+  })
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -275,7 +290,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showWindow)
   // Windows only shows toasts for an AppUserModelID that has a Start-menu shortcut. The installer
   // registers our appId; an unpackaged dev build has no shortcut, so use Electron's own exe path there.
-  app.setAppUserModelId(app.isPackaged ? 'dev.repodeck.app' : process.execPath)
+  app.setAppUserModelId(app.isPackaged ? 'dev.flightdeck.app' : process.execPath)
+  migrateUserData()
 
   app.whenReady().then(() => {
     settings = loadSettings()
@@ -284,6 +300,10 @@ if (!app.requestSingleInstanceLock()) {
     createWindow()
     createTray()
     void connect()
+    initUpdater(
+      (s) => send('update', s),
+      () => settings.autoUpdate
+    )
     app.on('activate', showWindow)
   })
 
@@ -294,6 +314,15 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     if (!settings.closeToTray) app.quit()
   })
+}
+
+/** The app was called RepoDeck before 0.2; carry its settings, history and token over once. */
+function migrateUserData(): void {
+  const dir = app.getPath('userData')
+  if (existsSync(join(dir, 'settings.json'))) return
+  const old = ['RepoDeck', 'repodeck'].map((name) => join(dirname(dir), name)).find((d) => existsSync(join(d, 'settings.json')))
+  if (!old) return
+  for (const name of ['settings.json', 'events.json', 'token.bin']) if (existsSync(join(old, name))) cpSync(join(old, name), join(dir, name))
 }
 
 interface GhJob {

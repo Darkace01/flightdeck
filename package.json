@@ -1,17 +1,24 @@
 {
-  "name": "repodeck",
-  "version": "0.1.0",
-  "description": "Fast, customizable desktop dashboard for GitHub Actions and pull requests",
+  "name": "flightdeck",
+  "version": "0.2.0",
+  "description": "Flightdeck: a fast, customizable desktop dashboard for GitHub Actions and pull requests",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "electron-vite build && electron-builder --publish never",
+    "icon": "node --no-warnings scripts/render-icon.mts"
   },
   "author": "Kazeem Quadri",
   "license": "MIT",
+  "homepage": "https://github.com/Darkace01/flightdeck",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Darkace01/flightdeck.git"
+  },
+  "bugs": "https://github.com/Darkace01/flightdeck/issues",
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^26.6.6",
@@ -25,27 +32,44 @@
     "vite": "^8.3.6"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-grid-layout": "^2.3.0",
     "yaml": "^2.9.1"
   },
-  "productName": "RepoDeck",
+  "productName": "Flightdeck",
   "build": {
-    "appId": "dev.repodeck.app",
-    "productName": "RepoDeck",
+    "appId": "dev.flightdeck.app",
+    "productName": "Flightdeck",
     "files": [
       "out/**",
       "package.json"
     ],
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
+    "icon": "build/icon.png",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "win": {
       "target": "nsis"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "mac": {
-      "target": "dmg",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
       "category": "public.app-category.developer-tools"
     },
     "linux": {
@@ -53,7 +77,13 @@
         "AppImage",
         "deb"
       ],
-      "category": "Development"
+      "category": "Development",
+      "maintainer": "Kazeem Quadri <noreply@users.noreply.github.com>"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Darkace01",
+      "repo": "flightdeck"
     }
   }
 }

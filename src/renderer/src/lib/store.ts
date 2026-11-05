@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from 'react'
-import type { Settings, Snapshot } from '../../../shared/types'
+import type { Settings, Snapshot, UpdateStatus } from '../../../shared/types'
 
-export const api = window.repodeck
+export const api = window.flightdeck
 
 let snapshot: Snapshot
 let settings: Settings
+let update: UpdateStatus
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((l) => l())
 const subscribe = (l: () => void) => {
@@ -16,6 +17,11 @@ export async function initStore(): Promise<void> {
   const state = await api.getState()
   snapshot = state.snapshot
   settings = state.settings
+  update = await api.updateStatus()
+  api.onUpdate((u) => {
+    update = u
+    emit()
+  })
   api.onSettings((s) => {
     settings = s
     emit()
@@ -29,6 +35,7 @@ export async function initStore(): Promise<void> {
 export const useSnapshot = () => useSyncExternalStore(subscribe, () => snapshot)
 export const useSettings = () => useSyncExternalStore(subscribe, () => settings)
 export const getSettings = () => settings
+export const useUpdate = () => useSyncExternalStore(subscribe, () => update)
 
 /** Optimistically applies a settings patch, then persists it in the main process. */
 export async function updateSettings(patch: Partial<Settings>): Promise<void> {

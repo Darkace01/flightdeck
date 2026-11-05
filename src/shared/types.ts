@@ -152,6 +152,7 @@ export interface Settings {
   fontSize: number
   density: 'comfortable' | 'compact'
   closeToTray: boolean
+  autoUpdate: boolean
   widgets: WidgetConfig[]
   layout: LayoutItem[]
 }
@@ -233,7 +234,18 @@ export interface ActionResult {
   error?: string
 }
 
-export interface RepoDeckApi {
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error' | 'unsupported'
+  current: string
+  /** Whether this install can update itself (Windows, AppImage) or only link to the download (macOS, .deb). */
+  canInstall: boolean
+  version?: string
+  percent?: number
+  url?: string
+  error?: string
+}
+
+export interface FlightdeckApi {
   getState(): Promise<InitialState>
   onSnapshot(cb: (s: Snapshot) => void): () => void
   onSettings(cb: (s: Settings) => void): () => void
@@ -253,4 +265,8 @@ export interface RepoDeckApi {
   openExternal(url: string): Promise<void>
   markRead(ids?: string[]): Promise<void>
   clearEvents(): Promise<void>
+  updateStatus(): Promise<UpdateStatus>
+  onUpdate(cb: (s: UpdateStatus) => void): () => void
+  checkForUpdates(): Promise<UpdateStatus>
+  installUpdate(): Promise<void>
 }

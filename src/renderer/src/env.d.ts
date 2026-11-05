@@ -1,7 +1,7 @@
-import type { RepoDeckApi } from '../../shared/types'
+import type { FlightdeckApi } from '../../shared/types'
 
 declare global {
   interface Window {
-    repodeck: RepoDeckApi
+    flightdeck: FlightdeckApi
   }
 }

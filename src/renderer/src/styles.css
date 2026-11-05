@@ -96,18 +96,7 @@ code,
 .brand-mark {
   width: 20px;
   height: 20px;
-  border-radius: 5px;
-  background: var(--accent);
-  display: grid;
-  place-content: center;
-  gap: 2px;
-  padding: 0 4px;
-}
-.brand-mark i {
-  display: block;
-  height: 2.5px;
-  background: var(--accent-fg);
-  border-radius: 2px;
+  flex: none;
 }
 .search-trigger {
   flex: 0 1 360px;

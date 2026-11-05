@@ -6,7 +6,7 @@ import { AccountSection, ReposSection, SettingsModal } from './components/Settin
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
 import { timeAgo, useNow } from './lib/format'
-import { api, useSettings, useSnapshot } from './lib/store'
+import { api, useSettings, useSnapshot, useUpdate } from './lib/store'
 import { useApplyAppearance } from './lib/theme'
 import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
 
@@ -39,6 +39,40 @@ function useShortcuts(): void {
   }, [editing])
 }
 
+/** The app icon (a launch arrow over a runway), drawn in the theme's accent colour. */
+function Logo() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 20 20" aria-hidden>
+      <rect width="20" height="20" rx="4.4" fill="var(--accent)" />
+      <g fill="var(--accent-fg)">
+        <polygon transform="translate(10 9.2) rotate(45) translate(-10 -10)" points="10,2.4 14.2,8.4 11.4,8.4 11.4,14.8 8.6,14.8 8.6,8.4 5.8,8.4" />
+        <g opacity="0.7">
+          <rect x="4" y="15.6" width="2.4" height="1.2" />
+          <rect x="8.8" y="15.6" width="2.4" height="1.2" />
+          <rect x="13.6" y="15.6" width="2.4" height="1.2" />
+        </g>
+      </g>
+    </svg>
+  )
+}
+
+function UpdateButton() {
+  const update = useUpdate()
+  if (update.state === 'ready')
+    return (
+      <button className="btn btn-sm btn-primary" title="Restarts Flightdeck to finish updating" onClick={() => void api.installUpdate()}>
+        Restart to update
+      </button>
+    )
+  if (update.state === 'available' && !update.canInstall)
+    return (
+      <button className="btn btn-sm btn-primary" onClick={() => void api.openExternal(update.url!)}>
+        Get v{update.version}
+      </button>
+    )
+  return null
+}
+
 function TopBar() {
   const snapshot = useSnapshot()
   const editing = useEditing()
@@ -48,12 +82,8 @@ function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden>
-          <i style={{ width: 12 }} />
-          <i style={{ width: 9 }} />
-          <i style={{ width: 10 }} />
-        </span>
-        RepoDeck
+        <Logo />
+        Flightdeck
       </div>
       <button className="search-trigger" onClick={() => openModal({ kind: 'palette' })}>
         <Icon name="search" />
@@ -71,6 +101,7 @@ function TopBar() {
           </span>
         )}
       </div>
+      <UpdateButton />
       <IconButton icon="refresh" title="Refresh now (Ctrl+R)" onClick={() => void api.refresh()} />
       <IconButton icon="grid" title={editing ? 'Done editing (E)' : 'Edit layout (E)'} active={editing} onClick={() => setEditing(!editing)} />
       <IconButton icon="gear" title="Settings (Ctrl+,)" onClick={() => openModal({ kind: 'settings' })} />
@@ -93,7 +124,7 @@ function Onboarding() {
           </>
         ) : (
           <>
-            <p className="dim">The quickest way is the GitHub CLI — RepoDeck picks up its login automatically:</p>
+            <p className="dim">The quickest way is the GitHub CLI — Flightdeck picks up its login automatically:</p>
             <pre>
               <code>gh auth login</code>
             </pre>

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { RepoDeckApi, Settings, Snapshot } from '../shared/types'
+import type { FlightdeckApi, Settings, Snapshot, UpdateStatus } from '../shared/types'
 
 function subscribe<T>(channel: string, cb: (value: T) => void): () => void {
   const listener = (_e: IpcRendererEvent, value: T) => cb(value)
@@ -7,7 +7,7 @@ function subscribe<T>(channel: string, cb: (value: T) => void): () => void {
   return () => ipcRenderer.removeListener(channel, listener)
 }
 
-const api: RepoDeckApi = {
+const api: FlightdeckApi = {
   getState: () => ipcRenderer.invoke('state:get'),
   onSnapshot: (cb) => subscribe<Snapshot>('snapshot', cb),
   onSettings: (cb) => subscribe<Settings>('settings', cb),
@@ -26,7 +26,11 @@ const api: RepoDeckApi = {
   importSettings: (json) => ipcRenderer.invoke('settings:import', json),
   openExternal: (url) => ipcRenderer.invoke('open', url),
   markRead: (ids) => ipcRenderer.invoke('events:read', ids),
-  clearEvents: () => ipcRenderer.invoke('events:clear')
+  clearEvents: () => ipcRenderer.invoke('events:clear'),
+  updateStatus: () => ipcRenderer.invoke('update:status'),
+  onUpdate: (cb) => subscribe<UpdateStatus>('update', cb),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install')
 }
 
-contextBridge.exposeInMainWorld('repodeck', api)
+contextBridge.exposeInMainWorld('flightdeck', api)
