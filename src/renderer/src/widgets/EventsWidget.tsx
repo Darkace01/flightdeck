@@ -3,6 +3,7 @@ import type { EventKind } from '../../../shared/types'
 import { Empty, StatusIcon } from '../components/ui'
 import { matches, timeAgo, useNow } from '../lib/format'
 import { api, useSettings, useSnapshot, widgetRepos } from '../lib/store'
+import { openInApp } from '../lib/open'
 import type { WidgetProps } from './types'
 
 const TONE: Record<EventKind, 'ok' | 'bad' | 'warn' | 'muted' | 'run'> = {
@@ -41,7 +42,7 @@ export const EventsWidget = memo(function EventsWidget({ widget, filter }: Widge
           className={`row clickable${e.read ? ' read' : ''}`}
           onClick={() => {
             void api.markRead([e.id])
-            void api.openExternal(e.url)
+            openInApp(e.url)
           }}
         >
           <StatusIcon tone={TONE[e.kind]} />

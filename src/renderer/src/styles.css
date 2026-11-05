@@ -1120,3 +1120,246 @@ input[type='range'] {
   color: #8b949e;
   font-weight: 600;
 }
+
+/* --- PR and repo views ---------------------------------------------------- */
+.pr-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pr-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.badge-state-open {
+  color: var(--ok);
+}
+.badge-state-merged {
+  color: var(--accent);
+}
+.badge-state-closed {
+  color: var(--bad);
+}
+.badge-state-draft {
+  color: var(--muted);
+}
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.comment {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel2);
+}
+.comment > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.comment > .markdown,
+.comment > p {
+  padding: 10px 14px;
+}
+.comment-event {
+  background: transparent;
+  border-style: dashed;
+}
+.comment-event > header {
+  border-bottom: 0;
+}
+.comment-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.comment-box textarea {
+  width: 100%;
+}
+.readme {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 22px;
+}
+.repo-tab {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* GitHub-rendered markdown */
+.markdown {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.markdown > :first-child,
+.markdown .markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 1.2em 0 0.5em;
+  line-height: 1.3;
+}
+.markdown h1,
+.markdown h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+.markdown h1 {
+  font-size: 1.6em;
+}
+.markdown h2 {
+  font-size: 1.35em;
+}
+.markdown h3 {
+  font-size: 1.15em;
+}
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown table,
+.markdown pre {
+  margin: 0 0 0.9em;
+}
+.markdown a {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.markdown a:hover {
+  text-decoration: underline;
+}
+.markdown img {
+  max-width: 100%;
+}
+.markdown code {
+  font: 0.88em var(--mono);
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+  background: var(--hover);
+}
+.markdown pre {
+  padding: 12px 14px;
+  overflow: auto;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+.markdown blockquote {
+  padding: 0 1em;
+  color: var(--dim);
+  border-left: 3px solid var(--border);
+}
+.markdown table {
+  border-collapse: collapse;
+  display: block;
+  overflow: auto;
+}
+.markdown th,
+.markdown td {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+}
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.markdown details summary {
+  cursor: pointer;
+}
+.markdown .anchor {
+  display: none;
+}
+.markdown input[type='checkbox'] {
+  margin-right: 6px;
+}
+
+/* Files changed */
+.files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.file {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: 0;
+  background: var(--panel2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.file-head:hover {
+  background: var(--hover);
+}
+.file-status {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  min-width: 58px;
+}
+.file-added {
+  color: var(--ok);
+}
+.file-removed {
+  color: var(--bad);
+}
+.file-renamed {
+  color: var(--warn);
+}
+.file-note {
+  padding: 8px 12px;
+}
+.diff {
+  margin: 0;
+  overflow: auto;
+  font: 12px/1.5 var(--mono);
+  background: var(--bg);
+}
+.diff > div {
+  padding: 0 12px;
+  white-space: pre;
+  min-width: max-content;
+}
+.diff .ins {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+.diff .rem {
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+}
+.diff .hunk {
+  color: var(--dim);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}

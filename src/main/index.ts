@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, nativeTheme, Notification, shell, Tr
 import { cpSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { ActionResult, AppEvent, EventKind, Job, NotifySettings, RepoOption, Settings } from '../shared/types'
+import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
@@ -48,9 +49,13 @@ function notify(events: AppEvent[]): void {
     n.show()
     return
   }
+  // Clicking a toast opens the run or PR inside Flightdeck, not the browser.
   for (const e of wanted) {
     const n = new Notification({ title: e.title, body: e.body, silent: e.kind === 'run-started' })
-    n.on('click', () => void shell.openExternal(e.url))
+    n.on('click', () => {
+      showWindow()
+      send('navigate', e.url)
+    })
     n.show()
   }
 }
@@ -276,6 +281,11 @@ function registerIpc(): void {
     send('snapshot', poller.snapshot)
     updateTray()
   })
+  ipcMain.handle('pr:detail', (_e, repo: string, num: number) => fetchPrDetail(requireClient(), repo, num))
+  ipcMain.handle('pr:comment', (_e, repo: string, num: number, body: string) =>
+    run(() => requireClient().send('POST', `/repos/${repo}/issues/${num}/comments`, { body }), false)
+  )
+  ipcMain.handle('repo:info', (_e, repo: string) => fetchRepoInfo(requireClient(), repo))
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:install', () => {

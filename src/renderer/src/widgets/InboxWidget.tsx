@@ -1,8 +1,9 @@
 import { memo } from 'react'
 import type { Inbox } from '../../../shared/types'
-import { Avatar, checksTone, Empty, Segmented, StatusIcon } from '../components/ui'
+import { Avatar, checksTone, Empty, IconButton, Segmented, StatusIcon } from '../components/ui'
 import { matches, timeAgo, useNow } from '../lib/format'
 import { api, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import { openInApp } from '../lib/open'
 import type { WidgetProps } from './types'
 
 type Tab = keyof Inbox
@@ -39,7 +40,7 @@ export const InboxWidget = memo(function InboxWidget({ widget, filter }: WidgetP
       ) : (
         <ul className="list">
           {items.map((i) => (
-            <li key={i.url} className="row clickable" onClick={() => void api.openExternal(i.url)}>
+            <li key={i.url} className="row clickable" onClick={() => openInApp(i.url)}>
               {i.kind === 'pr' ? <StatusIcon tone={checksTone(i.checks ?? null)} /> : <StatusIcon tone="warn" title="Issue" />}
               <div className="row-main">
                 <div className="row-title">
@@ -57,6 +58,9 @@ export const InboxWidget = memo(function InboxWidget({ widget, filter }: WidgetP
               </div>
               <div className="row-side">
                 <span className="dim small">{timeAgo(i.updatedAt, now)}</span>
+              </div>
+              <div className="row-actions">
+                <IconButton icon="external" title="Open in browser" onClick={() => void api.openExternal(i.url)} />
               </div>
             </li>
           ))}

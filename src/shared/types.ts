@@ -234,6 +234,82 @@ export interface ActionResult {
   error?: string
 }
 
+export interface PrComment {
+  author: string
+  authorAvatar: string
+  createdAt: string
+  bodyHtml: string
+  url: string
+  /** Set for reviews: APPROVED, CHANGES_REQUESTED, COMMENTED… */
+  reviewState?: string
+}
+
+export interface PrFile {
+  filename: string
+  status: string
+  additions: number
+  deletions: number
+  patch?: string
+}
+
+export interface PrCommit {
+  sha: string
+  message: string
+  author: string
+  authorAvatar?: string
+  date: string
+}
+
+export interface PrCheck {
+  name: string
+  status: string
+  conclusion: string | null
+  url: string
+}
+
+/** Everything the in-app PR view shows, fetched on demand when it opens. */
+export interface PrDetail {
+  repo: string
+  number: number
+  title: string
+  url: string
+  state: 'open' | 'closed' | 'merged'
+  isDraft: boolean
+  author: string
+  authorAvatar: string
+  createdAt: string
+  base: string
+  head: string
+  bodyHtml: string
+  additions: number
+  deletions: number
+  changedFiles: number
+  mergeableState: string
+  labels: { name: string; color: string }[]
+  requestedReviewers: string[]
+  comments: PrComment[]
+  commits: PrCommit[]
+  files: PrFile[]
+  checks: PrCheck[]
+}
+
+export interface RepoInfo {
+  fullName: string
+  description: string | null
+  url: string
+  homepage: string | null
+  private: boolean
+  archived: boolean
+  defaultBranch: string
+  language: string | null
+  stars: number
+  forks: number
+  openIssues: number
+  topics: string[]
+  pushedAt: string
+  readmeHtml: string | null
+}
+
 export interface UpdateStatus {
   state: 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error' | 'unsupported'
   current: string
@@ -269,4 +345,9 @@ export interface FlightdeckApi {
   onUpdate(cb: (s: UpdateStatus) => void): () => void
   checkForUpdates(): Promise<UpdateStatus>
   installUpdate(): Promise<void>
+  prDetail(repo: string, num: number): Promise<PrDetail>
+  commentPr(repo: string, num: number, body: string): Promise<ActionResult>
+  repoInfo(repo: string): Promise<RepoInfo>
+  /** Fired when a notification is clicked: open this GitHub URL inside the app. */
+  onNavigate(cb: (url: string) => void): () => void
 }

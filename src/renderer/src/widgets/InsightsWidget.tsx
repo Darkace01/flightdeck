@@ -3,7 +3,7 @@ import type { WorkflowRun } from '../../../shared/types'
 import { Empty, runTone } from '../components/ui'
 import { duration, matches, shortRepo } from '../lib/format'
 import { useSettings, useSnapshot, widgetRepos } from '../lib/store'
-import { openModal } from '../lib/ui'
+import { pushModal } from '../lib/ui'
 import type { WidgetProps } from './types'
 
 interface Stat {
@@ -76,7 +76,7 @@ export const InsightsWidget = memo(function InsightsWidget({ widget, filter }: W
                     key={r.id}
                     className={`spark-bar status-${runTone(r)}`}
                     title={`#${r.runNumber} ${r.conclusion} · ${r.branch} · ${duration(r.startedAt, r.updatedAt)}`}
-                    onClick={() => openModal({ kind: 'run', run: r })}
+                    onClick={() => pushModal({ kind: 'run', run: r })}
                   />
                 ))}
               </div>

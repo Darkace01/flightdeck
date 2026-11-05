@@ -5,6 +5,7 @@ import type { WidgetType } from '../../../shared/types'
 import { matches, shortRepo } from '../lib/format'
 import { api, getSettings, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { closeModal, openModal, setEditing } from '../lib/ui'
+import { openInApp } from '../lib/open'
 import { addWidget } from './Dashboard'
 import { checksTone, runTone, StatusIcon } from './ui'
 
@@ -30,7 +31,7 @@ export function Palette() {
   const items = useMemo<Item[]>(() => {
     const open = (url: string) => () => {
       closeModal()
-      void api.openExternal(url)
+      openInApp(url)
     }
     const commands: Item[] = [
       { id: 'c-refresh', kind: 'Command', label: 'Refresh now', keywords: 'reload poll', action: () => (closeModal(), void api.refresh()) },
@@ -63,7 +64,7 @@ export function Palette() {
       id: `r-${repo}`,
       kind: 'Repo',
       label: repo,
-      action: open(`https://github.com/${repo}`)
+      action: () => openModal({ kind: 'repo', repo })
     }))
     const all = settings.repos.map((r) => snapshot.repos[r]).filter(Boolean)
     const prs: Item[] = all.flatMap((s) =>
@@ -73,7 +74,7 @@ export function Palette() {
         label: p.title,
         sub: `${shortRepo(p.repo)}#${p.number} · ${p.author} · ${p.branch}`,
         icon: <StatusIcon tone={checksTone(p.checks)} size={14} />,
-        action: open(p.url)
+        action: () => openModal({ kind: 'pr', repo: p.repo, number: p.number })
       }))
     )
     const inbox: Item[] = (snapshot.inbox?.reviewRequests ?? [])

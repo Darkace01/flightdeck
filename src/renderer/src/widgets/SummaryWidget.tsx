@@ -1,7 +1,8 @@
 import { memo } from 'react'
 import { checksTone, Empty, runTone, StatusIcon } from '../components/ui'
 import { matches } from '../lib/format'
-import { api, useSettings, useSnapshot, widgetRepos } from '../lib/store'
+import { useSettings, useSnapshot, widgetRepos } from '../lib/store'
+import { openRepo } from '../lib/open'
 import type { WidgetProps } from './types'
 
 export const SummaryWidget = memo(function SummaryWidget({ widget, filter }: WidgetProps) {
@@ -20,7 +21,7 @@ export const SummaryWidget = memo(function SummaryWidget({ widget, filter }: Wid
         const failingPrs = s?.prs.filter((p) => checksTone(p.checks) === 'bad').length ?? 0
         const [owner, name] = repo.split('/')
         return (
-          <button key={repo} className={`tile${s?.error ? ' tile-error' : ''}`} onClick={() => void api.openExternal(`https://github.com/${repo}`)} title={s?.error ?? repo}>
+          <button key={repo} className={`tile${s?.error ? ' tile-error' : ''}`} onClick={() => openRepo(repo)} title={s?.error ?? repo}>
             <div className="tile-head">
               {main ? <StatusIcon tone={runTone(main)} title={`${s?.defaultBranch}: ${main.conclusion}`} /> : <StatusIcon tone="muted" title="No runs on default branch" />}
               <span className="tile-name">

@@ -3,7 +3,7 @@ import type { WorkflowRun } from '../../../shared/types'
 import { Avatar, Empty, IconButton, runTone, StatusIcon } from '../components/ui'
 import { duration, matches, shortRepo, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSettings, useSnapshot, widgetRepos } from '../lib/store'
-import { openModal } from '../lib/ui'
+import { pushModal } from '../lib/ui'
 import type { WidgetProps } from './types'
 
 export async function rerun(run: WorkflowRun, failedOnly: boolean): Promise<void> {
@@ -53,7 +53,7 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
         const tone = runTone(run)
         const active = run.status !== 'completed'
         return (
-          <li key={run.id} className="row clickable" onClick={() => openModal({ kind: 'run', run })}>
+          <li key={run.id} className="row clickable" onClick={() => pushModal({ kind: 'run', run })}>
             <StatusIcon tone={tone} title={run.conclusion ?? run.status} />
             <div className="row-main">
               <div className="row-title">

@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { Empty, IconButton, runTone, StatusIcon } from '../components/ui'
 import { matches, timeAgo, useNow } from '../lib/format'
 import { api, useSettings, useSnapshot, widgetRepos } from '../lib/store'
-import { openModal } from '../lib/ui'
+import { pushModal } from '../lib/ui'
 import type { WidgetProps } from './types'
 
 export const WorkflowsWidget = memo(function WorkflowsWidget({ widget, filter }: WidgetProps) {
@@ -45,7 +45,7 @@ export const WorkflowsWidget = memo(function WorkflowsWidget({ widget, filter }:
                   </div>
                   <div className="row-side row-side-inline">
                     {w.dispatchable && (
-                      <button className="btn btn-primary btn-sm" onClick={() => openModal({ kind: 'dispatch', workflow: w })}>
+                      <button className="btn btn-primary btn-sm" onClick={() => pushModal({ kind: 'dispatch', workflow: w })}>
                         ▶ Run
                       </button>
                     )}

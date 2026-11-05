@@ -35,6 +35,7 @@ export async function initStore(): Promise<void> {
 export const useSnapshot = () => useSyncExternalStore(subscribe, () => snapshot)
 export const useSettings = () => useSyncExternalStore(subscribe, () => settings)
 export const getSettings = () => settings
+export const getSnapshot = () => snapshot
 export const useUpdate = () => useSyncExternalStore(subscribe, () => update)
 
 /** Optimistically applies a settings patch, then persists it in the main process. */

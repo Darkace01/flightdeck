@@ -2,11 +2,14 @@ import { useEffect } from 'react'
 import { DispatchModal, MergeModal, RunDetailsModal } from './components/ActionModals'
 import { Dashboard } from './components/Dashboard'
 import { Palette } from './components/Palette'
+import { PrModal } from './components/PrView'
+import { RepoModal } from './components/RepoView'
 import { AccountSection, ReposSection, SettingsModal } from './components/SettingsModal'
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
 import { timeAgo, useNow } from './lib/format'
 import { api, useSettings, useSnapshot, useUpdate } from './lib/store'
+import { openInApp } from './lib/open'
 import { useApplyAppearance } from './lib/theme'
 import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
 
@@ -158,6 +161,10 @@ function Modals() {
       return <RunDetailsModal run={modal.run} />
     case 'merge':
       return <MergeModal pr={modal.pr} />
+    case 'pr':
+      return <PrModal key={`${modal.repo}#${modal.number}`} repo={modal.repo} number={modal.number} />
+    case 'repo':
+      return <RepoModal key={modal.repo} repo={modal.repo} />
   }
 }
 
@@ -167,6 +174,7 @@ export function App() {
   useApplyAppearance()
   useShortcuts()
   useEffect(() => closeModal, [])
+  useEffect(() => api.onNavigate(openInApp), [])
 
   const ready = snapshot.auth === 'ok' && settings.repos.length > 0
   return (

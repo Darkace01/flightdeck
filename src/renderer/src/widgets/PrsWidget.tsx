@@ -3,7 +3,8 @@ import type { PullRequest } from '../../../shared/types'
 import { Avatar, checksTone, Empty, IconButton, StatusIcon } from '../components/ui'
 import { matches, shortRepo, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSettings, useSnapshot, widgetRepos } from '../lib/store'
-import { openModal } from '../lib/ui'
+import { openPr } from '../lib/open'
+import { pushModal } from '../lib/ui'
 import type { WidgetProps } from './types'
 
 const REVIEW_LABEL: Record<NonNullable<PullRequest['reviewDecision']>, [string, string]> = {
@@ -44,7 +45,7 @@ export const PrsWidget = memo(function PrsWidget({ widget, filter }: WidgetProps
       {prs.map((pr) => {
         const review = pr.reviewDecision ? REVIEW_LABEL[pr.reviewDecision] : null
         return (
-          <li key={`${pr.repo}#${pr.number}`} className="row clickable" onClick={() => void api.openExternal(pr.url)}>
+          <li key={`${pr.repo}#${pr.number}`} className="row clickable" onClick={() => openPr(pr.repo, pr.number)}>
             <StatusIcon tone={checksTone(pr.checks)} title={`Checks: ${pr.checks?.toLowerCase() ?? 'none'}`} />
             <div className="row-main">
               <div className="row-title">
@@ -73,7 +74,7 @@ export const PrsWidget = memo(function PrsWidget({ widget, filter }: WidgetProps
             </div>
             <div className="row-actions">
               {pr.author !== viewer && <IconButton icon="check" title="Approve" onClick={() => void approve(pr)} />}
-              {!pr.isDraft && <IconButton icon="branch" title="Merge…" onClick={() => openModal({ kind: 'merge', pr })} />}
+              {!pr.isDraft && <IconButton icon="branch" title="Merge…" onClick={() => pushModal({ kind: 'merge', pr })} />}
               <IconButton icon="external" title="Open on GitHub" onClick={() => void api.openExternal(pr.url)} />
             </div>
           </li>

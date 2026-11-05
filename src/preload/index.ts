@@ -30,7 +30,11 @@ const api: FlightdeckApi = {
   updateStatus: () => ipcRenderer.invoke('update:status'),
   onUpdate: (cb) => subscribe<UpdateStatus>('update', cb),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
-  installUpdate: () => ipcRenderer.invoke('update:install')
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  prDetail: (repo, num) => ipcRenderer.invoke('pr:detail', repo, num),
+  commentPr: (repo, num, body) => ipcRenderer.invoke('pr:comment', repo, num, body),
+  repoInfo: (repo) => ipcRenderer.invoke('repo:info', repo),
+  onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 
 contextBridge.exposeInMainWorld('flightdeck', api)

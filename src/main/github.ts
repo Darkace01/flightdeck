@@ -41,23 +41,25 @@ export class GitHub {
     if (!Number.isNaN(limit)) this.rate = { limit, remaining, reset: reset * 1000 }
   }
 
-  async get<T>(path: string): Promise<T> {
-    const cached = this.cache.get(path)
+  /** `accept` can ask for GitHub's rendered, sanitised HTML of markdown bodies (`application/vnd.github.html+json`). */
+  async get<T>(path: string, accept?: string): Promise<T> {
+    const key = accept ? `${accept} ${path}` : path
+    const cached = this.cache.get(key)
     const res = await fetch(API + path, {
-      headers: this.headers(cached ? { 'If-None-Match': cached.etag } : undefined)
+      headers: this.headers({ ...(accept && { Accept: accept }), ...(cached && { 'If-None-Match': cached.etag }) })
     })
     this.trackRate(res)
     if (res.status === 304 && cached) return cached.data as T
     if (!res.ok) throw await toError(res)
     const data = await res.json()
     const etag = res.headers.get('etag')
-    if (etag) this.cache.set(path, { etag, data })
+    if (etag) this.cache.set(key, { etag, data })
     return data as T
   }
 
-  /** GET a plain-text resource (e.g. job logs, which redirect to blob storage). */
-  async text(path: string): Promise<string> {
-    const res = await fetch(API + path, { headers: this.headers() })
+  /** GET a plain-text resource (e.g. job logs, which redirect to blob storage, or a README as HTML). */
+  async text(path: string, accept?: string): Promise<string> {
+    const res = await fetch(API + path, { headers: this.headers(accept ? { Accept: accept } : undefined) })
     this.trackRate(res)
     if (!res.ok) throw await toError(res)
     return res.text()
