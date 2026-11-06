@@ -24,9 +24,10 @@
 - **A dashboard of widgets** you can drag, resize, duplicate and scope to particular repos: repo health, workflow runs, pull requests, run-a-workflow, an activity feed, a "My work" inbox (review requests, your PRs and issues assigned to you across all of GitHub) and CI insights (pass rate, average duration, recent outcomes).
 - **GitHub Actions**: start `workflow_dispatch` workflows with their inputs, cancel runs, and re-run failed jobs or whole runs. Open a run to watch its jobs and steps live, and read a failed job's log, which opens at the error.
 - **Pull requests, in the app**: open any PR to read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Pushback. Every view has an **Open in browser** button for when you want GitHub itself.
-- **A tab for each repo**: open any repo, from your account or anywhere on GitHub, in its own tab, and switch with a click or `Ctrl+Tab`. Each repo tab is a full workspace with its README, PRs, runs, workflows and insights.
+- **A tab for each repo**: open any repo, from your account or anywhere on GitHub, in its own tab, and switch with a click or `Ctrl+Tab`. Tabs run across the top or down a sidebar, and you can **pin** the repos you use most. A toggleable sidebar (`Ctrl/⌘+B`) keeps every watched repo one click away. Each repo tab is a full workspace with its README, PRs, runs, workflows and insights.
 - **GitHub tools**: browse, read, comment on, create and close **issues**; see **branches** with how far each is ahead of or behind the default branch, and create, delete or open a PR from them; browse **commits**; read and publish **releases** with generated notes; and open **new pull requests** from any branch.
-- **Local git tools**: find every GitHub clone on your computer in one go (or link or clone repos one at a time) to see changes with diffs, stage, commit, stash, switch and create branches, fetch, pull and push, and open it in your editor or a terminal.
+- **Local git tools**: find every GitHub clone on your computer in one go (or link or clone repos one at a time) to see changes with diffs, stage, commit, stash, switch, merge, rebase and create branches, fetch, pull and push, and open it in your editor or a terminal.
+- **GitLens-style history tools**: a **commit graph** with branch lines, labels and commit details (cherry-pick, revert, reset, branch or tag from any commit); **file history** and **blame** with an age heatmap; **compare** any two branches or tags; **search** commits by message, author, SHA, file or code change; plus **stashes**, **tags**, **remotes**, **worktrees** and **contributors**.
 - **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Pushback keeps running in the tray so you don't miss any.
 - **Fast and cheap on your rate limit**: it polls with ETag requests, which GitHub doesn't count against your limit when nothing changed, and polls faster while runs are active.
 - **Command palette** (`Ctrl/⌘+K`) to jump to any PR, run, workflow, repo, theme or command.
@@ -138,6 +139,8 @@ Links inside descriptions and READMEs that point to PRs, issues, runs or repos a
 
 Click a repo tile, a repo link, or the **+** at the end of the tab bar to open a repo in its own tab. The **+** button opens a dropdown with a search box at the top. It lists the repos you watch and every repo on your account (search as you type). It also opens any `owner/name` or GitHub URL, including public repos you don't own. Drag tabs to reorder them, close them with **×** or a middle-click, and cycle through them with `Ctrl+Tab` / `Ctrl+Shift+Tab`. Open tabs come back when you restart.
 
+**Vertical tabs, pinning and the sidebar.** Press `Ctrl/⌘+B` (or the sidebar button at the top left) to show the repo sidebar. It lists every repo you watch, so any of them is one click away. Prefer your tabs down the side? Choose **Down the side** under **Settings → Appearance → Tabs** (or click the tabs icon at the end of the tab bar), and your open tabs move into the sidebar. Right-click any tab to **Pin** it, or drag it onto the pinned area. Pinned repos sit at the top of the sidebar as tiles, each with its own colour, its owner's avatar and a CI-status dot. They stay open and come first in the tab order. The right-click menu can also close tabs, close the others, watch or unwatch, open in the browser and copy the name.
+
 Each repo tab has these sections:
 
 | Section | What you can do |
@@ -145,11 +148,11 @@ Each repo tab has these sections:
 | **Overview** | Read the README and repo stats; watch or stop watching the repo. |
 | **Pull requests** | Everything from the PR widget, scoped to this repo. **New pull request** in the header opens one from any branch. |
 | **Issues** | Browse open and closed issues, open one to read and comment, close it as completed or not planned, reopen it, or create a new issue with labels. |
-| **Branches** | See every branch with its last commit, how far it is ahead of or behind the default branch, and its open PR. Create a branch from any other branch, delete one, or start a PR from it. |
-| **Commits** | Commit history for any branch; copy a SHA or open the commit on GitHub. |
+| **Branches** | See every branch with its last commit, how far it is ahead of or behind the default branch, and its open PR. Create a branch from any other branch, delete one, or start a PR from it. **Graph** draws the default branch and the most recently updated branches as one commit graph. |
+| **Commits** | Commit history for any branch, with its branch lines; open a commit on GitHub. |
 | **Releases** | Release notes and downloadable assets with download counts. **New release** creates a tag and a release, optionally as a draft or pre-release, with notes generated from merged PRs. |
 | **Runs, Workflows, Insights** | Actions for this repo, as on the dashboard. |
-| **Working copy** | Your local clone: see below. |
+| **Working copy** and the other **Local** sections | Your local clone: see below. |
 
 ### 8. Use git without leaving the app
 
@@ -159,9 +162,21 @@ To link a single repo instead, open **Working copy** in its tab and choose **Lin
 
 - **Changes**: every modified, new and deleted file, with a diff of the selected one. Stage (**+**) or unstage files one at a time or all together, discard changes (you're asked to confirm), write a message and **Commit** (`Ctrl+Enter`). **Stash** puts everything aside, including new files, and **Pop stash** brings it back.
 - **Fetch**, **Pull** and **Push** show how far you are ahead of or behind the remote. Pull only fast-forwards, so it never creates a surprise merge commit. A branch that hasn't been pushed yet shows **Publish branch**.
-- **History**: recent commits with branch and tag labels.
-- **Branches**: switch between local branches or create a new one from the current branch.
+- **Branches**: switch between local branches, create one from the current branch, **Merge** a branch into the current one, **Rebase** the current branch onto another, or delete one (you're warned before deleting unmerged work).
 - **Open in** your editor or IDE, **Terminal**, or click the path to open the folder. Choose the default in **Settings → Advanced → Default editor / IDE**, which lists the ones installed on your computer (VS Code, Cursor, Windsurf, Zed, Sublime Text, JetBrains IDEs, Visual Studio and more), or enter any other command.
+
+The other **Local** sections bring GitLens-style history tools into the app:
+
+| Section | What you can do |
+| --- | --- |
+| **Commit graph** | Every branch (or just the current one) drawn with its branch lines, merges and branch, remote, tag and HEAD labels. Type to highlight matching commits. Click a commit for its message, parents, changed files and diffs. From there you can **Branch here**, **Tag**, **Cherry-pick** it onto the current branch, **Revert** it, or **Reset** the current branch to it (soft, mixed or hard; you're asked to confirm). |
+| **File history & blame** | Find any tracked file. **History** lists every commit that changed it, following renames, with that commit's diff of the file. **Blame** shows who last changed each line and when, with a heat bar that highlights recent changes. Click a line to open its commit. |
+| **Compare** | Pick two branches, remote branches or tags to see the commits only in each, and every changed file with its diff. |
+| **Search commits** | Search every branch by message, author, SHA, file path, or **code change** (commits that added or removed some text). |
+| **Stashes** | Every stash with its diff; apply, pop or drop one. |
+| **Tags** | All tags with their commits; push or delete one. Create tags from the commit graph. |
+| **Remotes & worktrees** | Fetch from any remote. Add a worktree to check out another branch in its own folder, or remove one. |
+| **Contributors** | Who has committed to the current branch, and how much. |
 
 Pushback runs your installed `git`, so it uses your existing credentials and config. Status refreshes every few seconds and whenever you switch back to the app.
 
@@ -183,6 +198,7 @@ If you see no notifications at all, check that your OS isn't in Do Not Disturb o
 | `Ctrl/⌘+R` or `F5` | Refresh now |
 | `Ctrl/⌘+1` … `9` | Switch to dashboard 1–9 |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
+| `Ctrl/⌘+B` | Show or hide the repo sidebar |
 | `E` | Edit the layout (toggle) |
 | `Ctrl/⌘+,` | Settings |
 | `Esc` | Close a view or dialog (back to the previous one), or stop editing |

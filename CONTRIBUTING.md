@@ -47,6 +47,7 @@ src/
     details.ts   on-demand fetches for the PR and repo views
     repoTools.ts issues, branches, commits, releases, creating PRs (repo tab sections)
     git.ts       local git: status, diff, commit, sync, branches; runs `git` with execFile
+    gitTools.ts  history tools: commit graph, blame, file history, compare, search, stashes, tags, worktrees
     store.ts     settings/events on disk, token storage
     updater.ts   auto-updates from GitHub Releases
   preload/     typed bridge exposed to the UI as window.pushback
