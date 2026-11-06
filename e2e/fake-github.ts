@@ -36,6 +36,7 @@ export const RUNS: Record<string, object[]> = {
     run('acme/api', 102, { workflow_id: 2, name: 'Deploy', display_title: 'Deploy', event: 'workflow_dispatch', created_at: ago(20), run_started_at: ago(20), updated_at: ago(18) }),
     run('acme/api', 103, { conclusion: 'failure', event: 'pull_request', head_branch: 'feat/login', display_title: 'Add login page', created_at: ago(10), run_started_at: ago(10), updated_at: ago(9) })
   ],
+  'corp/tools': [run('corp/tools', 501, { name: 'Enterprise CI', display_title: 'Ship it', html_url: 'https://ghe.test/corp/tools/actions/runs/501' })],
   'acme/web': [run('acme/web', 201, { status: 'in_progress', conclusion: null, display_title: 'Build site', created_at: ago(2), run_started_at: ago(2), updated_at: ago(1) })]
 }
 
@@ -72,7 +73,8 @@ const pr = (number: number, over: object) => ({
 
 const PRS: Record<string, object[]> = {
   'acme/api': [pr(7, {}), pr(8, { title: 'WIP: tidy config', isDraft: true, author: { login: 'octo', avatarUrl: '' }, headRefName: 'chore/tidy', labels: { nodes: [] }, reviewRequests: { nodes: [] } })],
-  'acme/web': []
+  'corp/tools': [pr(21, { title: 'Enterprise PR', url: 'https://ghe.test/corp/tools/pull/21', headRefName: 'feat/ent' })],
+  'acme/web': [pr(9, { title: 'Bump lodash from 4.17.20 to 4.17.21', url: 'https://github.com/acme/web/pull/9', headRefName: 'dependabot/npm_and_yarn/lodash', author: { login: 'dependabot', avatarUrl: '' }, labels: { nodes: [] }, reviewRequests: { nodes: [] } })]
 }
 
 // Screenshot mode adds more repos, runs, PRs and deployments so the website shows a lived-in dashboard.
@@ -120,6 +122,71 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
     return { viewer: { login: 'octo', avatarUrl: '' }, reviewRequests: { nodes: [node] }, myPrs: { nodes: [] }, assigned: { nodes: [] } }
   }
   const repo = `${vars.owner}/${vars.name}`
+  if (query.includes('refs/heads/')) {
+    const days = (n: number) => ago(n * 1440)
+    const branch = (name: string, age: number, aheadBy: number, behindBy: number, pr?: number) => ({
+      name,
+      target: { oid: name.length.toString(16).padStart(40, '0'), committedDate: days(age), messageHeadline: `Work on ${name}`, author: { name: 'alice', user: { login: 'alice', avatarUrl: '' } } },
+      compare: { aheadBy, behindBy },
+      associatedPullRequests: { nodes: pr ? [{ number: pr }] : [] }
+    })
+    return {
+      repository: {
+        refs: {
+          nodes: [
+            branch('main', 0, 0, 0),
+            branch('feat/login', 1, 0, 3, 7),
+            branch('old/merged-feature', 40, 12, 0),
+            branch('experiments/abandoned', 200, 4, 30),
+            branch('fresh-empty', 1, 0, 0)
+          ]
+        }
+      }
+    }
+  }
+  if (query.includes('mergeStateStatus')) {
+    const ctx = (name: string, conclusion: string, isRequired: boolean) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion, isRequired })
+    const base = { isDraft: false, mergeable: 'MERGEABLE', isInMergeQueue: false, mergeQueueEntry: null, autoMergeRequest: null, reviewThreads: { nodes: [] } }
+    const rollup = (nodes: object[]) => ({ nodes: [{ commit: { statusCheckRollup: { contexts: { nodes } } } }] })
+    // acme/web PRs are already in the merge queue; every other PR is blocked by protection rules.
+    if (repo === 'acme/web')
+      return {
+        repository: {
+          pullRequest: {
+            ...base,
+            mergeStateStatus: 'CLEAN',
+            reviewDecision: 'APPROVED',
+            isInMergeQueue: true,
+            mergeQueueEntry: { position: 2, state: 'AWAITING_CHECKS', estimatedTimeToMerge: 300 },
+            baseRef: { name: 'main', branchProtectionRule: null },
+            latestOpinionatedReviews: { nodes: [{ author: { login: 'bob' }, state: 'APPROVED' }] },
+            commits: rollup([ctx('build', 'SUCCESS', true)])
+          }
+        }
+      }
+    return {
+      repository: {
+        pullRequest: {
+          ...base,
+          mergeStateStatus: 'BLOCKED',
+          reviewDecision: 'REVIEW_REQUIRED',
+          baseRef: {
+            name: 'main',
+            branchProtectionRule: {
+              requiresApprovingReviews: true,
+              requiredApprovingReviewCount: 2,
+              requiresCodeOwnerReviews: false,
+              requiresConversationResolution: false,
+              requiresStrictStatusChecks: false,
+              requiredStatusCheckContexts: ['build', 'lint', 'e2e']
+            }
+          },
+          latestOpinionatedReviews: { nodes: [] },
+          commits: rollup([ctx('build', 'SUCCESS', true), ctx('lint', 'FAILURE', true), ctx('docs', 'FAILURE', false)])
+        }
+      }
+    }
+  }
   if (query.includes('deployments(') && rich && repo !== 'acme/api') {
     // Every rich repo deploys to dev, staging and two clients in prod.
     const envs = ['dev', 'staging', 'prod-acme', 'prod-globex', 'prod-initech']
@@ -149,11 +216,28 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
   return { repository: null }
 }
 
-function rest(path: string, rich: boolean): unknown {
+function rest(path: string, rich: boolean, enterprise = false): unknown {
   const [p] = path.split('?')
   let m: RegExpMatchArray | null
-  if (p === '/user') return { login: 'octo', avatar_url: '' }
+  if (p === '/user') return { login: enterprise ? 'octo-ent' : 'octo', avatar_url: '' }
   if (p === '/user/repos') return path.includes('page=1') ? [{ full_name: 'acme/api', description: 'The API', private: true, pushed_at: ago(5) }, { full_name: 'acme/web', description: 'The website', private: false, pushed_at: ago(60) }] : []
+  // Security alerts: acme/api has some, secret scanning is off there; acme/web has the features switched off.
+  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/(dependabot|code-scanning|secret-scanning)\/alerts$/))) {
+    if (m[1] !== 'acme/api' || m[2] === 'secret-scanning') return { status: 404, body: { message: 'Not Found' } }
+    if (m[2] === 'dependabot')
+      return [
+        { number: 1, html_url: 'https://github.com/acme/api/security/dependabot/1', created_at: ago(300), dependency: { package: { name: 'lodash' } }, security_advisory: { summary: 'Prototype pollution in lodash', severity: 'high' } },
+        { number: 2, html_url: 'https://github.com/acme/api/security/dependabot/2', created_at: ago(900), dependency: { package: { name: 'minimist' } }, security_advisory: { summary: 'ReDoS in minimist', severity: 'low' } }
+      ]
+    return [{ number: 5, html_url: 'https://github.com/acme/api/security/code-scanning/5', created_at: ago(100), rule: { id: 'js/sql-injection', description: 'SQL injection', severity: 'error', security_severity_level: 'critical' }, most_recent_instance: { location: { path: 'src/db.ts' } } }]
+  }
+  // Open PRs for the cleanup view (and the "does this branch have a PR" check before deleting it).
+  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/pulls$/))) {
+    const prsOf = (n: number, title: string, updated: number, head: string) => ({ number: n, title, html_url: `https://github.com/${m![1]}/pull/${n}`, user: user('alice'), created_at: ago(updated + 60), updated_at: ago(updated), draft: false, head: { ref: head } })
+    const all = m[1] === 'acme/api' ? [prsOf(3, 'Old experiment', 200 * 1440, 'experiments/abandoned-pr'), prsOf(7, 'Add login page', 15, 'feat/login')] : []
+    const head = new URLSearchParams(path.split('?')[1] ?? '').get('head')
+    return head ? all.filter((x) => head.endsWith(':' + x.head.ref)) : all
+  }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/runs$/))) return { workflow_runs: [...(RUNS[m[1]] ?? []), ...(rich ? (RICH_RUNS[m[1]] ?? []) : [])] }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/workflows$/)))
     return {
@@ -233,6 +317,8 @@ function rest(path: string, rich: boolean): unknown {
 export interface FakeGitHub {
   url: string
   requests: { method: string; path: string; body?: string }[]
+  /** Every distinct Authorization token the server was called with. */
+  tokens: Set<string>
   /** Requests that would change something on GitHub (anything but reads and GraphQL queries; mutations count). */
   writes: () => { method: string; path: string; body?: string }[]
   close: () => Promise<void>
@@ -245,17 +331,24 @@ const body = (req: IncomingMessage) =>
     req.on('end', () => resolve(data))
   })
 
-/** `rich` adds more repos and history, for screenshots. */
-export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<FakeGitHub> {
+/**
+ * `rich` adds more repos and history, for screenshots. `enterprise` makes it a GitHub Enterprise Server: the API lives under
+ * /api/v3 (GraphQL at /api/graphql) and only the token `ghes-token` is accepted.
+ */
+export async function startFakeGitHub(opts: { rich?: boolean; enterprise?: boolean } = {}): Promise<FakeGitHub> {
   const rich = !!opts.rich
+  const enterprise = !!opts.enterprise
   const requests: { method: string; path: string; body?: string }[] = []
+  const tokens = new Set<string>()
   let dispatched = false
   const server: Server = createServer(async (req, res) => {
-    const path = req.url ?? '/'
+    let path = req.url ?? '/'
+    if (enterprise) path = path.replace(/^\/api\/graphql/, '/graphql').replace(/^\/api\/v3/, '')
+    tokens.add((req.headers.authorization ?? '').replace(/^(Bearer|token) /, ''))
     const text = req.method === 'GET' ? '' : await body(req)
     requests.push({ method: req.method ?? 'GET', path, ...(text && { body: text }) })
     const headers = { 'Content-Type': 'application/json', 'x-ratelimit-resource': 'core', 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4999', 'x-ratelimit-reset': String(Math.floor(now / 1000) + 3600) }
-    if (!/^Bearer |^token /.test(req.headers.authorization ?? '')) {
+    if (!/^Bearer |^token /.test(req.headers.authorization ?? '') || (enterprise && req.headers.authorization !== 'Bearer ghes-token')) {
       res.writeHead(401, headers).end(JSON.stringify({ message: 'Bad credentials' }))
       return
     }
@@ -285,8 +378,12 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
       res.writeHead(200, headers).end(JSON.stringify({ id: 1 }))
       return
     }
-    const data = req.method === 'GET' ? rest(path, rich) : undefined
-    if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
+    // Writes (cleanup) are accepted and recorded; tests assert on exactly which ones happened.
+    if (req.method === 'DELETE') return void res.writeHead(204, headers).end()
+    if (req.method === 'PATCH') return void res.writeHead(200, headers).end('{}')
+    const data = req.method === 'GET' ? rest(path, rich, enterprise) : undefined
+    if (data && typeof data === 'object' && 'status' in data && 'body' in data) res.writeHead(data.status as number, headers).end(JSON.stringify(data.body))
+    else if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
     else if (typeof data === 'string') res.writeHead(200, { ...headers, 'Content-Type': 'text/html' }).end(data)
     else res.writeHead(200, headers).end(JSON.stringify(data))
   })
@@ -295,6 +392,7 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
+    tokens,
     writes: () => requests.filter((r) => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/graphql' && !/^\s*mutation/.test(JSON.parse(r.body ?? '{}').query ?? ''))),
     close: () => new Promise((resolve) => server.close(() => resolve()))
   }

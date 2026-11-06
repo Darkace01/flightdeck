@@ -48,6 +48,12 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
   // Before 0.3 there was one dashboard: keep the user's layout as "Main".
   if (!rest.dashboards?.length) settings.dashboards = [{ id: 'main', name: 'Main', widgets: settings.widgets, layout: settings.layout }]
   if (!settings.dashboards.some((d) => d.id === settings.activeDashboard)) settings.activeDashboard = settings.dashboards[0].id
+  // Accounts come from the main process only; drop anything malformed, and mappings to accounts that no longer exist.
+  settings.accounts = (Array.isArray(settings.accounts) ? settings.accounts : []).filter(
+    (a, i, all) => a && typeof a.id === 'string' && typeof a.host === 'string' && typeof a.apiUrl === 'string' && all.findIndex((b) => b?.id === a.id) === i
+  )
+  const known = new Set(settings.accounts.map((a) => a.id))
+  settings.repoAccounts = Object.fromEntries(Object.entries(settings.repoAccounts ?? {}).filter(([, id]) => known.has(id)))
   settings.openTabs = settings.openTabs.filter((t) => !settings.pinnedTabs.includes(t))
   if (settings.activeTab !== 'home' && ![...settings.openTabs, ...settings.pinnedTabs].includes(settings.activeTab)) settings.activeTab = 'home'
   return settings

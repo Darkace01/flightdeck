@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { startFakeGitHub } from './fake-github'
 import { close, launch, savedSettings, type Ctx } from './launch'
 
 // Drives the built app (out/) against the fake GitHub: every test gets a fresh profile and server, and checks
@@ -164,4 +167,144 @@ test('the command palette finds repos and commands', async () => {
   await input.fill('acme/web')
   await page.keyboard.press('Enter')
   await expect(page.locator('.crumbs li').first()).toHaveText('acme/web')
+})
+
+test('the security widget lists alerts, notes what is switched off, and shows Dependabot PRs', async () => {
+  ctx = await launch({ settings: { ...WATCHING, widgets: [{ id: 'w-sec', type: 'security', repos: [], options: { view: 'alerts', kind: '', severity: '' } }], layout: [{ i: 'w-sec', x: 0, y: 0, w: 12, h: 9 }], dashboards: [] } })
+  const { page } = ctx
+  const sec = page.locator('.widget', { has: page.getByRole('heading', { name: 'Security alerts' }) })
+  await expect(sec.getByText('Prototype pollution in lodash')).toBeVisible()
+  await expect(sec.getByText('SQL injection')).toBeVisible()
+  await expect(sec.locator('.sec-summary')).toContainText('1 critical')
+  await expect(sec.locator('.sec-summary')).toContainText('1 high')
+  await expect(sec).toContainText('Secret scanning: Not enabled')
+
+  await sec.getByRole('button', { name: 'Filters' }).click()
+  await sec.locator('select.filter-select').nth(2).selectOption('critical')
+  await expect(sec.locator('.row')).toHaveCount(1)
+  await sec.locator('select.filter-select').first().selectOption('dependabot-prs')
+  await expect(sec.getByText('Bump lodash from 4.17.20 to 4.17.21')).toBeVisible()
+})
+
+test('the CI health widget ranks failing, flaky and slow workflows', async () => {
+  ctx = await launch({ settings: { ...WATCHING, widgets: [{ id: 'w-ci', type: 'cihealth', repos: [], options: { view: 'failing', days: 14, branch: '' } }], layout: [{ i: 'w-ci', x: 0, y: 0, w: 12, h: 9 }], dashboards: [] } })
+  const { page } = ctx
+  const w = page.locator('.widget', { has: page.getByRole('heading', { name: 'CI health' }) })
+  // acme/api's CI passed once and failed once, both on the same commit: 50% failures, and flaky.
+  await expect(w.locator('.health-tiles')).toContainText('flaky workflows')
+  await expect(w.locator('tbody tr', { hasText: 'CI' })).toContainText('50%')
+  await w.getByRole('button', { name: 'Filters' }).click()
+  await w.locator('select.filter-select').first().selectOption('flaky')
+  await expect(w.locator('tbody tr', { hasText: 'CI' })).toContainText('1')
+  await w.locator('select.filter-select').first().selectOption('slowest')
+  await expect(w.locator('tbody tr')).not.toHaveCount(0)
+  await w.locator('select.filter-select').first().selectOption('minutes')
+  await expect(w.locator('th').last()).toHaveText('Minutes (est.)')
+})
+
+test('the PR view says what blocks a merge, and shows the merge queue', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  const prs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Pull requests' }) })
+  await prs.getByText('Add login page').click()
+  const status = page.getByRole('region', { name: 'Merge status' })
+  await expect(status).toContainText('Merging is blocked')
+  await expect(status).toContainText('1 required check failing: lint.')
+  await expect(status).toContainText('1 required check not reported yet: e2e.')
+  await expect(status).toContainText('An approving review is required (0 of 2 approvals).')
+  await expect(status).toContainText('Required checks 1/2 passing')
+  await page.keyboard.press('Escape')
+
+  await prs.getByText('Bump lodash from 4.17.20 to 4.17.21').click()
+  await expect(page.getByRole('region', { name: 'Merge status' })).toContainText('In the merge queue for main')
+  await expect(page.getByRole('region', { name: 'Merge status' })).toContainText('position 2, waiting for checks')
+})
+
+test('stale cleanup lists merged and stale branches and old PRs, and only acts after a confirm', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  await page.locator('.repo-sidebar').getByText('acme/api').click()
+  await page.locator('.ws-link', { hasText: 'Stale cleanup' }).click()
+
+  // The merged branch is ticked for you; the stale one (with unmerged work) and the old PR are not. A branch with an
+  // open PR, a brand-new empty branch and the default branch are never offered.
+  await expect(page.getByLabel('Select branch old/merged-feature')).toBeChecked()
+  await expect(page.getByLabel('Select branch experiments/abandoned')).not.toBeChecked()
+  await expect(page.getByLabel('Select pull request 3')).not.toBeChecked()
+  await expect(page.getByText('feat/login')).toHaveCount(0)
+  await expect(page.getByText('fresh-empty')).toHaveCount(0)
+  await expect(page.getByText('30 unmerged')).toBeVisible()
+
+  // Reviewing lists exactly what will happen, and cancelling does nothing.
+  await page.getByLabel('Select branch experiments/abandoned').check()
+  await page.getByLabel('Select pull request 3').check()
+  await page.getByRole('button', { name: /Review 2 branches and 1 PR/ }).click()
+  const confirm = page.getByRole('alertdialog', { name: 'Confirm cleanup' })
+  await expect(confirm).toContainText('Delete branch old/merged-feature')
+  await expect(confirm).toContainText('30 unmerged commits will be lost')
+  await expect(confirm).toContainText('Close pull request #3')
+  await confirm.getByRole('button', { name: 'Cancel' }).click()
+  expect(ctx.gh.writes()).toEqual([])
+
+  await page.getByRole('button', { name: /Review 2 branches and 1 PR/ }).click()
+  await confirm.getByRole('button', { name: /Yes, delete 2 and close 1/ }).click()
+  await expect(page.getByText('Cleaned up 3 items')).toBeVisible()
+  expect(ctx.gh.writes()).toEqual([
+    { method: 'DELETE', path: '/repos/acme/api/git/refs/heads/old/merged-feature' },
+    { method: 'DELETE', path: '/repos/acme/api/git/refs/heads/experiments/abandoned' },
+    { method: 'PATCH', path: '/repos/acme/api/pulls/3' }
+  ])
+  // The expected writes are checked; empty the log so the after-each "no writes" check applies to the rest.
+  ctx.gh.requests.length = 0
+})
+
+test('a GitHub Enterprise Server account polls its own repos with its own token', async () => {
+  const ghes = await startFakeGitHub({ enterprise: true })
+  ctx = await launch({ settings: WATCHING, env: { PUSHBACK_GHES_API_URL: `${ghes.url}/api/v3` } })
+  const { page } = ctx
+  try {
+    await page.getByTitle(/Settings/).click()
+    await page.getByRole('tab', { name: 'Account', exact: true }).click()
+    const other = page.getByRole('region', { name: 'Other accounts' })
+    await other.getByLabel('Account name').fill('Corp')
+    await other.getByLabel('Host').fill('https://ghe.test/')
+    await other.getByLabel('Token').fill('ghes-token')
+    await other.getByRole('button', { name: 'Add account' }).click()
+    await expect(other.getByText('Signed in as octo-ent')).toBeVisible()
+    await expect(other.getByText('ghe.test')).toBeVisible()
+
+    // Track a repo by its Enterprise URL: it is routed to the Corp account and polled on the Enterprise server.
+    await page.getByRole('tab', { name: 'Repositories' }).click()
+    await page.getByPlaceholder('owner/name or GitHub URL').fill('https://ghe.test/corp/tools')
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect(page.locator('.repo-list li', { hasText: 'corp/tools' })).toContainText('Corp')
+    await page.keyboard.press('Escape')
+    const runs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Workflow runs' }) })
+    await expect(runs.getByText('Ship it')).toBeVisible()
+    await expect(runs.getByText('Build site')).toBeVisible() // the github.com repos still update
+
+    // Each server only ever saw its own account's token, and its own repos.
+    expect([...ghes.tokens]).toEqual(['ghes-token'])
+    expect([...ctx.gh.tokens]).toEqual(['test-token'])
+    expect(ctx.gh.requests.some((r) => r.path.includes('corp/tools'))).toBe(false)
+    expect(ghes.requests.some((r) => r.path.includes('acme/'))).toBe(false)
+
+    // The account is saved without its token, and the window never receives it.
+    const saved = readFileSync(join(ctx.profile, 'settings.json'), 'utf8')
+    expect(saved).not.toContain('ghes-token')
+    expect(savedSettings(ctx).accounts).toMatchObject([{ name: 'Corp', host: 'ghe.test' }])
+    expect(savedSettings(ctx).repoAccounts['corp/tools']).toBe(savedSettings(ctx).accounts[0].id)
+    const exposed = await page.evaluate(async () => JSON.stringify([await window.pushback.getState(), await window.pushback.listAccounts()]))
+    expect(exposed).not.toContain('ghes-token')
+
+    // Removing the account forgets its token and its repo routing.
+    await page.getByTitle(/Settings/).click()
+    await page.getByRole('tab', { name: 'Account', exact: true }).click()
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('region', { name: 'Other accounts' }).getByRole('button', { name: 'Remove' }).click()
+    await expect.poll(() => savedSettings(ctx).accounts).toEqual([])
+    expect(savedSettings(ctx).repoAccounts).toEqual({})
+  } finally {
+    await ghes.close()
+  }
 })

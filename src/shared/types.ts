@@ -1,5 +1,6 @@
 // Types shared between the main process, preload bridge and renderer.
 
+import type { MergeStatus } from './mergeStatus'
 import type { ThemeColors } from './themes'
 
 export type RunStatus = 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending'
@@ -102,7 +103,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security' | 'cihealth'
 
 export interface WidgetConfig {
   id: string
@@ -200,6 +201,10 @@ export interface Settings {
   editorCommand: string
   /** Look for new clones in the home folder at startup and link them (watching is still up to the user). */
   autoLinkClones: boolean
+  /** Accounts besides the primary github.com login: GitHub Enterprise Server hosts, with their tokens kept in the main process. */
+  accounts: Account[]
+  /** Which extra account a repo belongs to, by full name. A repo that isn't listed uses the primary account. */
+  repoAccounts: Record<string, string>
 }
 
 export interface InboxItem {
@@ -695,7 +700,8 @@ export interface PushbackApi {
   saveSettings(patch: Partial<Settings>): Promise<Settings>
   setToken(token: string | null): Promise<ActionResult>
   refresh(): Promise<void>
-  listMyRepos(): Promise<RepoOption[]>
+  /** The repos you can access on the primary account, or on an extra one (`accountId`). */
+  listMyRepos(accountId?: string): Promise<RepoOption[]>
   dispatch(repo: string, workflowId: number, ref: string, inputs: Record<string, string>): Promise<DispatchResult>
   rerun(repo: string, runId: number, failedOnly: boolean): Promise<ActionResult>
   cancel(repo: string, runId: number): Promise<ActionResult>
@@ -759,6 +765,101 @@ export interface PushbackApi {
   linkScanned(repos: string[]): Promise<number>
   /** Editors and IDEs installed on this machine, for the default-editor setting. */
   listEditors(): Promise<EditorOption[]>
+  // --- accounts ---
+  /** The primary login plus every extra account, each with its sign-in state. Never includes a token. */
+  listAccounts(): Promise<AccountInfo[]>
+  /** Checks the token against the host, then stores it encrypted in the main process. */
+  addAccount(account: NewAccount): Promise<ActionResult & { id?: string }>
+  removeAccount(id: string): Promise<ActionResult>
+  /** Makes a repo use an extra account (null: the primary one). Call before tracking the repo. */
+  setRepoAccount(repo: string, accountId: string | null): Promise<ActionResult>
+  // --- stale cleanup ---
+  /** Open PRs of a repo, least recently updated first (for finding old ones). */
+  listOpenPrs(repo: string): Promise<StalePr[]>
+  /** Deletes branches and closes PRs in bulk. The main process re-checks each one and reports per item. */
+  cleanup(repo: string, req: CleanupRequest): Promise<CleanupResult>
+  // --- merge status ---
+  /** What blocks a PR from merging (required checks, reviews, conflicts) and its merge-queue position. */
+  prMergeStatus(repo: string, num: number): Promise<MergeStatus>
+  // --- security alerts ---
+  /** Open Dependabot, code-scanning and secret-scanning alerts of a repo (a kind the token can't read is listed in `unavailable`). */
+  listSecurity(repo: string): Promise<RepoSecurity>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */
   onNavigate(cb: (url: string) => void): () => void
+}
+
+// --- security alerts ---
+
+export type AlertKind = 'dependabot' | 'code-scanning' | 'secret-scanning'
+export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface SecurityAlert {
+  repo: string
+  kind: AlertKind
+  number: number
+  severity: AlertSeverity
+  title: string
+  /** The package (Dependabot), file (code scanning) or secret type (secret scanning). */
+  detail: string
+  url: string
+  createdAt: string
+}
+
+export interface RepoSecurity {
+  repo: string
+  alerts: SecurityAlert[]
+  /** Kinds GitHub wouldn't list (feature off, or the token lacks access), with the reason. */
+  unavailable: Partial<Record<AlertKind, string>>
+}
+
+// --- stale cleanup ---
+
+export interface StalePr {
+  number: number
+  title: string
+  url: string
+  author: string
+  createdAt: string
+  updatedAt: string
+  draft: boolean
+}
+
+export interface CleanupRequest {
+  /** Branch names to delete. */
+  branches: string[]
+  /** Pull request numbers to close. */
+  closePrs: number[]
+}
+
+export interface CleanupResult {
+  ok: boolean
+  /** What was deleted or closed, as "branch x" / "PR #n". */
+  done: string[]
+  failed: { item: string; error: string }[]
+}
+
+// --- accounts ---
+
+/** An extra account. The token is stored by the main process under `id` and is never part of this. */
+export interface Account {
+  id: string
+  name: string
+  /** Web host, e.g. ghe.example.com. */
+  host: string
+  /** REST API root, e.g. https://ghe.example.com/api/v3. */
+  apiUrl: string
+}
+
+export interface AccountInfo extends Account {
+  /** The github.com login (PAT or gh CLI); it can't be removed here. */
+  primary: boolean
+  login?: string
+  status: 'ok' | 'error' | 'missing'
+  error?: string
+}
+
+export interface NewAccount {
+  name: string
+  host: string
+  token: string
 }

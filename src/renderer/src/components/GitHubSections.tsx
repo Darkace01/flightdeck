@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { BranchInfo, CommitInfo, GraphCommit } from '../../../shared/types'
 import { matches, timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { openIssue, openPr } from '../lib/open'
 import { api, toast } from '../lib/store'
 import { pushModal } from '../lib/ui'
@@ -175,7 +176,7 @@ export function BranchesSection({ repo, info }: SectionProps) {
                   </button>
                 )}
                 <IconButton icon="copy" title="Copy branch name" onClick={() => void navigator.clipboard.writeText(b.name).then(() => toast('Branch name copied', 'ok'))} />
-                <IconButton icon="external" title="Open on GitHub" onClick={() => void api.openExternal(`https://github.com/${repo}/tree/${b.name}`)} />
+                <IconButton icon="external" title="Open on GitHub" onClick={() => void api.openExternal(webUrl(repo, `/tree/${b.name}`))} />
                 {!b.isDefault && <IconButton icon="trash" title="Delete branch" onClick={() => void remove(b.name)} />}
               </div>
             </li>

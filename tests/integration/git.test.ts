@@ -141,6 +141,11 @@ describe('linking and listing', () => {
     git(work, 'remote', 'set-url', 'origin', 'https://github.com/Acme/API.git')
     expect(await gitApi.remoteMatches(work, 'acme/api')).toBe(true)
     expect(await gitApi.remoteMatches(work, 'acme/other')).toBe(false)
+    // A clone from an Enterprise Server matches that host only, so it can't be linked to a github.com repo of the same name.
+    expect(await gitApi.remoteMatches(work, 'acme/api', 'ghe.example.com')).toBe(false)
+    git(work, 'remote', 'set-url', 'origin', 'git@ghe.example.com:corp/tools.git')
+    expect(await gitApi.remoteMatches(work, 'corp/tools', 'ghe.example.com')).toBe(true)
+    expect(await gitApi.remoteMatches(work, 'corp/tools')).toBe(false)
     // git prints forward slashes on every OS.
     expect(await gitApi.topLevel(join(work, 'src'))).toBe(work.split('\\').join('/'))
     cleanup(join(work, '..'))

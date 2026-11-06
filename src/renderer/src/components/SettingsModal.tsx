@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { COLOR_LABELS, findTheme, FONT_CHOICES, THEMES, type ThemeColors, type ThemePreset } from '../../../shared/themes'
-import type { NotifyRules, NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
+import { parseRepoInput } from '../../../shared/accounts'
+import type { AccountInfo, NotifyRules, NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
 import { isSnoozed } from '../../../shared/notifyRules'
 import { resolveEditor } from '../../../shared/defaults'
 import { applyTemplate } from '../lib/dashboards'
@@ -70,7 +71,74 @@ export function AccountSection() {
       <button className="link" onClick={() => void api.openExternal('https://github.com/settings/tokens/new?scopes=repo,workflow&description=Pushback')}>
         Create a token on GitHub →
       </button>
+      <OtherAccounts />
     </div>
+  )
+}
+
+/** GitHub Enterprise Server (and other) accounts. Their tokens go straight to the main process and are never shown again. */
+function OtherAccounts() {
+  const settings = useSettings()
+  const [accounts, setAccounts] = useState<AccountInfo[]>([])
+  const [form, setForm] = useState({ name: '', host: '', token: '' })
+  const [busy, setBusy] = useState(false)
+  // The settings change when an account is added or removed, which is when to ask again.
+  useEffect(() => {
+    api.listAccounts().then((a) => setAccounts(a.filter((x) => !x.primary)), () => setAccounts([]))
+  }, [settings.accounts])
+
+  const add = async () => {
+    setBusy(true)
+    const r = await api.addAccount(form)
+    setBusy(false)
+    if (r.ok) {
+      setForm({ name: '', host: '', token: '' })
+      toast(`Added ${form.name || form.host}`, 'ok')
+    } else toast(`Couldn't add the account: ${r.error}`, 'error')
+  }
+  const remove = async (a: AccountInfo) => {
+    const uses = Object.values(settings.repoAccounts).filter((id) => id === a.id).length
+    if (!confirm(`Remove ${a.name} (${a.host})? Its saved token is deleted.${uses ? ` ${uses} tracked repo${uses === 1 ? '' : 's'} will stop updating.` : ''}`)) return
+    const r = await api.removeAccount(a.id)
+    if (!r.ok) toast(`Couldn't remove it: ${r.error}`, 'error')
+  }
+
+  return (
+    <section className="stack" aria-label="Other accounts">
+      <h3>GitHub Enterprise Server</h3>
+      <p className="dim small">
+        Add a server to watch its repositories next to your github.com ones. Each account has its own token, stored encrypted with your OS keychain and never sent to the app's
+        window. Use a token with <code>repo</code> and <code>workflow</code> scopes.
+      </p>
+      {accounts.map((a) => (
+        <div key={a.id} className="account">
+          <div>
+            <div className="strong">
+              {a.name} <span className="dim small mono">{a.host}</span>
+            </div>
+            <div className={`small ${a.status === 'ok' ? 'dim' : 'del'}`}>{a.status === 'ok' ? `Signed in as ${a.login}` : (a.error ?? 'Not signed in')}</div>
+          </div>
+          <span className="spacer" />
+          <button className="btn btn-sm" onClick={() => void remove(a)}>
+            Remove
+          </button>
+        </div>
+      ))}
+      <form
+        className="inline"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void add()
+        }}
+      >
+        <input placeholder="Name (optional)" aria-label="Account name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input placeholder="ghe.example.com" aria-label="Host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} />
+        <input type="password" placeholder="Token" aria-label="Token" value={form.token} onChange={(e) => setForm({ ...form, token: e.target.value })} />
+        <button className="btn btn-primary" disabled={busy || !form.host.trim() || !form.token.trim()}>
+          {busy ? 'Checking…' : 'Add account'}
+        </button>
+      </form>
+    </section>
   )
 }
 
@@ -79,17 +147,24 @@ export function ReposSection() {
   const snapshot = useSnapshot()
   const [input, setInput] = useState('')
   const [mine, setMine] = useState<RepoOption[]>([])
+  // Which account a plain owner/name belongs to and whose repos are suggested ('' is github.com).
+  const [accountId, setAccountId] = useState('')
   useEffect(() => {
-    if (snapshot.auth === 'ok') api.listMyRepos().then(setMine, () => setMine([]))
-  }, [snapshot.auth])
+    if (snapshot.auth === 'ok') api.listMyRepos(accountId || undefined).then(setMine, () => setMine([]))
+  }, [snapshot.auth, accountId, settings.accounts])
 
-  const add = (repo: string) => {
-    const name = repo.trim().replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '')
-    if (!/^[\w.-]+\/[\w.-]+$/.test(name)) return toast('Use the owner/name format, e.g. vercel/next.js', 'error')
+  const add = async (text: string) => {
+    const parsed = parseRepoInput(text, settings.accounts, accountId || undefined)
+    if ('error' in parsed) return toast(parsed.error, 'error')
+    const name = parsed.repo
     if (settings.repos.includes(name)) return toast(`${name} is already tracked`)
+    // The repo has to be routed to its account before it is tracked, so the first poll uses the right one.
+    const r = await api.setRepoAccount(name, parsed.accountId ?? null)
+    if (!r.ok) return toast(r.error ?? "Couldn't set the account", 'error')
     void updateSettings({ repos: [...settings.repos, name] })
     setInput('')
   }
+  const accountName = (repo: string) => settings.accounts.find((a) => a.id === settings.repoAccounts[repo])?.name
   const remove = (repo: string) =>
     void updateSettings({ repos: settings.repos.filter((r) => r !== repo), favoriteRepos: settings.favoriteRepos.filter((r) => r !== repo) })
   // Starring lists a repo first everywhere (dashboard widgets and polling follow the repo order) and pins its tab.
@@ -115,9 +190,19 @@ export function ReposSection() {
         className="inline"
         onSubmit={(e) => {
           e.preventDefault()
-          add(input)
+          void add(input)
         }}
       >
+        {settings.accounts.length > 0 && (
+          <select aria-label="Account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <option value="">GitHub (github.com)</option>
+            {settings.accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} ({a.host})
+              </option>
+            ))}
+          </select>
+        )}
         <input list="my-repos" placeholder="owner/name or GitHub URL" value={input} onChange={(e) => setInput(e.target.value)} autoFocus />
         <datalist id="my-repos">
           {suggestions.map((r) => (
@@ -145,6 +230,7 @@ export function ReposSection() {
               {settings.favoriteRepos.includes(repo) ? '★' : '☆'}
             </button>
             <span className="mono">{repo}</span>
+            {accountName(repo) && <span className="chip">{accountName(repo)}</span>}
             {snapshot.repos[repo]?.error && <span className="del small">{snapshot.repos[repo].error}</span>}
             <span className="spacer" />
             <button className="icon-btn" title="Move up" onClick={() => move(repo, -1)}>

@@ -32,7 +32,8 @@ export const TEMPLATES: DashboardTemplate[] = [
       { type: 'runs', at: [0, 3, 6, 8], title: 'Running now', options: { filter: 'active' } },
       { type: 'runs', at: [6, 3, 6, 8], title: 'Failures', options: { filter: 'failed' } },
       { type: 'insights', at: [0, 11, 7, 8] },
-      { type: 'events', at: [7, 11, 5, 8] }
+      { type: 'events', at: [7, 11, 5, 8] },
+      { type: 'cihealth', at: [0, 19, 12, 9] }
     ]
   },
   {
@@ -67,6 +68,16 @@ export const TEMPLATES: DashboardTemplate[] = [
       { type: 'deployments', at: [0, 8, 7, 9], title: 'Clients', options: { view: 'clients' } },
       { type: 'workflows', at: [7, 8, 5, 9], title: 'Deploy' },
       { type: 'deployments', at: [0, 17, 12, 9], title: 'Deployment history', options: { view: 'history' } }
+    ]
+  },
+  {
+    id: 'security',
+    name: 'Security',
+    description: 'Dependabot, code-scanning and secret-scanning alerts, plus open Dependabot pull requests.',
+    widgets: [
+      { type: 'summary', at: [0, 0, 12, 3] },
+      { type: 'security', at: [0, 3, 7, 10] },
+      { type: 'security', at: [7, 3, 5, 10], title: 'Dependabot PRs', options: { view: 'dependabot-prs' } }
     ]
   },
   {

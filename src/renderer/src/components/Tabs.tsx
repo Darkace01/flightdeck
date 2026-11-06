@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import type { RepoOption } from '../../../shared/types'
 import { matches, timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { closeOtherTabs, closeTab, HOME, moveTab, openRepoTab, pinTab, selectTab, setTabLayout, toggleSidebar, unpinTab } from '../lib/tabs'
 import { Icon, IconButton, Popover, runTone, Skeleton, StatusIcon } from './ui'
@@ -78,7 +79,7 @@ function useTabMenu() {
           void updateSettings({ repos: watched ? settings.repos.filter((r) => r !== repo) : [...settings.repos, repo] })
           toast(watched ? `Stopped watching ${repo}` : `Watching ${repo}`, 'ok')
         })}
-        {item('Open in browser', () => void api.openExternal(`https://github.com/${repo}`))}
+        {item('Open in browser', () => void api.openExternal(webUrl(repo)))}
         {item('Copy name', () => void navigator.clipboard.writeText(repo))}
       </Popover>
     )

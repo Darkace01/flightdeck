@@ -1,4 +1,5 @@
-import { api, getSnapshot } from './store'
+import { api, getSettings, getSnapshot } from './store'
+import { knownHosts } from './hosts'
 import { openRepoTab } from './tabs'
 import { pushModal } from './ui'
 
@@ -13,10 +14,13 @@ const RESERVED = new Set([
  * otherwise in the browser. Every click on GitHub content should go through here.
  */
 export function openInApp(url: string): void {
-  const m = url.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(\/[^?#]*)?(?:[?#].*)?$/)
-  if (!m || RESERVED.has(m[1])) return void api.openExternal(url)
-  const repo = `${m[1]}/${m[2]}`
-  const rest = m[3] ?? ''
+  const m = url.match(/^https:\/\/([\w.:-]+)\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(\/[^?#]*)?(?:[?#].*)?$/)
+  if (!m || !knownHosts().includes(m[1].toLowerCase()) || RESERVED.has(m[2])) return void api.openExternal(url)
+  const repo = `${m[2]}/${m[3]}`
+  // A link on an Enterprise host only opens in the app if that repo is routed to the host's account.
+  const host = getSettings().accounts.find((a) => a.host === m[1].toLowerCase())
+  if (host && getSettings().repoAccounts[repo] !== host.id) return void api.openExternal(url)
+  const rest = m[4] ?? ''
 
   const pr = rest.match(/^\/pull\/(\d+)/)
   if (pr) return pushModal({ kind: 'pr', repo, number: Number(pr[1]) })

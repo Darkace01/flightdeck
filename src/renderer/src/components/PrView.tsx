@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { PrDetail, PrFile, WorkflowRun } from '../../../shared/types'
 import { timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { openInApp, openRepo } from '../lib/open'
 import { api, toast, useSnapshot } from '../lib/store'
 import { closeModal, pushModal } from '../lib/ui'
 import { approve } from '../widgets/PrsWidget'
 import { Markdown } from './Markdown'
+import { MergeStatus } from './MergeStatus'
 import { RepoRail } from './RepoRail'
 import { Avatar, Empty, Modal, runTone, Segmented, Skeleton, StatusIcon } from './ui'
 
@@ -82,23 +84,25 @@ export function PrModal({ repo, number }: { repo: string; number: number }) {
           </button>
         )}
         {open && pr?.author !== viewer && (
-          <button className="btn" onClick={() => pushModal({ kind: 'review', pr: { repo, number, title, url: pr?.url ?? `https://github.com/${repo}/pull/${number}` } })}>
+          <button className="btn" onClick={() => pushModal({ kind: 'review', pr: { repo, number, title, url: pr?.url ?? webUrl(repo, `/pull/${number}`) } })}>
             Review…
           </button>
         )}
         {open && !pr?.isDraft && (
-          <button className="btn btn-primary" onClick={() => pushModal({ kind: 'merge', pr: { repo, number, title, url: pr?.url ?? `https://github.com/${repo}/pull/${number}` } })}>
+          <button className="btn btn-primary" onClick={() => pushModal({ kind: 'merge', pr: { repo, number, title, url: pr?.url ?? webUrl(repo, `/pull/${number}`) } })}>
             Merge…
           </button>
         )}
         <span className="spacer" />
-        <button className="btn" onClick={() => void navigator.clipboard.writeText(`https://github.com/${repo}/pull/${number}`).then(() => toast('Link copied', 'ok'))}>
+        <button className="btn" onClick={() => void navigator.clipboard.writeText(webUrl(repo, `/pull/${number}`)).then(() => toast('Link copied', 'ok'))}>
           Copy link
         </button>
-        <button className="btn" onClick={() => void api.openExternal(`https://github.com/${repo}/pull/${number}`)}>
+        <button className="btn" onClick={() => void api.openExternal(webUrl(repo, `/pull/${number}`))}>
           Open in browser
         </button>
       </div>
+
+      {open && pr && <MergeStatus repo={repo} number={number} refreshKey={summary?.updatedAt} />}
 
       {error && <p className="del">Couldn't load this pull request: {error}</p>}
       {!pr && !error && <Skeleton kind="text" rows={6} />}
@@ -188,7 +192,7 @@ function Commits({ pr }: { pr: PrDetail }) {
       {pr.commits.map((c) => {
         const [subject, ...body] = c.message.split('\n')
         return (
-          <li key={c.sha} className="row clickable" onClick={() => void api.openExternal(`https://github.com/${pr.repo}/commit/${c.sha}`)} title={body.join('\n').trim() || undefined}>
+          <li key={c.sha} className="row clickable" onClick={() => void api.openExternal(webUrl(pr.repo, `/commit/${c.sha}`))} title={body.join('\n').trim() || undefined}>
             <Avatar src={c.authorAvatar ?? ''} login={c.author} size={18} />
             <div className="row-main">
               <div className="row-title">

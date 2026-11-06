@@ -2,14 +2,18 @@ import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import type { RepoInfo, WidgetType } from '../../../shared/types'
 import { timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { setRepoSection, useRepoSection } from '../lib/tabs'
 import { pushModal } from '../lib/ui'
+import { CiHealthWidget } from '../widgets/CiHealthWidget'
 import { InsightsWidget } from '../widgets/InsightsWidget'
 import { PrsWidget } from '../widgets/PrsWidget'
 import { RunsWidget } from '../widgets/RunsWidget'
 import type { WidgetProps } from '../widgets/types'
+import { SecurityWidget } from '../widgets/SecurityWidget'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
+import { CleanupSection } from './Cleanup'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { CompareSection, ContributorsSection, FileHistorySection, GraphSection, RemotesSection, SearchSection, StashesSection, TagsSection } from './GitTools'
 import { DeploymentsSection } from './Deployments'
@@ -52,9 +56,12 @@ export const SECTIONS: Section[] = [
   { id: 'branches', label: 'Branches', group: 'GitHub', component: BranchesSection },
   { id: 'commits', label: 'Commits', group: 'GitHub', component: CommitsSection },
   { id: 'releases', label: 'Releases', group: 'GitHub', component: ReleasesSection },
+  { id: 'cleanup', label: 'Stale cleanup', group: 'GitHub', component: CleanupSection },
+  { id: 'security', label: 'Security', group: 'GitHub', widget: ['security', SecurityWidget] },
   { id: 'runs', label: 'Runs', group: 'Actions', widget: ['runs', RunsWidget] },
   { id: 'workflows', label: 'Workflows', group: 'Actions', widget: ['workflows', WorkflowsWidget] },
   { id: 'insights', label: 'Insights', group: 'Actions', widget: ['insights', InsightsWidget] },
+  { id: 'cihealth', label: 'CI health', group: 'Actions', widget: ['cihealth', CiHealthWidget] },
   { id: 'deployments', label: 'Deployments', group: 'Actions', component: DeploymentsSection },
   { id: 'local', label: 'Working copy', group: 'Local', component: LocalSection },
   { id: 'graph', label: 'Commit graph', group: 'Local', component: GraphSection },
@@ -181,7 +188,7 @@ export function RepoWorkspace({ repo, page }: { repo: string; page?: ReactNode }
             <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(`gh repo clone ${repo}`).then(() => toast('Clone command copied', 'ok'))}>
               Copy clone command
             </button>
-            <button className="btn btn-sm" onClick={() => void api.openExternal(`https://github.com/${repo}`)}>
+            <button className="btn btn-sm" onClick={() => void api.openExternal(webUrl(repo))}>
               Open in browser
             </button>
           </div>
