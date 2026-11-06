@@ -23,19 +23,22 @@ export const PrsWidget = memo(function PrsWidget({ widget, filter }: WidgetProps
   const settings = useSettings()
   const now = useNow()
   const repos = widgetRepos(widget.repos, settings.repos)
-  const { filter: mode = 'all', hideDrafts = false } = widget.options
+  const { filter: mode = 'all', hideDrafts = false, branch = '', author = '', label = '' } = widget.options
   const viewer = snapshot.viewer?.login
 
   const prs = useMemo(() => {
     let all = repos.flatMap((r) => snapshot.repos[r]?.prs ?? [])
     all.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     if (hideDrafts) all = all.filter((p) => !p.isDraft)
+    if (branch) all = all.filter((p) => matches(p.branch, String(branch)))
+    if (author) all = all.filter((p) => matches(p.author, String(author)))
+    if (label) all = all.filter((p) => p.labels.some((l) => matches(l.name, String(label))))
     if (mode === 'mine') all = all.filter((p) => p.author === viewer)
     if (mode === 'review') all = all.filter((p) => viewer && p.reviewers.includes(viewer))
     if (mode === 'failing') all = all.filter((p) => checksTone(p.checks) === 'bad')
     if (filter) all = all.filter((p) => matches(`${p.repo} #${p.number} ${p.title} ${p.author} ${p.branch} ${p.labels.map((l) => l.name).join(' ')}`, filter))
     return all
-  }, [snapshot.repos, repos.join(), mode, hideDrafts, filter, viewer])
+  }, [snapshot.repos, repos.join(), mode, hideDrafts, filter, viewer, branch, author, label])
 
   if (!prs.length) return <Empty>No open pull requests.</Empty>
   const multiRepo = repos.length > 1

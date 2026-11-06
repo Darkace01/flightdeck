@@ -430,6 +430,14 @@ function AdvancedSection() {
       </label>
       <p className="dim small">Unchanged data costs nothing: Pushback uses ETag requests, which GitHub doesn't count against your rate limit.</p>
       <EditorField />
+      <div className="field">
+        <span>Walkthrough</span>
+        <div className="inline">
+          <button className="btn btn-sm" onClick={() => (closeModal(), void updateSettings({ tourDone: false }))}>
+            Take the tour again
+          </button>
+        </div>
+      </div>
       <label className="check">
         <input type="checkbox" checked={settings.closeToTray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
         Keep running in the tray when the window is closed (so notifications keep coming)

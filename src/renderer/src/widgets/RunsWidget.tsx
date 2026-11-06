@@ -28,7 +28,7 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
   const settings = useSettings()
   const now = useNow(10_000)
   const repos = widgetRepos(widget.repos, settings.repos)
-  const { filter: mode = 'all', branch = '', limit = 30, latestOnly = false } = widget.options
+  const { filter: mode = 'all', branch = '', limit = 30, latestOnly = false, workflow = '', event = '', actor = '' } = widget.options
   const viewer = snapshot.viewer?.login
 
   const runs = useMemo(() => {
@@ -38,6 +38,9 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
     if (mode === 'failed') all = all.filter((r) => runTone(r) === 'bad')
     if (mode === 'mine') all = all.filter((r) => r.actor === viewer)
     if (branch) all = all.filter((r) => r.branch === branch)
+    if (workflow) all = all.filter((r) => matches(r.name, String(workflow)))
+    if (event) all = all.filter((r) => r.event === event)
+    if (actor) all = all.filter((r) => matches(r.actor, String(actor)))
     if (latestOnly) {
       const seen = new Set<string>()
       all = all.filter((r) => {
@@ -49,7 +52,7 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
     }
     if (filter) all = all.filter((r) => matches(`${r.repo} ${r.name} ${r.title} ${r.branch} ${r.actor} ${r.event}`, filter))
     return all.slice(0, Number(limit) || 30)
-  }, [snapshot.repos, repos.join(), mode, branch, latestOnly, filter, limit, viewer])
+  }, [snapshot.repos, repos.join(), mode, branch, latestOnly, filter, limit, viewer, workflow, event, actor])
 
   // Only repos with deploy-looking workflows load deployments, to label those runs with where they deployed.
   const deployRepos = [...new Set(runs.filter((r) => /deploy|release/i.test(r.name)).map((r) => r.repo))]

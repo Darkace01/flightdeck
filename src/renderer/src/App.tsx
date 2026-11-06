@@ -7,8 +7,10 @@ import { PrModal } from './components/PrView'
 import { NewIssueModal, NewPrModal, NewReleaseModal } from './components/CreateModals'
 import { IssueModal } from './components/IssueView'
 import { RepoWorkspace } from './components/RepoWorkspace'
+import { Breadcrumbs, PageArea } from './components/Breadcrumbs'
 import { FindClonesModal } from './components/FindClones'
 import { RepoSidebar, TabBar } from './components/Tabs'
+import { Tour } from './components/Tour'
 import { AccountSection, ReposSection, SettingsModal } from './components/SettingsModal'
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
@@ -18,7 +20,7 @@ import { switchDashboard } from './lib/dashboards'
 import { openInApp } from './lib/open'
 import { cycleTab, HOME, toggleSidebar } from './lib/tabs'
 import { useApplyAppearance } from './lib/theme'
-import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
+import { closeModal, isPage, openModal, setEditing, useEditing, useModal, useTrail } from './lib/ui'
 
 function useShortcuts(): void {
   const editing = useEditing()
@@ -163,9 +165,10 @@ function Onboarding() {
   )
 }
 
+/** Dialogs only: PRs, issues and runs open as pages (see PageArea). */
 function Modals() {
   const modal = useModal()
-  if (!modal) return null
+  if (!modal || isPage(modal)) return null
   switch (modal.kind) {
     case 'settings':
       return <SettingsModal />
@@ -211,6 +214,7 @@ export function App() {
   // Until the first poll answers, auth reads as missing; show the dashboard's skeleton rather than flashing sign-in.
   const starting = !snapshot.lastPoll && settings.repos.length > 0
   const ready = starting || (snapshot.auth === 'ok' && settings.repos.length > 0)
+  const hasPage = useTrail().some(isPage)
   return (
     <div className="app">
       <TopBar />
@@ -219,13 +223,19 @@ export function App() {
           {settings.sidebarOpen && <RepoSidebar />}
           <div className="app-main">
             {settings.tabLayout === 'horizontal' && <TabBar />}
-            {settings.activeTab === HOME ? <Dashboard /> : <RepoWorkspace key={settings.activeTab} repo={settings.activeTab} />}
+            <Breadcrumbs />
+            {settings.activeTab === HOME ? (
+              hasPage ? <PageArea /> : <Dashboard />
+            ) : (
+              <RepoWorkspace key={settings.activeTab} repo={settings.activeTab} page={hasPage ? <PageArea inRepo={settings.activeTab} /> : undefined} />
+            )}
           </div>
         </div>
       ) : (
         <Onboarding />
       )}
       <Modals />
+      {ready && !starting && !settings.tourDone && <Tour />}
       <Toasts />
     </div>
   )

@@ -27,6 +27,8 @@ export const InsightsWidget = memo(function InsightsWidget({ widget, filter }: W
       const byWf = new Map<number, WorkflowRun[]>()
       for (const run of snapshot.repos[repo]?.runs ?? []) {
         if (run.status !== 'completed') continue
+        if (widget.options.branch && run.branch !== widget.options.branch) continue
+        if (widget.options.workflow && !matches(run.name, String(widget.options.workflow))) continue
         byWf.set(run.workflowId, [...(byWf.get(run.workflowId) ?? []), run])
       }
       for (const [id, runs] of byWf) {
@@ -46,7 +48,7 @@ export const InsightsWidget = memo(function InsightsWidget({ widget, filter }: W
     return out
       .filter((s) => !filter || matches(`${s.repo} ${s.name}`, filter))
       .sort((a, b) => a.successRate - b.successRate || b.runs.length - a.runs.length)
-  }, [snapshot.repos, repos.join(), filter])
+  }, [snapshot.repos, repos.join(), filter, widget.options.branch, widget.options.workflow])
 
   if (!stats.length) return <Empty>No completed runs yet.</Empty>
 

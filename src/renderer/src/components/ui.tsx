@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { ChecksState, WorkflowRun } from '../../../shared/types'
 import { useToasts } from '../lib/store'
@@ -64,7 +64,8 @@ const ICONS = {
   branch: 'M5 2.5v11M5 10a3 3 0 0 0 3-3h1.5M11 7a1.5 1.5 0 1 0 0-.01',
   sidebar: 'M2.5 3h11v10h-11zM6 3v10',
   pin: 'M6 2.5h4l-.5 4 2 2v1h-7v-1l2-2zM8 9.5v4',
-  tabs: 'M2.5 5.5h11v8h-11zM2.5 5.5V3h4v2.5'
+  tabs: 'M2.5 5.5h11v8h-11zM2.5 5.5V3h4v2.5',
+  filter: 'M2.5 3.5h11l-4.5 5v4l-2 1v-5z'
 } as const
 
 export type IconName = keyof typeof ICONS
@@ -110,6 +111,9 @@ export function IconButton({
  * A dialog. With `panel` it slides in from the right as a tall side panel instead, with optional `side`
  * content (such as the repo's details) in a rail on its left.
  */
+/** Set by the page area: a Modal inside renders as a sub-page; `top` says whether it's the view Esc closes. */
+export const PageMode = createContext<{ page: boolean; top: boolean; rail?: boolean }>({ page: false, top: true })
+
 export function Modal({ title, onClose, children, width = 560, panel, side, actions }: {
   title: string
   onClose: () => void
@@ -119,11 +123,28 @@ export function Modal({ title, onClose, children, width = 560, panel, side, acti
   side?: ReactNode
   actions?: ReactNode
 }) {
+  const mode = useContext(PageMode)
   useEffect(() => {
+    // Only the topmost view answers Esc, so a dialog over a page closes before the page does.
+    if (!mode.top) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, mode.top])
+  if (mode.page)
+    return (
+      <section className="page" aria-label={title}>
+        {actions && <div className="page-actions">{actions}</div>}
+        {side && mode.rail !== false ? (
+          <div className="panel-body">
+            <aside className="panel-rail">{side}</aside>
+            <div className="page-body">{children}</div>
+          </div>
+        ) : (
+          <div className="page-body">{children}</div>
+        )}
+      </section>
+    )
   return (
     <div className={`modal-backdrop${panel ? ' panel-backdrop' : ''}`} onMouseDown={onClose}>
       <div className={`modal${panel ? ' side-panel' : ''}`} style={panel ? undefined : { width }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>

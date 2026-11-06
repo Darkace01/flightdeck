@@ -19,6 +19,14 @@ const TONE: Record<EventKind, 'ok' | 'bad' | 'warn' | 'muted' | 'run'> = {
   'pr-checks-failed': 'bad'
 }
 
+/** The Type filter: groups of event kinds. */
+const kindMatches = (kind: string, want: string) =>
+  !want ||
+  (want === 'run' && kind.startsWith('run-')) ||
+  (want === 'failure' && (kind === 'run-failure' || kind === 'pr-checks-failed')) ||
+  (want === 'pr' && kind.startsWith('pr-') && kind !== 'pr-review') ||
+  (want === 'review' && kind === 'pr-review')
+
 export const EventsWidget = memo(function EventsWidget({ widget, filter }: WidgetProps) {
   const snapshot = useSnapshot()
   const settings = useSettings()
@@ -29,6 +37,7 @@ export const EventsWidget = memo(function EventsWidget({ widget, filter }: Widge
     (e) =>
       (!repos || repos.includes(e.repo)) &&
       (!widget.options.unreadOnly || !e.read) &&
+      kindMatches(e.kind, String(widget.options.kind ?? '')) &&
       (!filter || matches(`${e.repo} ${e.title} ${e.body}`, filter))
   )
 

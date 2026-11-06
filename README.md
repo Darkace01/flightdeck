@@ -80,6 +80,12 @@ Pushback checks for new versions on startup and every few hours. You can turn th
 
 ## Getting started
 
+### Finding your way around
+
+Everything you open (a PR, an issue, a workflow run) opens as a page, inside the dashboard or repo tab you opened it from. The **breadcrumbs** above the content show where you are, for example *Main › owner/repo › #42 Fix login* or *owner/repo › Pull requests › #42 Fix login*, along with how many levels deep you are. Click any crumb to go back up to it, or press `Esc` (or **←**) to go back one level. Inside a repo tab, the repo's sections stay on the left while you look at a page.
+
+The first time you open Pushback, a short **walkthrough** points out each part of the app. Replay it any time with **Take the tour** in the command palette, or from **Settings → Advanced**.
+
 ### 1. Connect to GitHub
 
 Pushback needs a GitHub token. Use either of these:
@@ -101,6 +107,7 @@ Press **`E`** (or click the grid icon) to edit the layout:
 - **Add** a widget with **+ Add widget**. You can add the same type more than once, for example one Runs widget per team.
 - Click a widget's **⚙** to rename it, limit it to certain repos, or set its options (status filter, branch, hide drafts and so on).
 - Use the **🔍** in any widget header to filter its rows as you type.
+- Click the **funnel** in a widget header for its filters: which repos, and depending on the widget the branch, workflow, trigger, who started it, author, label, activity type, environment or outcome. They apply as you choose them and are saved with the widget; a number on the funnel shows how many are set, and **Clear** resets them. Repo sections built from widgets (PRs, Runs, Workflows, Insights, Deployments) have the same filter bar.
 
 Press `E` or `Esc` when you're done. The layout saves automatically.
 
@@ -150,7 +157,7 @@ Links inside descriptions and READMEs that point to PRs, issues, runs or repos a
 
 Click a repo tile, a repo link, or the **+** at the end of the tab bar to open a repo in its own tab. The **+** button opens a dropdown with a search box at the top. It lists the repos you watch and every repo on your account (search as you type). It also opens any `owner/name` or GitHub URL, including public repos you don't own. Drag tabs to reorder them, close them with **×** or a middle-click, and cycle through them with `Ctrl+Tab` / `Ctrl+Shift+Tab`. Open tabs come back when you restart.
 
-**Vertical tabs, pinning and the sidebar.** Press `Ctrl/⌘+B` (or the sidebar button at the top left) to show the repo sidebar. It lists every repo you watch, so any of them is one click away. Prefer your tabs down the side? Choose **Down the side** under **Settings → Appearance → Tabs** (or click the tabs icon at the end of the tab bar), and your open tabs move into the sidebar. Right-click any tab to **Pin** it, or drag it onto the pinned area. Pinned repos sit at the top of the sidebar as tiles, each with its own colour, its owner's avatar and a CI-status dot. They stay open and come first in the tab order. The right-click menu can also close tabs, close the others, watch or unwatch, open in the browser and copy the name.
+**Vertical tabs, pinning and the sidebar.** Tabs run down a sidebar on the left by default, with every repo you watch listed below them, one click away. `Ctrl/⌘+B` (or the sidebar button at the top left) hides or shows it. Prefer tabs across the top? Choose **Across the top** under **Settings → Appearance → Tabs** (or click the tabs icon in the sidebar's footer). Right-click any tab to **Pin** it, or drag it onto the pinned area. Pinned repos sit at the top of the sidebar as tiles, each with its own colour, its owner's avatar and a CI-status dot. They stay open and come first in the tab order. The right-click menu can also close tabs, close the others, watch or unwatch, open in the browser and copy the name.
 
 Each repo tab has these sections:
 
@@ -213,7 +220,7 @@ If you see no notifications at all, check that your OS isn't in Do Not Disturb o
 | `Ctrl/⌘+B` | Show or hide the repo sidebar |
 | `E` | Edit the layout (toggle) |
 | `Ctrl/⌘+,` | Settings |
-| `Esc` | Close a view or dialog (back to the previous one), or stop editing |
+| `Esc` | Go back one level (close a page or dialog), or stop editing |
 
 ## Troubleshooting
 

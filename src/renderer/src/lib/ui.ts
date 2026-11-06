@@ -20,12 +20,16 @@ export type ModalState =
   | null
 
 let modal: ModalState = null
-// Modals opened from inside another modal (a PR from the repo view, merge from the PR view) stack,
-// so closing one goes back to where you came from.
+// Views opened from inside another view (a PR from a run, merge from the PR) stack, so closing one goes
+// back to where you came from. The whole stack is the trail shown as breadcrumbs.
 let stack: ModalState[] = []
+let trail: NonNullable<ModalState>[] = []
 let editing = false
 const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+const emit = () => {
+  trail = (modal ? [...stack, modal] : []).filter((m): m is NonNullable<ModalState> => !!m)
+  listeners.forEach((l) => l())
+}
 const subscribe = (l: () => void) => {
   listeners.add(l)
   return () => listeners.delete(l)
@@ -47,6 +51,21 @@ export const closeModal = () => {
   emit()
 }
 export const useModal = () => useSyncExternalStore(subscribe, () => modal)
+
+/** Views that open as a sub-page in the main area (with breadcrumbs) rather than as a dialog. */
+const PAGES = new Set(['pr', 'issue', 'run'])
+export const isPage = (m: ModalState): boolean => !!m && PAGES.has(m.kind)
+
+/** Every open view, root first. */
+export const useTrail = () => useSyncExternalStore(subscribe, () => trail)
+
+/** Goes back up the trail to entry `index` (closing everything opened after it); -1 closes them all. */
+export const popTo = (index: number) => {
+  const all = [...trail]
+  modal = all[index] ?? null
+  stack = index > 0 ? all.slice(0, index) : []
+  emit()
+}
 
 export const setEditing = (v: boolean) => {
   editing = v

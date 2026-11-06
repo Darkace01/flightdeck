@@ -34,6 +34,12 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
     notify: { ...DEFAULT_SETTINGS.notify, ...rest.notify },
     colorOverrides: { dark: {}, light: {}, ...rest.colorOverrides }
   }
+  // 0.9 made vertical tabs the default; move existing installs over once (they can switch back in Settings).
+  if (!rest.uiVersion) {
+    settings.tabLayout = 'vertical'
+    settings.sidebarOpen = true
+    settings.uiVersion = 1
+  }
   // v0.1 had a single `theme` mode and `accent` colour.
   if (!rest.mode && (theme === 'dark' || theme === 'light' || theme === 'system')) settings.mode = theme
   if (accent && accent !== '#58a6ff' && !rest.colorOverrides) settings.colorOverrides = { dark: { accent }, light: { accent } }

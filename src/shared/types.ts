@@ -175,6 +175,10 @@ export interface Settings {
   tabLayout: 'horizontal' | 'vertical'
   /** Whether the left repo sidebar is shown. */
   sidebarOpen: boolean
+  /** Settings layout version, for one-off migrations of defaults (1: vertical tabs became the default). */
+  uiVersion: number
+  /** The first-run walkthrough has been finished or skipped. */
+  tourDone: boolean
   /** Local clone folder for each repo that has one linked. */
   localPaths: Record<string, string>
   /** Command used for "Open in editor", given the folder as its argument (e.g. code, cursor, idea). */

@@ -1,3 +1,4 @@
+import { RepoRail } from './RepoRail'
 import { RunDeployments } from './Deployments'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Job, PullRequest, Workflow, WorkflowRun } from '../../../shared/types'
@@ -214,7 +215,7 @@ export function RunDetailsModal({ run: initial }: { run: WorkflowRun }) {
 
   const tone = runTone(run)
   return (
-    <Modal title={`${run.name} #${run.runNumber}`} onClose={closeModal} width={760}>
+    <Modal title={`${run.name} #${run.runNumber}`} onClose={closeModal} width={760} side={<RepoRail repo={run.repo} />}>
       <div className="account">
         <StatusIcon tone={tone} size={22} />
         <div>

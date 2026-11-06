@@ -4,31 +4,8 @@ import type { WidgetConfig, WidgetType } from '../../../shared/types'
 import { updateSettings, useSettings } from '../lib/store'
 import { closeModal } from '../lib/ui'
 import { addWidget, removeWidget, WIDGETS } from './Dashboard'
+import { OPTIONS } from '../lib/filters'
 import { Modal } from './ui'
-
-type OptionSpec =
-  | { key: string; label: string; kind: 'select'; choices: [string, string][] }
-  | { key: string; label: string; kind: 'bool' }
-  | { key: string; label: string; kind: 'text'; placeholder?: string }
-  | { key: string; label: string; kind: 'number'; min: number; max: number }
-
-const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
-  runs: [
-    { key: 'filter', label: 'Show', kind: 'select', choices: [['all', 'All runs'], ['active', 'Queued / in progress'], ['failed', 'Failed'], ['mine', 'Triggered by me']] },
-    { key: 'branch', label: 'Branch', kind: 'text', placeholder: 'any branch' },
-    { key: 'latestOnly', label: 'Only the latest run per workflow and branch', kind: 'bool' },
-    { key: 'limit', label: 'Max rows', kind: 'number', min: 5, max: 200 }
-  ],
-  prs: [
-    { key: 'filter', label: 'Show', kind: 'select', choices: [['all', 'All open PRs'], ['mine', 'Authored by me'], ['review', 'Awaiting my review'], ['failing', 'Failing checks']] },
-    { key: 'hideDrafts', label: 'Hide drafts', kind: 'bool' }
-  ],
-  workflows: [{ key: 'dispatchableOnly', label: 'Only workflows that can be run manually', kind: 'bool' }],
-  events: [{ key: 'unreadOnly', label: 'Only unread', kind: 'bool' }],
-  deployments: [
-    { key: 'view', label: 'Show', kind: 'select', choices: [['environments', 'Projects × environments'], ['clients', 'Clients × stages'], ['history', 'Deployment history']] }
-  ]
-}
 
 export function WidgetSettingsModal({ id }: { id: string }) {
   const settings = useSettings()

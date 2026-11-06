@@ -64,8 +64,10 @@ export const DEFAULT_SETTINGS: Settings = {
   openTabs: [],
   pinnedTabs: [],
   activeTab: 'home',
-  tabLayout: 'horizontal',
-  sidebarOpen: false,
+  tabLayout: 'vertical',
+  sidebarOpen: true,
+  uiVersion: 1,
+  tourDone: false,
   localPaths: {},
   editorCommand: 'code',
   autoLinkClones: false

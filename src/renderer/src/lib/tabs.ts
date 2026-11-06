@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import { getSettings, updateSettings } from './store'
 import { openModal } from './ui'
 
@@ -17,9 +18,28 @@ export function openRepoTab(repo: string): void {
   void updateSettings({ openTabs: has ? s.openTabs : [...s.openTabs, repo], activeTab: repo })
 }
 
+/** Shows a tab at its top level: any sub-pages open on top of it close. */
 export function selectTab(id: string): void {
+  openModal(null)
   if (getSettings().activeTab !== id) void updateSettings({ activeTab: id })
 }
+
+// Which section each repo tab is on, remembered while switching tabs (and named in the breadcrumbs).
+const sections = new Map<string, string>()
+const sectionListeners = new Set<() => void>()
+export const setRepoSection = (repo: string, id: string) => {
+  sections.set(repo, id)
+  openModal(null)
+  sectionListeners.forEach((l) => l())
+}
+export const useRepoSection = (repo: string) =>
+  useSyncExternalStore(
+    (l) => {
+      sectionListeners.add(l)
+      return () => sectionListeners.delete(l)
+    },
+    () => sections.get(repo) ?? 'overview'
+  )
 
 /** Closes an open tab. Pinned tabs stay until they're unpinned. */
 export function closeTab(repo: string): void {

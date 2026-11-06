@@ -8,5 +8,13 @@ import type { WidgetProps } from './types'
 export const DeploymentsWidget = memo(function DeploymentsWidget({ widget, filter }: WidgetProps) {
   const settings = useSettings()
   const repos = widgetRepos(widget.repos, settings.repos).filter((r) => !filter || matches(r, filter))
-  return <DeploymentsView repos={repos} view={(widget.options.view as DeployView) ?? 'environments'} compact />
+  return (
+    <DeploymentsView
+      repos={repos}
+      view={(widget.options.view as DeployView) ?? 'environments'}
+      environment={String(widget.options.environment ?? '')}
+      state={String(widget.options.state ?? '')}
+      compact
+    />
+  )
 })

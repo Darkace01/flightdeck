@@ -1,8 +1,9 @@
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import type { RepoInfo, WidgetType } from '../../../shared/types'
 import { timeAgo, useNow } from '../lib/format'
 import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import { setRepoSection, useRepoSection } from '../lib/tabs'
 import { pushModal } from '../lib/ui'
 import { InsightsWidget } from '../widgets/InsightsWidget'
 import { PrsWidget } from '../widgets/PrsWidget'
@@ -12,6 +13,7 @@ import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { CompareSection, ContributorsSection, FileHistorySection, GraphSection, RemotesSection, SearchSection, StashesSection, TagsSection } from './GitTools'
 import { DeploymentsSection } from './Deployments'
+import { FilterBar } from './FilterBar'
 import { LocalSection } from './LocalGit'
 import { Markdown } from './Markdown'
 import { Empty, runTone, Skeleton, StatusIcon } from './ui'
@@ -65,10 +67,21 @@ export const SECTIONS: Section[] = [
   { id: 'contributors', label: 'Contributors', group: 'Local', component: ContributorsSection }
 ]
 
-// Each tab remembers which section it was on while you switch between tabs.
-const lastSection = new Map<string, string>()
 
-export function RepoWorkspace({ repo }: { repo: string }) {
+/** A repo's tab. `page` (a PR, issue or run opened from it) replaces the section content, keeping the section nav. */
+/** A dashboard widget shown as a repo section, with its own filters (kept while the tab is open). */
+function SectionWidget({ repo, type, Body }: { repo: string; type: WidgetType; Body: ComponentType<WidgetProps> }) {
+  const defaults = WIDGET_DEFAULTS[type].options as Record<string, string | number | boolean>
+  const [options, setOptions] = useState(defaults)
+  return (
+    <div className="repo-tab">
+      <FilterBar type={type} scope={[repo]} options={options} defaults={defaults} onChange={(p) => p.options && setOptions(p.options)} />
+      <Body widget={{ id: `repo-${type}`, type, repos: [repo], options }} filter="" />
+    </div>
+  )
+}
+
+export function RepoWorkspace({ repo, page }: { repo: string; page?: ReactNode }) {
   const settings = useSettings()
   const snapshot = useSnapshot()
   const now = useNow()
@@ -76,11 +89,8 @@ export function RepoWorkspace({ repo }: { repo: string }) {
   const tracked = settings.repos.includes(repo)
   const [info, setInfo] = useState<RepoInfo>()
   const [error, setError] = useState<string>()
-  const [section, setSectionState] = useState(lastSection.get(repo) ?? 'overview')
-  const setSection = (id: string) => {
-    lastSection.set(repo, id)
-    setSectionState(id)
-  }
+  const section = useRepoSection(repo)
+  const setSection = (id: string) => setRepoSection(repo, id)
 
   // Wait for sign-in: a tab restored at launch mounts before the first poll has loaded the token.
   const signedIn = snapshot.auth === 'ok'
@@ -116,6 +126,8 @@ export function RepoWorkspace({ repo }: { repo: string }) {
       </aside>
 
       <main className="ws-main">
+        {page ?? (
+          <>
         <header className="pr-head">
           <h1 className="pr-title">
             <span>
@@ -182,17 +194,12 @@ export function RepoWorkspace({ repo }: { repo: string }) {
           (tracked && !state ? (
             <Skeleton rows={6} />
           ) : tracked ? (
-            (() => {
-              const [type, Body] = current.widget
-              return (
-                <div className="repo-tab">
-                  <Body widget={{ id: `repo-${type}`, type, repos: [repo], options: { ...WIDGET_DEFAULTS[type].options } }} filter="" />
-                </div>
-              )
-            })()
+            <SectionWidget key={current.id} repo={repo} type={current.widget[0]} Body={current.widget[1]} />
           ) : (
             <Empty>Watch this repo to see its {current.label.toLowerCase()} here. Watched repos are refreshed in the background.</Empty>
           ))}
+          </>
+        )}
       </main>
     </div>
   )

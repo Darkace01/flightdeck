@@ -15,6 +15,8 @@ import { SummaryWidget } from '../widgets/SummaryWidget'
 import type { WidgetProps } from '../widgets/types'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { api } from '../lib/store'
+import { activeFilters } from '../lib/filters'
+import { FilterBar } from './FilterBar'
 import { Icon, IconButton, Skeleton } from './ui'
 
 export const WIDGETS: Record<WidgetType, { component: ComponentType<WidgetProps>; description: string }> = {
@@ -54,6 +56,11 @@ function WidgetFrame({ widget, editing }: { widget: WidgetConfig; editing: boole
   const { component: Body } = WIDGETS[widget.type]
   const title = widget.title || WIDGET_DEFAULTS[widget.type].title
   const unread = widget.type === 'events' ? snapshot.events.filter((e) => !e.read).length : 0
+  const defaults = WIDGET_DEFAULTS[widget.type].options as Record<string, string | number | boolean>
+  const options = widget.options as Record<string, string | number | boolean>
+  const active = activeFilters(widget.type, widget.repos, options, defaults)
+  const [filtering, setFiltering] = useState(active > 0)
+  const settings = useSettings()
 
   return (
     <div className="widget">
@@ -81,6 +88,12 @@ function WidgetFrame({ widget, editing }: { widget: WidgetConfig; editing: boole
           ) : (
             <IconButton icon="search" title="Filter" onClick={() => setSearching(true)} />
           )}
+          {widget.type !== 'inbox' && (
+            <span className="filter-toggle">
+              <IconButton icon="filter" title="Filters" active={filtering} onClick={() => setFiltering(!filtering)} />
+              {active > 0 && <span className="filter-count">{active}</span>}
+            </span>
+          )}
           {widget.type === 'events' && (
             <>
               <IconButton icon="check" title="Mark all read" onClick={() => void api.markRead()} />
@@ -91,6 +104,18 @@ function WidgetFrame({ widget, editing }: { widget: WidgetConfig; editing: boole
           {editing && <IconButton icon="close" title="Remove widget" onClick={() => removeWidget(widget.id)} />}
         </div>
       </header>
+      {filtering && widget.type !== 'inbox' && (
+        <FilterBar
+          type={widget.type}
+          repos={widget.repos}
+          scope={widget.repos.length ? widget.repos : settings.repos}
+          options={options}
+          defaults={defaults}
+          onChange={(patch) =>
+            void updateSettings({ widgets: getSettings().widgets.map((w) => (w.id === widget.id ? { ...w, repos: patch.repos ?? w.repos, options: patch.options ?? w.options } : w)) })
+          }
+        />
+      )}
       <div className="widget-body">
         {/* Activity comes from disk, so it can show at once; everything else waits for the first poll. */}
         {!snapshot.lastPoll && widget.type !== 'events' ? <Skeleton /> : <Body widget={widget} filter={filter} />}

@@ -5,6 +5,7 @@ import { duration, matches, timeAgo, useNow } from '../lib/format'
 import { useDeployments } from '../lib/deployments'
 import { api, getSnapshot } from '../lib/store'
 import { pushModal } from '../lib/ui'
+import { FilterBar } from './FilterBar'
 import type { SectionProps } from './RepoWorkspace'
 import { Avatar, Empty, Segmented, Skeleton } from './ui'
 
@@ -254,9 +255,29 @@ const NoDeployments = () => (
 )
 
 /** The three deployment views for one or more repos. */
-export function DeploymentsView({ repos, view, onView, compact }: { repos: string[]; view: DeployView; onView?: (v: DeployView) => void; compact?: boolean }) {
+export function DeploymentsView({ repos, view, onView, compact, environment = '', state = '' }: {
+  repos: string[]
+  view: DeployView
+  onView?: (v: DeployView) => void
+  compact?: boolean
+  /** Only environments whose name contains this. */
+  environment?: string
+  /** Only deployments with this outcome. */
+  state?: string
+}) {
   const now = useNow()
-  const { data, loading, errors } = useDeployments(repos)
+  const { data: all, loading, errors } = useDeployments(repos)
+  const data = useMemo(
+    () =>
+      !environment && !state
+        ? all
+        : all.map((r) => ({
+            ...r,
+            environments: r.environments.filter((e) => !environment || matches(e, environment)),
+            deployments: r.deployments.filter((d) => (!environment || matches(d.environment, environment)) && (!state || d.state === state))
+          })),
+    [all, environment, state]
+  )
   const multiRepo = repos.length > 1
   return (
     <div className={`deploy-view${compact ? ' compact' : ''}`}>
@@ -292,8 +313,14 @@ export function DeploymentsView({ repos, view, onView, compact }: { repos: strin
 }
 
 export function DeploymentsSection({ repo }: SectionProps) {
-  const [view, setView] = useState<DeployView>('clients')
-  return <DeploymentsView repos={[repo]} view={view} onView={setView} />
+  const defaults = { view: 'clients', environment: '', state: '' }
+  const [options, setOptions] = useState<Record<string, string | number | boolean>>(defaults)
+  return (
+    <>
+      <FilterBar type="deployments" scope={[repo]} options={options} defaults={defaults} onChange={(p) => p.options && setOptions(p.options)} />
+      <DeploymentsView repos={[repo]} view={options.view as DeployView} environment={String(options.environment)} state={String(options.state)} />
+    </>
+  )
 }
 
 /** "Deployed to" chips for a workflow run: which environment (and client) it deployed to. */
