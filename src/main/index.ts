@@ -11,6 +11,7 @@ import { listEditors } from './editors'
 import { findClones } from './scan'
 import { listDeployments } from './deployments'
 import { listSecurity } from './security'
+import { fetchMergeStatus } from './mergeStatus'
 import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
@@ -459,6 +460,8 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
+  // --- merge status ---
+  ipcMain.handle('pr:merge-status', (_e, repo: string, num: number) => fetchMergeStatus(requireClient(), repo, num))
   // --- security alerts ---
   ipcMain.handle('security:list', (_e, repo: string) => listSecurity(requireClient(), repo))
   ipcMain.handle('editors:list', () => listEditors())

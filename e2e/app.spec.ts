@@ -196,3 +196,21 @@ test('the CI health widget ranks failing, flaky and slow workflows', async () =>
   await w.locator('select.filter-select').first().selectOption('minutes')
   await expect(w.locator('th').last()).toHaveText('Minutes (est.)')
 })
+
+test('the PR view says what blocks a merge, and shows the merge queue', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  const prs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Pull requests' }) })
+  await prs.getByText('Add login page').click()
+  const status = page.getByRole('region', { name: 'Merge status' })
+  await expect(status).toContainText('Merging is blocked')
+  await expect(status).toContainText('1 required check failing: lint.')
+  await expect(status).toContainText('1 required check not reported yet: e2e.')
+  await expect(status).toContainText('An approving review is required (0 of 2 approvals).')
+  await expect(status).toContainText('Required checks 1/2 passing')
+  await page.keyboard.press('Escape')
+
+  await prs.getByText('Bump lodash from 4.17.20 to 4.17.21').click()
+  await expect(page.getByRole('region', { name: 'Merge status' })).toContainText('In the merge queue for main')
+  await expect(page.getByRole('region', { name: 'Merge status' })).toContainText('position 2, waiting for checks')
+})

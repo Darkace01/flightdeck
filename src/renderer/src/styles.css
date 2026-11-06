@@ -3078,3 +3078,32 @@ button.crumb:hover {
 .health-note {
   padding: 6px 12px;
 }
+
+/* ---------- merge status ---------- */
+.merge-status {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.merge-status.blocked {
+  border-color: color-mix(in srgb, var(--bad, #f85149) 45%, var(--border));
+}
+.merge-status.clear {
+  border-color: color-mix(in srgb, var(--ok, #3fb950) 45%, var(--border));
+}
+.merge-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.merge-blockers {
+  margin: 6px 0 0;
+  padding-left: 26px;
+}
+.merge-facts {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}

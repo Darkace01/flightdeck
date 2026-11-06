@@ -117,6 +117,49 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
     return { viewer: { login: 'octo', avatarUrl: '' }, reviewRequests: { nodes: [node] }, myPrs: { nodes: [] }, assigned: { nodes: [] } }
   }
   const repo = `${vars.owner}/${vars.name}`
+  if (query.includes('mergeStateStatus')) {
+    const ctx = (name: string, conclusion: string, isRequired: boolean) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion, isRequired })
+    const base = { isDraft: false, mergeable: 'MERGEABLE', isInMergeQueue: false, mergeQueueEntry: null, autoMergeRequest: null, reviewThreads: { nodes: [] } }
+    const rollup = (nodes: object[]) => ({ nodes: [{ commit: { statusCheckRollup: { contexts: { nodes } } } }] })
+    // acme/web PRs are already in the merge queue; every other PR is blocked by protection rules.
+    if (repo === 'acme/web')
+      return {
+        repository: {
+          pullRequest: {
+            ...base,
+            mergeStateStatus: 'CLEAN',
+            reviewDecision: 'APPROVED',
+            isInMergeQueue: true,
+            mergeQueueEntry: { position: 2, state: 'AWAITING_CHECKS', estimatedTimeToMerge: 300 },
+            baseRef: { name: 'main', branchProtectionRule: null },
+            latestOpinionatedReviews: { nodes: [{ author: { login: 'bob' }, state: 'APPROVED' }] },
+            commits: rollup([ctx('build', 'SUCCESS', true)])
+          }
+        }
+      }
+    return {
+      repository: {
+        pullRequest: {
+          ...base,
+          mergeStateStatus: 'BLOCKED',
+          reviewDecision: 'REVIEW_REQUIRED',
+          baseRef: {
+            name: 'main',
+            branchProtectionRule: {
+              requiresApprovingReviews: true,
+              requiredApprovingReviewCount: 2,
+              requiresCodeOwnerReviews: false,
+              requiresConversationResolution: false,
+              requiresStrictStatusChecks: false,
+              requiredStatusCheckContexts: ['build', 'lint', 'e2e']
+            }
+          },
+          latestOpinionatedReviews: { nodes: [] },
+          commits: rollup([ctx('build', 'SUCCESS', true), ctx('lint', 'FAILURE', true), ctx('docs', 'FAILURE', false)])
+        }
+      }
+    }
+  }
   if (query.includes('deployments(') && rich && repo !== 'acme/api') {
     // Every rich repo deploys to dev, staging and two clients in prod.
     const envs = ['dev', 'staging', 'prod-acme', 'prod-globex', 'prod-initech']

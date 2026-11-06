@@ -1,5 +1,6 @@
 // Types shared between the main process, preload bridge and renderer.
 
+import type { MergeStatus } from './mergeStatus'
 import type { ThemeColors } from './themes'
 
 export type RunStatus = 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending'
@@ -734,6 +735,9 @@ export interface PushbackApi {
   linkScanned(repos: string[]): Promise<number>
   /** Editors and IDEs installed on this machine, for the default-editor setting. */
   listEditors(): Promise<EditorOption[]>
+  // --- merge status ---
+  /** What blocks a PR from merging (required checks, reviews, conflicts) and its merge-queue position. */
+  prMergeStatus(repo: string, num: number): Promise<MergeStatus>
   // --- security alerts ---
   /** Open Dependabot, code-scanning and secret-scanning alerts of a repo (a kind the token can't read is listed in `unavailable`). */
   listSecurity(repo: string): Promise<RepoSecurity>
