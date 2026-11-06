@@ -705,6 +705,10 @@ export interface PushbackApi {
   exportSettings(): Promise<string>
   importSettings(json: string): Promise<ActionResult>
   openExternal(url: string): Promise<void>
+  /** Asks where to save, then writes `content` there (used to export dashboards). `ok: false` with no error if cancelled. */
+  saveTextFile(defaultName: string, content: string): Promise<ActionResult>
+  /** Asks for a JSON file and returns its text; null if cancelled. */
+  openTextFile(): Promise<string | null>
   markRead(ids?: string[]): Promise<void>
   clearEvents(): Promise<void>
   updateStatus(): Promise<UpdateStatus>

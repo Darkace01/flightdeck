@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
@@ -13,8 +14,9 @@ import { listDeployments } from './deployments'
 import { resolveEditor } from '../shared/defaults'
 import { attentionCount, badgeText } from '../shared/attention'
 import { Poller } from './poller'
+import { exportSettingsJson, importSettingsJson } from './importer'
 import { findTheme } from '../shared/themes'
-import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
+import { loadEvents, loadSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
 import { appIcon } from './icon'
 import { checkForUpdates, initUpdater, installUpdate, RELEASES_URL, updateStatus } from './updater'
 
@@ -335,13 +337,10 @@ function registerIpc(): void {
   ipcMain.handle('pr:merge', (_e, repo: string, num: number, method: 'merge' | 'squash' | 'rebase') =>
     run(() => requireClient().send('PUT', `/repos/${repo}/pulls/${num}/merge`, { merge_method: method }), false)
   )
-  ipcMain.handle('settings:export', () => JSON.stringify(settings, null, 2))
+  ipcMain.handle('settings:export', () => exportSettingsJson(settings))
   ipcMain.handle('settings:import', (_e, json: string): ActionResult => {
     try {
-      const parsed = JSON.parse(json) as Partial<Settings>
-      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Pushback settings file')
-      // Imported settings may come from another machine; keep this machine's linked clones.
-      settings = { ...normalizeSettings(parsed), localPaths: settings.localPaths }
+      settings = importSettingsJson(settings, json)
       saveSettings(settings)
       send('settings', settings)
       poller.pollSoon()
@@ -349,6 +348,22 @@ function registerIpc(): void {
     } catch (err) {
       return { ok: false, error: (err as Error).message }
     }
+  })
+  ipcMain.handle('file:save-text', async (_e, defaultName: string, content: string): Promise<ActionResult> => {
+    // The user picks the destination in a dialog; the renderer never names a path.
+    const pick = await dialog.showSaveDialog(win!, { defaultPath: basename(defaultName), filters: [{ name: 'Pushback JSON', extensions: ['json'] }] })
+    if (pick.canceled || !pick.filePath) return { ok: false }
+    try {
+      await writeFile(pick.filePath, content, 'utf8')
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('file:open-text', async (): Promise<string | null> => {
+    const pick = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Pushback JSON', extensions: ['json'] }] })
+    if (pick.canceled || !pick.filePaths[0]) return null
+    return readFile(pick.filePaths[0], 'utf8')
   })
   ipcMain.handle('open', (_e, url: string) => {
     if (/^https:\/\//.test(url)) return shell.openExternal(url)

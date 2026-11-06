@@ -55,3 +55,26 @@ test('a release can be drafted from merged PRs, edited, and saved as a draft', a
   expect(writes).toEqual([{ method: 'POST', path: '/repos/acme/api/releases' }])
   ctx.gh.requests.splice(0, ctx.gh.requests.length, ...ctx.gh.requests.filter((r) => !writes.includes(r)))
 })
+
+test('a dashboard can be shared as text and imported as a new dashboard without local folders', async () => {
+  ctx = await launch({ settings: { ...WATCHING, localPaths: { 'acme/api': '/home/me/api' } } })
+  const { page } = ctx
+  await page.locator('.dash-tab.more').click()
+  await page.getByRole('menuitem', { name: /Manage dashboards/ }).click()
+  await page.getByRole('button', { name: 'Share', exact: true }).click()
+  const payload = await page.getByLabel('Dashboard payload').inputValue()
+  expect(JSON.parse(payload).kind).toBe('pushback-dashboard')
+  expect(payload).not.toContain('/home/me')
+  await page.keyboard.press('Escape')
+
+  // Import it back, with a hand-edited name and a smuggled local folder.
+  await page.getByRole('button', { name: /Import/ }).click()
+  const edited = { ...JSON.parse(payload), name: 'From a teammate', localPaths: { 'acme/api': '/evil' } }
+  await page.getByLabel('Dashboard JSON').fill(JSON.stringify(edited))
+  await page.getByRole('dialog').getByRole('button', { name: 'Import', exact: true }).click()
+  await expect.poll(() => savedSettings(ctx).dashboards.length).toBe(2)
+  const saved = savedSettings(ctx)
+  expect(saved.dashboards[1].name).toBe('From a teammate')
+  expect(saved.activeDashboard).toBe(saved.dashboards[1].id)
+  expect(saved.localPaths).toEqual({ 'acme/api': '/home/me/api' })
+})
