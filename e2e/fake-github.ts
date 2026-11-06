@@ -236,6 +236,24 @@ function rest(path: string, rich: boolean, enterprise = false): unknown {
   let m: RegExpMatchArray | null
   if (p === '/user') return { login: enterprise ? 'octo-ent' : 'octo', avatar_url: '' }
   if (p === '/user/repos') return path.includes('page=1') ? [{ full_name: 'acme/api', description: 'The API', private: true, pushed_at: ago(5) }, { full_name: 'acme/web', description: 'The website', private: false, pushed_at: ago(60) }] : []
+  // GitHub Packages: octo publishes an npm package and a container image; the acme org publishes a private npm package.
+  // The package_type parameter is required by the real API, so a request without it fails here too.
+  if ((m = p.match(/^\/(user|orgs\/acme)\/packages$/))) {
+    const type = new URLSearchParams(path.split('?')[1] ?? '').get('package_type')
+    if (!type) return { status: 400, body: { message: 'package_type is required' } }
+    const pkg = (name: string, package_type: string, over: object) => ({ name, package_type, visibility: 'public', version_count: 2, html_url: `https://github.com/orgs/x/packages/${package_type}/package/${name}`, created_at: ago(5000), updated_at: ago(60), repository: null, ...over })
+    if (m[1] === 'user') return type === 'npm' ? [pkg('octo-cli', 'npm', { repository: { full_name: 'octo/octo-cli' } })] : type === 'container' ? [pkg('octo-image', 'container', { version_count: 1, updated_at: ago(600) })] : []
+    return type === 'npm' ? [pkg('acme-sdk', 'npm', { visibility: 'private', version_count: 3 })] : []
+  }
+  if ((m = p.match(/^\/(user|orgs\/acme)\/packages\/(npm|container)\/([^/]+)\/versions$/))) {
+    const name = decodeURIComponent(m[3])
+    if (m[2] === 'container') return [{ id: 31, name: 'sha256:' + 'a'.repeat(64), html_url: 'https://github.com/x/container/31', created_at: ago(600), metadata: { container: { tags: ['latest', '1.0.0'] } } }]
+    return [
+      { id: 21, name: name === 'acme-sdk' ? '3.1.0' : '2.0.1', html_url: 'https://github.com/x/npm/21', created_at: ago(60) },
+      { id: 22, name: name === 'acme-sdk' ? '3.0.0' : '2.0.0', html_url: 'https://github.com/x/npm/22', created_at: ago(900) }
+    ]
+  }
+  if (p === '/user/orgs') return [{ login: 'acme' }]
   // Security alerts: acme/api has some, secret scanning is off there; acme/web has the features switched off.
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/(dependabot|code-scanning|secret-scanning)\/alerts$/))) {
     if (m[1] !== 'acme/api' || m[2] === 'secret-scanning') return { status: 404, body: { message: 'Not Found' } }
@@ -247,7 +265,8 @@ function rest(path: string, rich: boolean, enterprise = false): unknown {
     return [{ number: 5, html_url: 'https://github.com/acme/api/security/code-scanning/5', created_at: ago(100), rule: { id: 'js/sql-injection', description: 'SQL injection', severity: 'error', security_severity_level: 'critical' }, most_recent_instance: { location: { path: 'src/db.ts' } } }]
   }
   // Open PRs for the cleanup view (and the "does this branch have a PR" check before deleting it).
-  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/pulls$/))) {
+  // (Closed PRs, asked for by the release-notes draft, are served further down.)
+  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/pulls$/)) && !/[?&]state=closed(&|$)/.test(path)) {
     const prsOf = (n: number, title: string, updated: number, head: string) => ({ number: n, title, html_url: `https://github.com/${m![1]}/pull/${n}`, user: user('alice'), created_at: ago(updated + 60), updated_at: ago(updated), draft: false, head: { ref: head } })
     const all = m[1] === 'acme/api' ? [prsOf(3, 'Old experiment', 200 * 1440, 'experiments/abandoned-pr'), prsOf(7, 'Add login page', 15, 'feat/login')] : []
     const head = new URLSearchParams(path.split('?')[1] ?? '').get('head')

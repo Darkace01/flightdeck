@@ -52,7 +52,7 @@ test('a release can be drafted from merged PRs, edited, and saved as a draft', a
   expect(body.tag_name).toBe('v1.2.1')
   // The one expected write: creating the draft. Nothing else may have changed GitHub.
   const writes = ctx.gh.writes()
-  expect(writes).toEqual([{ method: 'POST', path: '/repos/acme/api/releases' }])
+  expect(writes.map(({ method, path }) => ({ method, path }))).toEqual([{ method: 'POST', path: '/repos/acme/api/releases' }])
   ctx.gh.requests.splice(0, ctx.gh.requests.length, ...ctx.gh.requests.filter((r) => !writes.includes(r)))
 })
 

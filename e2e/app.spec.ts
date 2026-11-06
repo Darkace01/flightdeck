@@ -186,6 +186,28 @@ test('the security widget lists alerts, notes what is switched off, and shows De
   await expect(sec.getByText('Bump lodash from 4.17.20 to 4.17.21')).toBeVisible()
 })
 
+test('the packages widget lists what you published, opens versions, and switches to organisations', async () => {
+  ctx = await launch({ settings: { ...WATCHING, widgets: [{ id: 'w-pkg', type: 'packages', repos: [], options: { scope: 'user', org: '', type: '', visibility: '' } }], layout: [{ i: 'w-pkg', x: 0, y: 0, w: 12, h: 9 }], dashboards: [] } })
+  const { page } = ctx
+  const w = page.locator('.widget', { has: page.getByRole('heading', { name: 'Packages' }) })
+  await expect(w.getByText('octo-cli')).toBeVisible()
+  await expect(w.getByText('octo-image')).toBeVisible()
+  await expect(w.getByText('acme-sdk')).toHaveCount(0)
+
+  await w.locator('.row', { hasText: 'octo-cli' }).click()
+  await expect(w.getByText('2.0.1')).toBeVisible()
+  await w.locator('.row', { hasText: 'octo-image' }).click()
+  await expect(w.getByText('sha256:aaaaaaaaaaaa')).toBeVisible()
+  await expect(w.getByText('latest')).toBeVisible()
+
+  // The parent switch: organisation level lists every org you are in, with the org on each row.
+  await w.getByRole('button', { name: 'Filters' }).click()
+  await w.locator('select.filter-select').first().selectOption('org')
+  await expect(w.getByText('acme-sdk')).toBeVisible()
+  await expect(w.getByText('octo-cli')).toHaveCount(0)
+  await expect(w.locator('.row', { hasText: 'acme-sdk' })).toContainText('private')
+})
+
 test('the CI health widget ranks failing, flaky and slow workflows', async () => {
   ctx = await launch({ settings: { ...WATCHING, widgets: [{ id: 'w-ci', type: 'cihealth', repos: [], options: { view: 'failing', days: 14, branch: '' } }], layout: [{ i: 'w-ci', x: 0, y: 0, w: 12, h: 9 }], dashboards: [] } })
   const { page } = ctx
@@ -252,7 +274,7 @@ test('stale cleanup lists merged and stale branches and old PRs, and only acts a
   expect(ctx.gh.writes()).toEqual([
     { method: 'DELETE', path: '/repos/acme/api/git/refs/heads/old/merged-feature' },
     { method: 'DELETE', path: '/repos/acme/api/git/refs/heads/experiments/abandoned' },
-    { method: 'PATCH', path: '/repos/acme/api/pulls/3' }
+    { method: 'PATCH', path: '/repos/acme/api/pulls/3', body: JSON.stringify({ state: 'closed' }) }
   ])
   // The expected writes are checked; empty the log so the after-each "no writes" check applies to the rest.
   ctx.gh.requests.length = 0
