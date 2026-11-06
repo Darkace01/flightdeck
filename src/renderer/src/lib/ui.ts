@@ -19,6 +19,7 @@ export type ModalState =
   /** `id` is a saved dashboard's id, or `template:<id>` for a built-in template. */
   | { kind: 'share-dashboard'; id: string }
   | { kind: 'import-dashboard' }
+  | { kind: 'saved-searches' }
   | { kind: 'find-clones' }
   | null
 

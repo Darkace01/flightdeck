@@ -41,6 +41,7 @@ const api: PushbackApi = {
   createIssue: (repo, issue) => ipcRenderer.invoke('issue:create', repo, issue),
   setIssueState: (repo, num, state, reason) => ipcRenderer.invoke('issue:state', repo, num, state, reason),
   listLabels: (repo) => ipcRenderer.invoke('labels:list', repo),
+  runSearch: (query, kind) => ipcRenderer.invoke('search:run', query, kind),
   listBranches: (repo, defaultBranch) => ipcRenderer.invoke('branches:list', repo, defaultBranch),
   createBranch: (repo, name, from) => ipcRenderer.invoke('branch:create', repo, name, from),
   deleteBranch: (repo, name) => ipcRenderer.invoke('branch:delete', repo, name),

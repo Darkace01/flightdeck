@@ -233,6 +233,29 @@ function rest(path: string, rich: boolean): unknown {
       requested_reviewers: [user('octo')],
       labels: [{ name: 'ui', color: '0e8a16' }]
     }
+  if (p === '/search/issues') {
+    const q = decodeURIComponent(path.split('q=')[1]?.split('&')[0] ?? '')
+    const found = (repo: string, number: number, title: string, login: string, extra: object = {}) => ({
+      number,
+      title,
+      html_url: `https://github.com/${repo}/pull/${number}`,
+      state: 'open',
+      repository_url: `https://api.github.com/repos/${repo}`,
+      user: user(login),
+      created_at: ago(900),
+      updated_at: ago(number),
+      comments: 0,
+      draft: false,
+      labels: [],
+      pull_request: {},
+      ...extra
+    })
+    // One PR in a tracked repo and two in orgs that aren't tracked: the point of a cross-org search.
+    const items = q.includes('is:issue')
+      ? [found('globex/web', 40, 'Slow page load', 'dana', { pull_request: undefined })]
+      : [found('acme/api', 7, 'Add login page', 'octo'), found('globex/web', 31, 'Upgrade the router', 'octo', { draft: true }), found('initech/tool', 9, 'Fix the build', 'octo', { labels: [{ name: 'bug', color: 'd73a4a' }] })]
+    return { total_count: items.length, incomplete_results: false, items }
+  }
   if (p.match(/^\/repos\/[^/]+\/[^/]+\/releases$/))
     return [{ id: 1, tag_name: 'v1.2.0', name: 'v1.2.0', html_url: '', draft: false, prerelease: false, published_at: ago(3000), created_at: ago(3000), author: user('octo'), assets: [] }]
   if (p.match(/^\/repos\/[^/]+\/[^/]+\/pulls$/))

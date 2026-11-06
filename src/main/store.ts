@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_SETTINGS } from '../shared/defaults'
+import { cleanSavedSearches } from '../shared/search'
 import type { AppEvent, Settings } from '../shared/types'
 
 const dir = () => app.getPath('userData')
@@ -46,6 +47,8 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
   // Before 0.3 there was one dashboard: keep the user's layout as "Main".
   if (!rest.dashboards?.length) settings.dashboards = [{ id: 'main', name: 'Main', widgets: settings.widgets, layout: settings.layout }]
   if (!settings.dashboards.some((d) => d.id === settings.activeDashboard)) settings.activeDashboard = settings.dashboards[0].id
+  // Added in 0.10: absent in older files, and hand-editable, so keep only well-formed entries.
+  settings.savedSearches = cleanSavedSearches(rest.savedSearches)
   settings.openTabs = settings.openTabs.filter((t) => !settings.pinnedTabs.includes(t))
   if (settings.activeTab !== 'home' && ![...settings.openTabs, ...settings.pinnedTabs].includes(settings.activeTab)) settings.activeTab = 'home'
   return settings

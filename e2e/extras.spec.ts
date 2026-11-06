@@ -78,3 +78,48 @@ test('a dashboard can be shared as text and imported as a new dashboard without 
   expect(saved.activeDashboard).toBe(saved.dashboards[1].id)
   expect(saved.localPaths).toEqual({ 'acme/api': '/home/me/api' })
 })
+
+test('a saved search is pinned as a widget, shows PRs from untracked orgs, filters, and is saved', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  await page.locator('.search-trigger').click()
+  await page.getByPlaceholder(/Search/).fill('saved searches')
+  await page.keyboard.press('Enter')
+  const dialog = page.getByRole('dialog', { name: 'Saved searches' })
+  await dialog.locator('.row', { hasText: 'My open PRs' }).getByRole('button', { name: 'Pin to dashboard' }).click()
+
+  const widget = page.locator('.widget', { has: page.getByRole('heading', { name: 'My open PRs' }) })
+  // Results come from GitHub search, so repos nobody tracks still appear.
+  await expect(widget.getByText('Fix the build')).toBeVisible()
+  await expect(widget.locator('.chip', { hasText: 'initech/tool' })).toBeVisible()
+  await expect(widget.locator('.row')).toHaveCount(3)
+  await expect(widget).toContainText('3 matches')
+  const searches = ctx.gh.requests.filter((r) => r.path.startsWith('/search/issues'))
+  expect(searches).toHaveLength(1)
+  expect(decodeURIComponent(searches[0].path)).toContain('author:@me')
+  expect(decodeURIComponent(searches[0].path)).toContain('is:pr')
+
+  // Filters from lib/filters.ts apply to the results without searching again.
+  await widget.getByRole('button', { name: 'Filters' }).click()
+  await widget.getByPlaceholder('any repo').fill('globex')
+  await expect(widget.locator('.row')).toHaveCount(1)
+  await expect(widget.getByText('Upgrade the router')).toBeVisible()
+  await widget.getByPlaceholder('any repo').fill('')
+  await widget.getByRole('button', { name: 'Hide drafts' }).click()
+  await expect(widget.locator('.row')).toHaveCount(2)
+  expect(ctx.gh.requests.filter((r) => r.path.startsWith('/search/issues'))).toHaveLength(1)
+
+  await expect
+    .poll(() => savedSettings(ctx).widgets.find((w: { type: string }) => w.type === 'search')?.options)
+    .toMatchObject({ query: 'is:open author:@me archived:false', kind: 'pr', hideDrafts: true })
+
+  // Save a custom search for later.
+  await page.locator('.search-trigger').click()
+  await page.getByPlaceholder(/Search/).fill('saved searches')
+  await page.keyboard.press('Enter')
+  await dialog.getByPlaceholder('e.g. Open bugs in acme').fill('Globex issues')
+  await dialog.getByLabel('Look for').selectOption('issue')
+  await dialog.getByPlaceholder('is:open org:acme label:bug').fill('is:open org:globex')
+  await dialog.getByRole('button', { name: 'Save search' }).click()
+  await expect.poll(() => savedSettings(ctx).savedSearches).toEqual([expect.objectContaining({ name: 'Globex issues', kind: 'issue', query: 'is:open org:globex' })])
+})

@@ -53,6 +53,14 @@ export const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
     { key: 'branch', label: 'Branch', kind: 'text', filter: true, placeholder: 'any branch', suggest: 'branches' },
     { key: 'workflow', label: 'Workflow', kind: 'text', filter: true, placeholder: 'any workflow', suggest: 'workflows' }
   ],
+  search: [
+    { key: 'query', label: 'Search (GitHub qualifiers)', kind: 'text', placeholder: 'is:open author:@me' },
+    { key: 'kind', label: 'Look for', kind: 'select', choices: [['pr', 'Pull requests'], ['issue', 'Issues']] },
+    { key: 'repo', label: 'Repo or org', kind: 'text', filter: true, placeholder: 'any repo' },
+    { key: 'author', label: 'Author', kind: 'text', filter: true, placeholder: 'anyone' },
+    { key: 'label', label: 'Label', kind: 'text', filter: true, placeholder: 'any label' },
+    { key: 'hideDrafts', label: 'Hide drafts', kind: 'bool', filter: true }
+  ],
   deployments: [
     { key: 'view', label: 'Show', kind: 'select', filter: true, choices: [['environments', 'Projects × environments'], ['clients', 'Clients × stages'], ['history', 'Deployment history']] },
     { key: 'environment', label: 'Environment', kind: 'text', filter: true, placeholder: 'any environment' },

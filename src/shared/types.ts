@@ -102,7 +102,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'search'
 
 export interface WidgetConfig {
   id: string
@@ -189,6 +189,40 @@ export interface Settings {
   editorCommand: string
   /** Look for new clones in the home folder at startup and link them (watching is still up to the user). */
   autoLinkClones: boolean
+  /** Named GitHub searches the user saved; pinning one makes a `search` widget that carries its own copy of the query. */
+  savedSearches: SavedSearch[]
+}
+
+/** A cross-repo issue or PR search, e.g. "is:open author:@me" for your open PRs across every org. */
+export interface SavedSearch {
+  id: string
+  name: string
+  kind: 'pr' | 'issue'
+  /** GitHub search qualifiers; the is:pr / is:issue part is added from `kind`. */
+  query: string
+}
+
+export interface SearchItem {
+  repo: string
+  number: number
+  title: string
+  url: string
+  kind: 'pr' | 'issue'
+  state: 'open' | 'closed' | 'merged'
+  author: string
+  authorAvatar: string
+  createdAt: string
+  updatedAt: string
+  comments: number
+  isDraft: boolean
+  labels: { name: string; color: string }[]
+}
+
+export interface SearchResult {
+  /** Matches on GitHub; `items` holds the 50 most recently updated. */
+  total: number
+  incomplete: boolean
+  items: SearchItem[]
 }
 
 export interface InboxItem {
@@ -723,6 +757,8 @@ export interface PushbackApi {
   createIssue(repo: string, issue: { title: string; body: string; labels: string[] }): Promise<ActionResult>
   setIssueState(repo: string, num: number, state: 'open' | 'closed', reason?: 'completed' | 'not_planned'): Promise<ActionResult>
   listLabels(repo: string): Promise<Label[]>
+  /** Runs a cross-repo issue or PR search (the type qualifier is added from `kind`). Rejects on an empty or too long query. */
+  runSearch(query: string, kind: 'pr' | 'issue'): Promise<SearchResult>
   listBranches(repo: string, defaultBranch: string): Promise<BranchInfo[]>
   createBranch(repo: string, name: string, from: string): Promise<ActionResult>
   deleteBranch(repo: string, name: string): Promise<ActionResult>

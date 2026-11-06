@@ -11,6 +11,7 @@ import * as gitTools from './gitTools'
 import { listEditors } from './editors'
 import { findClones } from './scan'
 import { listDeployments } from './deployments'
+import { runSearch } from './search'
 import { resolveEditor } from '../shared/defaults'
 import { attentionCount, badgeText } from '../shared/attention'
 import { Poller } from './poller'
@@ -394,6 +395,7 @@ function registerIpc(): void {
   ipcMain.handle('issue:state', (_e, repo: string, num: number, state: 'open' | 'closed', reason?: string) =>
     run(() => requireClient().send('PATCH', `/repos/${repo}/issues/${num}`, { state, ...(reason && { state_reason: reason }) }), false)
   )
+  ipcMain.handle('search:run', (_e, query: string, kind: 'pr' | 'issue') => runSearch(requireClient(), String(query), kind === 'issue' ? 'issue' : 'pr'))
   ipcMain.handle('labels:list', (_e, repo: string) => tools.listLabels(requireClient(), repo))
   ipcMain.handle('branches:list', (_e, repo: string, defaultBranch: string) => tools.listBranches(requireClient(), repo, defaultBranch))
   ipcMain.handle('branch:create', (_e, repo: string, name: string, from: string) => create(() => tools.createBranch(requireClient(), repo, name, from)))

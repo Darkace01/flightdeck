@@ -9,7 +9,8 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: 
   events: { title: 'Activity', w: 7, h: 7, options: { unreadOnly: false } },
   inbox: { title: 'My work', w: 5, h: 8, options: { tab: 'reviewRequests' } },
   insights: { title: 'CI insights', w: 7, h: 8, options: {} },
-  deployments: { title: 'Deployments', w: 12, h: 8, options: { view: 'environments' } }
+  deployments: { title: 'Deployments', w: 12, h: 8, options: { view: 'environments' } },
+  search: { title: 'Saved search', w: 6, h: 9, options: { query: 'is:open author:@me archived:false', kind: 'pr', author: '', label: '', repo: '', hideDrafts: false } }
 }
 
 const widgets: WidgetConfig[] = [
@@ -72,7 +73,8 @@ export const DEFAULT_SETTINGS: Settings = {
   tourDone: false,
   localPaths: {},
   editorCommand: 'code',
-  autoLinkClones: false
+  autoLinkClones: false,
+  savedSearches: []
 }
 
 /**

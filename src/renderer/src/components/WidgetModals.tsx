@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import type { WidgetConfig, WidgetType } from '../../../shared/types'
 import { updateSettings, useSettings } from '../lib/store'
-import { closeModal } from '../lib/ui'
+import { closeModal, openModal } from '../lib/ui'
 import { addWidget, removeWidget, WIDGETS } from './Dashboard'
 import { OPTIONS } from '../lib/filters'
 import { Modal } from './ui'
@@ -104,6 +104,8 @@ export function AddWidgetModal() {
             key={type}
             className="picker-item"
             onClick={() => {
+              // A search widget starts from a saved search, so pick one rather than adding it blank.
+              if (type === 'search') return openModal({ kind: 'saved-searches' })
               addWidget(type)
               closeModal()
             }}
