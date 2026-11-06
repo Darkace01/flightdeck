@@ -8,7 +8,8 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: 
   workflows: { title: 'Run a workflow', w: 5, h: 7, options: { dispatchableOnly: true } },
   events: { title: 'Activity', w: 7, h: 7, options: { unreadOnly: false } },
   inbox: { title: 'My work', w: 5, h: 8, options: { tab: 'reviewRequests' } },
-  insights: { title: 'CI insights', w: 7, h: 8, options: {} }
+  insights: { title: 'CI insights', w: 7, h: 8, options: {} },
+  deployments: { title: 'Deployments', w: 12, h: 8, options: { view: 'environments' } }
 }
 
 const widgets: WidgetConfig[] = [

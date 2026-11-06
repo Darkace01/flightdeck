@@ -59,6 +59,17 @@ export const TEMPLATES: DashboardTemplate[] = [
     ]
   },
   {
+    id: 'deploy',
+    name: 'Deployments',
+    description: 'Octopus-style: which version is live where, per client, and a history of every deploy.',
+    widgets: [
+      { type: 'deployments', at: [0, 0, 12, 8], title: 'Environments' },
+      { type: 'deployments', at: [0, 8, 7, 9], title: 'Clients', options: { view: 'clients' } },
+      { type: 'workflows', at: [7, 8, 5, 9], title: 'Deploy' },
+      { type: 'deployments', at: [0, 17, 12, 9], title: 'Deployment history', options: { view: 'history' } }
+    ]
+  },
+  {
     id: 'focus',
     name: 'Focus',
     description: 'Just the essentials: repo health, your work and the activity feed.',

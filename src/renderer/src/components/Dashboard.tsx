@@ -5,6 +5,7 @@ import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import type { LayoutItem, WidgetConfig, WidgetType } from '../../../shared/types'
 import { getSettings, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { openModal, useEditing } from '../lib/ui'
+import { DeploymentsWidget } from '../widgets/DeploymentsWidget'
 import { EventsWidget } from '../widgets/EventsWidget'
 import { InboxWidget } from '../widgets/InboxWidget'
 import { InsightsWidget } from '../widgets/InsightsWidget'
@@ -23,7 +24,11 @@ export const WIDGETS: Record<WidgetType, { component: ComponentType<WidgetProps>
   workflows: { component: WorkflowsWidget, description: 'Trigger workflow_dispatch workflows with their inputs.' },
   events: { component: EventsWidget, description: 'Feed of everything that changed — the same events you get notified about.' },
   inbox: { component: InboxWidget, description: 'Reviews requested from you, your PRs and assigned issues across all of GitHub.' },
-  insights: { component: InsightsWidget, description: 'Pass rate, average duration and recent outcomes per workflow.' }
+  insights: { component: InsightsWidget, description: 'Pass rate, average duration and recent outcomes per workflow.' },
+  deployments: {
+    component: DeploymentsWidget,
+    description: 'What version is live in each environment or for each client, and a history of every deployment (like Octopus Deploy).'
+  }
 }
 
 export function addWidget(type: WidgetType): void {

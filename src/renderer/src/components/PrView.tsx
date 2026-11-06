@@ -6,6 +6,7 @@ import { api, toast, useSnapshot } from '../lib/store'
 import { closeModal, pushModal } from '../lib/ui'
 import { approve } from '../widgets/PrsWidget'
 import { Markdown } from './Markdown'
+import { RepoRail } from './RepoRail'
 import { Avatar, Empty, Modal, runTone, Segmented, Skeleton, StatusIcon } from './ui'
 
 type Tab = 'conversation' | 'commits' | 'checks' | 'files'
@@ -42,7 +43,7 @@ export function PrModal({ repo, number }: { repo: string; number: number }) {
   const failing = pr?.checks.filter((c) => c.conclusion === 'failure').length ?? 0
 
   return (
-    <Modal title={`${repo} #${number}`} onClose={closeModal} width={980}>
+    <Modal title={`${repo} #${number}`} onClose={closeModal} panel side={<RepoRail repo={repo} pr={number} />}>
       <div className="pr-head">
         <h1 className="pr-title">
           {title} <span className="dim">#{number}</span>

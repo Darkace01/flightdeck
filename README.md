@@ -23,7 +23,8 @@
 - **Multiple dashboards** for different jobs (CI watching, code review, releases), started from ready-made templates or from scratch, and switched with `Ctrl/⌘+1…9`.
 - **A dashboard of widgets** you can drag, resize, duplicate and scope to particular repos: repo health, workflow runs, pull requests, run-a-workflow, an activity feed, a "My work" inbox (review requests, your PRs and issues assigned to you across all of GitHub) and CI insights (pass rate, average duration, recent outcomes).
 - **GitHub Actions**: start `workflow_dispatch` workflows with their inputs, cancel runs, and re-run failed jobs or whole runs. Open a run to watch its jobs and steps live, and read a failed job's log, which opens at the error.
-- **Pull requests, in the app**: open any PR to read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Pushback. Every view has an **Open in browser** button for when you want GitHub itself.
+- **Deployments dashboard, Octopus-style**: see which release is live in every environment for each project, which version each **client** runs at each stage (from environment names like `prod-acme` or `staging-acme`), and a filterable history of every deployment with its outcome, duration and who ran it. Deploy runs are labelled with where they deployed to.
+- **Pull requests, in the app**: open any PR in a side panel, next to the repo's details, live deployments and its other open PRs. Read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Pushback. Every view has an **Open in browser** button for when you want GitHub itself.
 - **A tab for each repo**: open any repo, from your account or anywhere on GitHub, in its own tab, and switch with a click or `Ctrl+Tab`. Tabs run across the top or down a sidebar, and you can **pin** the repos you use most. A toggleable sidebar (`Ctrl/⌘+B`) keeps every watched repo one click away. Each repo tab is a full workspace with its README, PRs, runs, workflows and insights.
 - **GitHub tools**: browse, read, comment on, create and close **issues**; see **branches** with how far each is ahead of or behind the default branch, and create, delete or open a PR from them; browse **commits**; read and publish **releases** with generated notes; and open **new pull requests** from any branch.
 - **Local git tools**: find every GitHub clone on your computer in one go (or link or clone repos one at a time) to see changes with diffs, stage, commit, stash, switch, merge, rebase and create branches, fetch, pull and push, and open it in your editor or a terminal.
@@ -124,7 +125,17 @@ You can also start from a copy of an existing dashboard. **Manage dashboards…*
 - **Inspect a run**: click any run to see its jobs and steps update live. Click **Log** on a job to read its output; failed logs open at the first error.
 - **Cancel or re-run** from the run row or the run window. *Re-run failed jobs* only repeats what broke.
 
-### 6. Review pull requests
+### 6. Track deployments
+
+Pushback reads the deployments GitHub records whenever an Actions job with an `environment:` runs, so deploy workflows show up with no setup. Add the **Deployments** widget (or start a dashboard from the **Deployments** template), or open a repo's **Deployments** section:
+
+- **Environments**: projects down the side, environments across the top (dev → prod). Each cell shows the live release (its tag, or the commit if it isn't tagged), how long ago and who deployed it. A failed or in-progress attempt shows beneath it.
+- **Clients**: environment names are split into a stage and a client, so `prod-acme`, `staging-acme` and `Acme` are all the client *Acme*, and `dev` or `Production` are shared stages. Each client gets a row with its version at every stage.
+- **History**: every deployment, newest first, with its environment, client, version, outcome, duration and who ran it.
+
+Click any deployment to open the run that made it. Runs that deployed something are labelled with their target (for example **⇢ prod-acme**), and a run's details list where it deployed to. Deployments refresh every 90 seconds while you're looking at them.
+
+### 7. Review pull requests
 
 The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and diff size. **Click a PR to open it in Pushback**:
 
@@ -135,7 +146,7 @@ The *Pull requests* widget shows checks (✓ ✗ ●), review state, labels and 
 
 Links inside descriptions and READMEs that point to PRs, issues, runs or repos also open in the app (repos open in a tab). Views stack, so closing a PR you opened from another PR takes you back to it.
 
-### 7. Work in repo tabs
+### 8. Work in repo tabs
 
 Click a repo tile, a repo link, or the **+** at the end of the tab bar to open a repo in its own tab. The **+** button opens a dropdown with a search box at the top. It lists the repos you watch and every repo on your account (search as you type). It also opens any `owner/name` or GitHub URL, including public repos you don't own. Drag tabs to reorder them, close them with **×** or a middle-click, and cycle through them with `Ctrl+Tab` / `Ctrl+Shift+Tab`. Open tabs come back when you restart.
 
@@ -152,9 +163,10 @@ Each repo tab has these sections:
 | **Commits** | Commit history for any branch, with its branch lines; open a commit on GitHub. |
 | **Releases** | Release notes and downloadable assets with download counts. **New release** creates a tag and a release, optionally as a draft or pre-release, with notes generated from merged PRs. |
 | **Runs, Workflows, Insights** | Actions for this repo, as on the dashboard. |
+| **Deployments** | This repo's deployments: **Environments** (what's live where), **Clients** (each client's version at each stage) and **History** (every deployment, filterable by environment, outcome or text). |
 | **Working copy** and the other **Local** sections | Your local clone: see below. |
 
-### 8. Use git without leaving the app
+### 9. Use git without leaving the app
 
 **Add all your clones at once:** in **Settings → Repositories**, click **Find on this computer…** (or run *Find repos on this computer* from `Ctrl/⌘+K`). Pushback looks through your home folder for git repos with a GitHub remote (`origin` first) and lists them, including clones whose folder name differs from the repo. Pick the ones you want, and each gets linked as that repo's working copy. You can also start watching them on the dashboard, and have new clones linked automatically each time Pushback starts. Kept your code somewhere else, like another drive? Use **Look in another folder…**.
 
@@ -180,13 +192,13 @@ The other **Local** sections bring GitLens-style history tools into the app:
 
 Pushback runs your installed `git`, so it uses your existing credentials and config. Status refreshes every few seconds and whenever you switch back to the app.
 
-### 9. Tune notifications
+### 10. Tune notifications
 
 In **Settings → Notifications**, choose which events you want toasts for. Turn on **Only notify about runs and PRs that are mine** to hear only about your own runs and PRs (review requests always come through). Click a notification to open that run or PR in Pushback.
 
 If you see no notifications at all, check that your OS isn't in Do Not Disturb or Focus mode, and that it allows notifications from Pushback.
 
-### 10. Make it yours
+### 11. Make it yours
 
 **Settings → Appearance** has light, dark and system modes, separate themes for dark and light, per-colour overrides, a font picker (or any installed font), text size and density. You can also switch themes from the command palette: type `theme`.
 

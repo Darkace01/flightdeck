@@ -9,6 +9,7 @@ import * as git from './git'
 import * as gitTools from './gitTools'
 import { listEditors } from './editors'
 import { findClones } from './scan'
+import { listDeployments } from './deployments'
 import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
@@ -442,6 +443,7 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
+  ipcMain.handle('deployments:list', (_e, repo: string) => listDeployments(requireClient(), repo))
   ipcMain.handle('branches:graph', (_e, repo: string, branches: string[]) => tools.branchGraph(requireClient(), repo, branches))
   ipcMain.handle('git:open', async (_e, repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult> => {
     try {

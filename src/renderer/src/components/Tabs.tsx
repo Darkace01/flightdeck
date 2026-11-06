@@ -13,7 +13,7 @@ function useRepoTone(repo: string) {
   return state.runs.some((r) => r.status !== 'completed') ? 'run' : runTone(latest)
 }
 
-/** Two letters from a repo name: "xstar.react.common" → "XR", "blank-page" → "BP", "pushback" → "PU". */
+/** Two letters from a repo name: "design.system.core" → "DS", "blank-page" → "BP", "pushback" → "PU". */
 const monogram = (name: string) => {
   const words = name.split(/[-_.\s]+/).filter(Boolean)
   return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()

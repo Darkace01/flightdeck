@@ -24,7 +24,10 @@ const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
     { key: 'hideDrafts', label: 'Hide drafts', kind: 'bool' }
   ],
   workflows: [{ key: 'dispatchableOnly', label: 'Only workflows that can be run manually', kind: 'bool' }],
-  events: [{ key: 'unreadOnly', label: 'Only unread', kind: 'bool' }]
+  events: [{ key: 'unreadOnly', label: 'Only unread', kind: 'bool' }],
+  deployments: [
+    { key: 'view', label: 'Show', kind: 'select', choices: [['environments', 'Projects × environments'], ['clients', 'Clients × stages'], ['history', 'Deployment history']] }
+  ]
 }
 
 export function WidgetSettingsModal({ id }: { id: string }) {

@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react'
 import type { WorkflowRun } from '../../../shared/types'
 import { Avatar, Empty, IconButton, runTone, StatusIcon } from '../components/ui'
+import { useDeployments } from '../lib/deployments'
 import { duration, matches, shortRepo, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSettings, useSnapshot, widgetRepos } from '../lib/store'
 import { pushModal } from '../lib/ui'
@@ -50,6 +51,16 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
     return all.slice(0, Number(limit) || 30)
   }, [snapshot.repos, repos.join(), mode, branch, latestOnly, filter, limit, viewer])
 
+  // Only repos with deploy-looking workflows load deployments, to label those runs with where they deployed.
+  const deployRepos = [...new Set(runs.filter((r) => /deploy|release/i.test(r.name)).map((r) => r.repo))]
+  const { data: deployments } = useDeployments(deployRepos)
+  const deployedTo = useMemo(() => {
+    const map = new Map<number, string[]>()
+    for (const d of deployments.flatMap((r) => r.deployments))
+      if (d.runId && !map.get(d.runId)?.includes(d.environment)) map.set(d.runId, [...(map.get(d.runId) ?? []), d.environment])
+    return map
+  }, [deployments])
+
   if (!runs.length) return <Empty>{EMPTY[mode as string] ?? 'No workflow runs.'}</Empty>
   const multiRepo = repos.length > 1
 
@@ -68,6 +79,11 @@ export const RunsWidget = memo(function RunsWidget({ widget, filter }: WidgetPro
               </div>
               <div className="row-meta">
                 {multiRepo && <span className="chip">{shortRepo(run.repo)}</span>}
+                {deployedTo.get(run.id)?.map((env) => (
+                  <span key={env} className="chip chip-env" title={`Deployed to ${env}`}>
+                    ⇢ {env}
+                  </span>
+                ))}
                 <span className="mono">{run.branch}</span>
                 <span>{run.event}</span>
                 <span>#{run.runNumber}{run.attempt > 1 ? ` (attempt ${run.attempt})` : ''}</span>

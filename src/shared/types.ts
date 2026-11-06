@@ -102,7 +102,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments'
 
 export interface WidgetConfig {
   id: string
@@ -490,6 +490,38 @@ export type GitAction =
   | 'fetch-remote' // remote name
   | 'worktree-remove' // path, as listed by the worktrees query
 
+/** One GitHub deployment, with its environment split into an Octopus-style stage and client (tenant). */
+export interface Deployment {
+  id: number
+  repo: string
+  environment: string
+  stage: string
+  client: string | null
+  ref: string | null
+  sha: string
+  /** The release tag at the deployed commit, if there is one. */
+  version: string | null
+  state: 'success' | 'failure' | 'in_progress' | 'queued' | 'waiting' | 'cancelled'
+  /** The live deployment for its environment (GitHub's ACTIVE). */
+  current: boolean
+  createdAt: string
+  finishedAt: string | null
+  creator: string
+  creatorAvatar?: string
+  /** The workflow run that deployed it, from the status's log URL. */
+  runId: number | null
+  logUrl: string | null
+  environmentUrl: string | null
+  description: string | null
+}
+
+export interface RepoDeployments {
+  repo: string
+  environments: string[]
+  /** Newest first, up to 100. */
+  deployments: Deployment[]
+}
+
 /** A commit with its parents, as drawn in the commit graph (local history or GitHub branches). */
 export interface GraphCommit {
   sha: string
@@ -685,6 +717,8 @@ export interface PushbackApi {
   gitQuery<Q extends GitQuery>(repo: string, query: Q): Promise<GitAnswer[Q['kind']]>
   /** Adds a worktree for an existing branch in a folder picked in a dialog. */
   gitAddWorktree(repo: string, branch: string): Promise<ActionResult>
+  /** Environments and the last 100 deployments of a repo. */
+  listDeployments(repo: string): Promise<RepoDeployments>
   /** Commit graph across a repo's branches on GitHub (no clone needed): the default branch plus up to 7 more. */
   branchGraph(repo: string, branches: string[]): Promise<GraphCommit[]>
   /**

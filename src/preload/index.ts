@@ -58,6 +58,7 @@ const api: PushbackApi = {
   gitQuery: (repo, query) => ipcRenderer.invoke('git:query', repo, query),
   gitAddWorktree: (repo, branch) => ipcRenderer.invoke('git:worktree-add', repo, branch),
   branchGraph: (repo, branches) => ipcRenderer.invoke('branches:graph', repo, branches),
+  listDeployments: (repo) => ipcRenderer.invoke('deployments:list', repo),
   listEditors: () => ipcRenderer.invoke('editors:list'),
   scanClones: (pick) => ipcRenderer.invoke('git:scan', pick),
   linkScanned: (repos) => ipcRenderer.invoke('git:link-scanned', repos),

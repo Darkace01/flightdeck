@@ -106,20 +106,40 @@ export function IconButton({
   )
 }
 
-export function Modal({ title, onClose, children, width = 560 }: { title: string; onClose: () => void; children: ReactNode; width?: number }) {
+/**
+ * A dialog. With `panel` it slides in from the right as a tall side panel instead, with optional `side`
+ * content (such as the repo's details) in a rail on its left.
+ */
+export function Modal({ title, onClose, children, width = 560, panel, side, actions }: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  width?: number
+  panel?: boolean
+  side?: ReactNode
+  actions?: ReactNode
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal" style={{ width }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+    <div className={`modal-backdrop${panel ? ' panel-backdrop' : ''}`} onMouseDown={onClose}>
+      <div className={`modal${panel ? ' side-panel' : ''}`} style={panel ? undefined : { width }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <header className="modal-head">
           <h2>{title}</h2>
-          <IconButton icon="close" title="Close" onClick={onClose} />
+          {actions}
+          <IconButton icon="close" title="Close (Esc)" onClick={onClose} />
         </header>
-        <div className="modal-body">{children}</div>
+        {side ? (
+          <div className="panel-body">
+            <aside className="panel-rail">{side}</aside>
+            <div className="modal-body">{children}</div>
+          </div>
+        ) : (
+          <div className="modal-body">{children}</div>
+        )}
       </div>
     </div>
   )

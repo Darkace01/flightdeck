@@ -1,3 +1,4 @@
+import { RunDeployments } from './Deployments'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Job, PullRequest, Workflow, WorkflowRun } from '../../../shared/types'
 import { duration, timeAgo, useNow } from '../lib/format'
@@ -254,6 +255,7 @@ export function RunDetailsModal({ run: initial }: { run: WorkflowRun }) {
           Open on GitHub
         </button>
       </div>
+      <RunDeployments repo={run.repo} runId={run.id} />
       {error && <p className="del">{error}</p>}
       {!jobs && !error && <Skeleton rows={3} />}
       {jobs && (

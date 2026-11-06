@@ -5,6 +5,7 @@ import { api, toast } from '../lib/store'
 import { closeModal } from '../lib/ui'
 import { invalidate, useLoad } from '../lib/useLoad'
 import { Markdown } from './Markdown'
+import { RepoRail } from './RepoRail'
 import { Avatar, Modal, Skeleton } from './ui'
 
 export function IssueModal({ repo, number }: { repo: string; number: number }) {
@@ -33,7 +34,7 @@ export function IssueModal({ repo, number }: { repo: string; number: number }) {
 
   const open = issue?.state === 'open'
   return (
-    <Modal title={`${repo} #${number}`} onClose={closeModal} width={900}>
+    <Modal title={`${repo} #${number}`} onClose={closeModal} panel side={<RepoRail repo={repo} />}>
       <div className="pr-head">
         <h1 className="pr-title">
           {issue?.title ?? `Issue #${number}`} <span className="dim">#{number}</span>

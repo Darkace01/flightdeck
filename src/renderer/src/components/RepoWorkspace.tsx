@@ -11,6 +11,7 @@ import type { WidgetProps } from '../widgets/types'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { CompareSection, ContributorsSection, FileHistorySection, GraphSection, RemotesSection, SearchSection, StashesSection, TagsSection } from './GitTools'
+import { DeploymentsSection } from './Deployments'
 import { LocalSection } from './LocalGit'
 import { Markdown } from './Markdown'
 import { Empty, runTone, Skeleton, StatusIcon } from './ui'
@@ -52,6 +53,7 @@ export const SECTIONS: Section[] = [
   { id: 'runs', label: 'Runs', group: 'Actions', widget: ['runs', RunsWidget] },
   { id: 'workflows', label: 'Workflows', group: 'Actions', widget: ['workflows', WorkflowsWidget] },
   { id: 'insights', label: 'Insights', group: 'Actions', widget: ['insights', InsightsWidget] },
+  { id: 'deployments', label: 'Deployments', group: 'Actions', component: DeploymentsSection },
   { id: 'local', label: 'Working copy', group: 'Local', component: LocalSection },
   { id: 'graph', label: 'Commit graph', group: 'Local', component: GraphSection },
   { id: 'file-history', label: 'File history & blame', group: 'Local', component: FileHistorySection },
