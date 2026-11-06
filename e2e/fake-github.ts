@@ -72,6 +72,32 @@ const PRS: Record<string, object[]> = {
   'acme/web': []
 }
 
+// Screenshot mode adds more repos, runs, PRs and deployments so the website shows a lived-in dashboard.
+const RICH_RUNS: Record<string, object[]> = {
+  'acme/api': [
+    run('acme/api', 104, { name: 'Release', display_title: 'v1.2.0', event: 'push', head_branch: 'v1.2.0', created_at: ago(45), run_started_at: ago(45), updated_at: ago(41) }),
+    run('acme/api', 105, { name: 'CodeQL', display_title: 'Scheduled scan', event: 'schedule', created_at: ago(70), run_started_at: ago(70), updated_at: ago(64) })
+  ],
+  'acme/web': [
+    run('acme/web', 202, { name: 'Deploy', display_title: 'Deploy preview', event: 'workflow_dispatch', head_branch: 'main', created_at: ago(35), run_started_at: ago(35), updated_at: ago(31) }),
+    run('acme/web', 203, { name: 'E2E', display_title: 'Checkout flow', conclusion: 'failure', event: 'pull_request', head_branch: 'feat/checkout', created_at: ago(50), run_started_at: ago(50), updated_at: ago(44) })
+  ],
+  'acme/mobile': [
+    run('acme/mobile', 301, { name: 'Build iOS', display_title: 'Bump version', created_at: ago(5), run_started_at: ago(5), updated_at: ago(3), status: 'in_progress', conclusion: null }),
+    run('acme/mobile', 302, { name: 'Build Android', display_title: 'Bump version', created_at: ago(6), run_started_at: ago(6), updated_at: ago(2) })
+  ],
+  'acme/infra': [run('acme/infra', 401, { name: 'Terraform plan', display_title: 'Add cache cluster', event: 'pull_request', head_branch: 'infra/cache', created_at: ago(25), run_started_at: ago(25), updated_at: ago(22) })]
+}
+
+const RICH_PRS: Record<string, object[]> = {
+  'acme/web': [
+    pr(31, { title: 'Redesign checkout flow', url: 'https://github.com/acme/web/pull/31', headRefName: 'feat/checkout', author: { login: 'maria', avatarUrl: '' }, commits: { nodes: [{ commit: { statusCheckRollup: { state: 'FAILURE' } } }] } }),
+    pr(32, { title: 'Dark mode for the docs site', url: 'https://github.com/acme/web/pull/32', headRefName: 'feat/dark-docs', author: { login: 'sam', avatarUrl: '' }, reviewDecision: 'APPROVED', labels: { nodes: [{ name: 'docs', color: '0075ca' }] } })
+  ],
+  'acme/mobile': [pr(12, { title: 'Offline sync for drafts', url: 'https://github.com/acme/mobile/pull/12', headRefName: 'feat/offline', author: { login: 'lee', avatarUrl: '' }, commits: { nodes: [{ commit: { statusCheckRollup: { state: 'PENDING' } } }] } })],
+  'acme/infra': [pr(4, { title: 'Add a Redis cache cluster', url: 'https://github.com/acme/infra/pull/4', headRefName: 'infra/cache', author: { login: 'priya', avatarUrl: '' }, labels: { nodes: [{ name: 'infra', color: 'd93f0b' }] } })]
+}
+
 const deployment = (id: number, environment: string, runId: number, sha: string, minutes: number, state = 'ACTIVE') => ({
   databaseId: id,
   environment,
@@ -85,12 +111,23 @@ const deployment = (id: number, environment: string, runId: number, sha: string,
   latestStatus: { state: state === 'FAILURE' ? 'FAILURE' : 'SUCCESS', createdAt: ago(minutes - 1), logUrl: `https://github.com/acme/api/actions/runs/${runId}/job/1`, environmentUrl: '', description: '' }
 })
 
-function graphql(query: string, vars: Record<string, string>) {
+function graphql(query: string, vars: Record<string, string>, rich: boolean) {
   if (query.includes('reviewRequests: search')) {
     const node = { ...pr(7, {}), repository: { nameWithOwner: 'acme/api' } }
     return { viewer: { login: 'octo', avatarUrl: '' }, reviewRequests: { nodes: [node] }, myPrs: { nodes: [] }, assigned: { nodes: [] } }
   }
   const repo = `${vars.owner}/${vars.name}`
+  if (query.includes('deployments(') && rich && repo !== 'acme/api') {
+    // Every rich repo deploys to dev, staging and two clients in prod.
+    const envs = ['dev', 'staging', 'prod-acme', 'prod-globex', 'prod-initech']
+    return {
+      repository: {
+        environments: { nodes: envs.map((name) => ({ name })) },
+        deployments: { nodes: envs.map((e, i) => deployment(900 + i + repo.length * 10, e, 202, i < 2 ? 'r2' : 'r1', 20 + i * 90, e === 'prod-initech' && repo === 'acme/web' ? 'FAILURE' : 'ACTIVE')) },
+        refs: { nodes: [{ name: 'v2.4.0', target: { oid: 'r2' } }, { name: 'v2.3.1', target: { oid: 'r1' } }] }
+      }
+    }
+  }
   if (query.includes('deployments(')) {
     const api = repo === 'acme/api'
     return {
@@ -105,16 +142,16 @@ function graphql(query: string, vars: Record<string, string>) {
       }
     }
   }
-  if (query.includes('pullRequests(')) return { repository: { defaultBranchRef: { name: 'main' }, pullRequests: { nodes: PRS[repo] ?? [] } } }
+  if (query.includes('pullRequests(')) return { repository: { defaultBranchRef: { name: 'main' }, pullRequests: { nodes: [...(PRS[repo] ?? []), ...(rich ? (RICH_PRS[repo] ?? []) : [])] } } }
   return { repository: null }
 }
 
-function rest(path: string): unknown {
+function rest(path: string, rich: boolean): unknown {
   const [p] = path.split('?')
   let m: RegExpMatchArray | null
   if (p === '/user') return { login: 'octo', avatar_url: '' }
   if (p === '/user/repos') return path.includes('page=1') ? [{ full_name: 'acme/api', description: 'The API', private: true, pushed_at: ago(5) }, { full_name: 'acme/web', description: 'The website', private: false, pushed_at: ago(60) }] : []
-  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/runs$/))) return { workflow_runs: RUNS[m[1]] ?? [] }
+  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/runs$/))) return { workflow_runs: [...(RUNS[m[1]] ?? []), ...(rich ? (RICH_RUNS[m[1]] ?? []) : [])] }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/workflows$/)))
     return {
       workflows:
@@ -204,7 +241,9 @@ const body = (req: IncomingMessage) =>
     req.on('end', () => resolve(data))
   })
 
-export async function startFakeGitHub(): Promise<FakeGitHub> {
+/** `rich` adds more repos and history, for screenshots. */
+export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<FakeGitHub> {
+  const rich = !!opts.rich
   const requests: { method: string; path: string }[] = []
   const server: Server = createServer(async (req, res) => {
     const path = req.url ?? '/'
@@ -216,10 +255,10 @@ export async function startFakeGitHub(): Promise<FakeGitHub> {
     }
     if (path === '/graphql' && req.method === 'POST') {
       const { query, variables } = JSON.parse(await body(req)) as { query: string; variables: Record<string, string> }
-      res.writeHead(200, headers).end(JSON.stringify({ data: graphql(query, variables ?? {}) }))
+      res.writeHead(200, headers).end(JSON.stringify({ data: graphql(query, variables ?? {}, rich) }))
       return
     }
-    const data = req.method === 'GET' ? rest(path) : undefined
+    const data = req.method === 'GET' ? rest(path, rich) : undefined
     if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
     else if (typeof data === 'string') res.writeHead(200, { ...headers, 'Content-Type': 'text/html' }).end(data)
     else res.writeHead(200, headers).end(JSON.stringify(data))

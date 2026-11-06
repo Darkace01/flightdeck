@@ -8,7 +8,7 @@ import { LinkClone } from './LocalGit'
 import type { SectionProps } from './RepoWorkspace'
 import { Empty, IconButton, Segmented, Skeleton } from './ui'
 
-// GitLens-style history tools for a repo's linked clone. Each section is listed in RepoWorkspace's SECTIONS.
+// History tools for a repo's linked clone. Each section is listed in RepoWorkspace's SECTIONS.
 
 const useGit = <Q extends GitQuery>(repo: string, q: Q | null, deps: unknown[]) =>
   useLoad<GitAnswer[Q['kind']] | undefined>(repo, () => (q ? api.gitQuery(repo, q) : Promise.resolve(undefined)), deps)
@@ -305,7 +305,7 @@ function Blame({ repo, path }: { repo: string; path: string }) {
     return { min: Math.min(...times), max: Math.max(...times) }
   }, [data])
   if (!data) return <Err error={error} />
-  // Newer lines get a warmer bar, so recent churn stands out like GitLens's heatmap.
+  // Newer lines get a warmer bar, so recent churn stands out as a heatmap.
   const heat = (l: BlameLine) => (ages.max > ages.min ? (new Date(l.date).getTime() - ages.min) / (ages.max - ages.min) : 1)
   return (
     <Split

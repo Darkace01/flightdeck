@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pushback · Mission control for GitHub</title>
+    <meta name="description" content="A fast desktop app for GitHub Actions, pull requests and deployments. Free and open source for Windows, macOS and Linux." />
+    <meta property="og:title" content="Pushback · Mission control for GitHub" />
+    <meta property="og:description" content="Watch your Actions, review pull requests, track every deployment and work with git, all in one fast desktop app." />
+    <meta property="og:image" content="img/dashboard.png" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="img/icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true">
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+      <div class="blob b3"></div>
+      <div class="grid"></div>
+    </div>
+
+    <header class="nav" id="nav">
+      <a class="brand" href="#top"><img src="img/icon.png" alt="" width="28" height="28" /> Pushback</a>
+      <nav aria-label="Sections">
+        <a href="#features">Features</a>
+        <a href="#deployments">Deployments</a>
+        <a href="#git">Git tools</a>
+        <a href="#download">Download</a>
+      </nav>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/Darkace01/pushback" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Star on GitHub
+      </a>
+    </header>
+
+    <main id="top">
+      <!-- Hero -->
+      <section class="hero">
+        <a class="pill reveal" id="whatsnew" href="https://github.com/Darkace01/pushback/releases/latest" target="_blank" rel="noopener">
+          <span class="pill-dot"></span><span id="version">Latest release</span> · see what's new →
+        </a>
+        <h1 class="reveal">
+          Mission control for <span class="grad">GitHub</span>.
+        </h1>
+        <p class="lead reveal">
+          Watch every Action, review pull requests, see what's deployed to each client, and dig through git history,
+          all in one fast desktop app that talks only to GitHub.
+        </p>
+        <div class="cta reveal">
+          <a class="btn btn-primary btn-lg" id="hero-download" href="#download">
+            <span class="os-icon" id="hero-os-icon" aria-hidden="true"></span>
+            <span id="hero-download-label">Download Pushback</span>
+          </a>
+          <a class="btn btn-ghost btn-lg" href="#features">See what it does</a>
+        </div>
+        <p class="fine reveal" id="hero-fine">Free and open source · Windows, macOS and Linux · MIT licence</p>
+
+        <div class="stage reveal" id="stage">
+          <div class="window tilt" id="tilt">
+            <div class="window-bar"><span></span><span></span><span></span><em>Pushback</em></div>
+            <img src="img/dashboard.png" alt="The Pushback dashboard: repositories, workflow runs, pull requests and a vertical sidebar of repos" width="1440" height="900" />
+          </div>
+          <div class="float f1"><span class="spin"></span> Build iOS · running</div>
+          <div class="float f2"><span class="ok">✓</span> Add login page · checks passed</div>
+          <div class="float f3"><span class="dot live"></span> prod-acme · v1.2.0 live</div>
+          <div class="float f4"><span class="bad">✕</span> E2E failed on feat/checkout</div>
+        </div>
+      </section>
+
+      <!-- Ticker -->
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          <span>Workflow runs</span><span>Pull requests</span><span>Deployments by client</span><span>Commit graph</span><span>Blame &amp; file history</span>
+          <span>Vertical tabs</span><span>Pinned repos</span><span>Filters everywhere</span><span>Desktop notifications</span><span>18 themes</span><span>Command palette</span>
+          <span>Workflow runs</span><span>Pull requests</span><span>Deployments by client</span><span>Commit graph</span><span>Blame &amp; file history</span>
+          <span>Vertical tabs</span><span>Pinned repos</span><span>Filters everywhere</span><span>Desktop notifications</span><span>18 themes</span><span>Command palette</span>
+        </div>
+      </div>
+
+      <!-- Features bento -->
+      <section class="section" id="features">
+        <p class="eyebrow reveal">Everything in one place</p>
+        <h2 class="reveal">Stop juggling twenty browser tabs.</h2>
+        <p class="sub reveal">Pushback keeps the GitHub work you check all day on one screen, and refreshes it quietly in the background.</p>
+        <div class="bento">
+          <article class="card spot reveal span2">
+            <div class="card-icon">⚡</div>
+            <h3>GitHub Actions, live</h3>
+            <p>See every run across your repos as it happens. Start workflows with their inputs, cancel, re-run failed jobs, and read a failed job's log opened right at the error.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🔀</div>
+            <h3>Pull requests, in the app</h3>
+            <p>Read the conversation, checks, commits and diff, then comment, approve or merge without opening a browser.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🚀</div>
+            <h3>Deployments, Octopus-style</h3>
+            <p>Which release is live in each environment and for each client, plus a full deployment history.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🌳</div>
+            <h3>Serious git tools</h3>
+            <p>Commit graph, blame with a heatmap, file history, compare, search, stashes, tags and worktrees.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🗂️</div>
+            <h3>Tabs your way</h3>
+            <p>A tab for every repo, down the side or across the top. Pin favourites as tiles, like a modern browser.</p>
+          </article>
+          <article class="card spot reveal span2">
+            <div class="card-icon">🧭</div>
+            <h3>Pages with breadcrumbs</h3>
+            <p>PRs, issues and runs open as pages in place, with breadcrumbs showing how deep you are. Click any crumb to jump back, or press Esc.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🔔</div>
+            <h3>Notifications that matter</h3>
+            <p>Failed runs, review requests, merged PRs. Choose exactly which, or only your own.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🎨</div>
+            <h3>18 themes</h3>
+            <p>GitHub, Dracula, Nord, Tokyo Night, Catppuccin, an amber CRT and more. Any colour and font.</p>
+          </article>
+          <article class="card spot reveal">
+            <div class="card-icon">🪶</div>
+            <h3>Light on your rate limit</h3>
+            <p>Smart ETag polling means data that hasn't changed costs nothing against your rate limit.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Showcases -->
+      <section class="section showcase" id="deployments">
+        <div class="show-text reveal">
+          <p class="eyebrow">Deployments</p>
+          <h2>Know what's live, for every client.</h2>
+          <p>
+            Pushback reads the deployments GitHub records for your Actions, so it works with the workflows you already have.
+            Environment names like <code>prod-acme</code> or <code>staging-globex</code> become clients and stages automatically.
+          </p>
+          <ul class="ticks">
+            <li><b>Environments:</b> each project across dev → prod, with its live release tag</li>
+            <li><b>Clients:</b> the version every client runs at each stage</li>
+            <li><b>History:</b> every deploy, its outcome, how long it took and who ran it</li>
+            <li>Deploy runs are labelled with where they went: <span class="chip-env">⇢ prod-acme</span></li>
+          </ul>
+        </div>
+        <figure class="shot reveal-zoom"><img src="img/deployments.png" alt="Deployments by client: a table of clients and stages with the live release in each cell" loading="lazy" width="1440" height="900" /></figure>
+      </section>
+
+      <section class="section showcase flip">
+        <div class="show-text reveal">
+          <p class="eyebrow">Pull requests</p>
+          <h2>Review without leaving the flow.</h2>
+          <p>
+            A PR opens as a page beside the repo's details: what's deployed, CI on the default branch, and the repo's other open
+            PRs, one click away. The breadcrumbs always show where you are.
+          </p>
+          <ul class="ticks">
+            <li>Conversation, commits, checks and a full diff</li>
+            <li>Comment, approve and merge (squash, merge or rebase)</li>
+            <li>Every view has <b>Open in browser</b> for when you want github.com</li>
+          </ul>
+        </div>
+        <figure class="shot reveal-zoom"><img src="img/pr-page.png" alt="A pull request open as a page with breadcrumbs and a repo rail" loading="lazy" width="1440" height="900" /></figure>
+      </section>
+
+      <section class="section showcase" id="git">
+        <div class="show-text reveal">
+          <p class="eyebrow">Git tools</p>
+          <h2>Your history, finally readable.</h2>
+          <p>Link your clones (Pushback can find every one on your computer in a second) and get a full set of history tools, without an editor open.</p>
+          <ul class="ticks">
+            <li>Commit graph with branch lanes, merges and tags</li>
+            <li>Blame with an age heatmap, and file history that follows renames</li>
+            <li>Cherry-pick, revert, reset, branch and tag from any commit</li>
+            <li>Compare, search by code change, stashes, worktrees and contributors</li>
+          </ul>
+        </div>
+        <figure class="shot reveal-zoom"><img src="img/commit-graph.png" alt="The commit graph with branch lanes and a commit's details" loading="lazy" width="1440" height="900" /></figure>
+      </section>
+
+      <section class="section showcase flip">
+        <div class="show-text reveal">
+          <p class="eyebrow">Make it yours</p>
+          <h2>Dashboards that fit how you work.</h2>
+          <p>Drag, resize and filter widgets; keep several dashboards (CI monitor, Code review, Deployments…) and switch with a click.</p>
+          <div class="theme-toggle" role="group" aria-label="Preview theme">
+            <button class="on" data-shot="img/dashboard.png">Dark</button>
+            <button data-shot="img/dashboard-light.png">Light</button>
+            <button data-shot="img/filters.png">Filters</button>
+            <button data-shot="img/walkthrough.png">Walkthrough</button>
+          </div>
+        </div>
+        <figure class="shot reveal-zoom"><img id="theme-shot" src="img/dashboard.png" alt="The dashboard" loading="lazy" width="1440" height="900" /></figure>
+      </section>
+
+      <!-- Numbers -->
+      <section class="section numbers">
+        <div class="num reveal"><b data-count="0">0</b><span>servers: it talks only to GitHub</span></div>
+        <div class="num reveal"><b data-count="140" data-suffix="+">0</b><span>automated tests before every release</span></div>
+        <div class="num reveal"><b data-count="3">0</b><span>platforms: Windows, macOS, Linux</span></div>
+        <div class="num reveal"><b data-count="18">0</b><span>built-in themes</span></div>
+      </section>
+
+      <!-- Download -->
+      <section class="section" id="download">
+        <p class="eyebrow reveal">Download</p>
+        <h2 class="reveal">Get Pushback <span class="grad" id="dl-version"></span></h2>
+        <p class="sub reveal" id="dl-sub">Free and open source. Updates install themselves.</p>
+        <div class="downloads">
+          <article class="dl card spot reveal" data-os="windows">
+            <div class="dl-os"><span class="os-icon win" aria-hidden="true"></span> Windows</div>
+            <p>Windows 10 and 11, 64-bit</p>
+            <a class="btn btn-primary" data-asset="win-x64.exe">Download .exe</a>
+            <small class="size" data-size="win-x64.exe"></small>
+          </article>
+          <article class="dl card spot reveal" data-os="mac">
+            <div class="dl-os"><span class="os-icon mac" aria-hidden="true"></span> macOS</div>
+            <p>macOS 12 or later</p>
+            <a class="btn btn-primary" data-asset="mac-arm64.dmg">Apple Silicon (.dmg)</a>
+            <a class="btn btn-ghost" data-asset="mac-x64.dmg">Intel (.dmg)</a>
+            <small class="size" data-size="mac-arm64.dmg"></small>
+          </article>
+          <article class="dl card spot reveal" data-os="linux">
+            <div class="dl-os"><span class="os-icon linux" aria-hidden="true"></span> Linux</div>
+            <p>Any distro, or Debian/Ubuntu</p>
+            <a class="btn btn-primary" data-asset="x86_64.AppImage">AppImage</a>
+            <a class="btn btn-ghost" data-asset="amd64.deb">.deb</a>
+            <small class="size" data-size="x86_64.AppImage"></small>
+          </article>
+        </div>
+
+        <div class="terminals">
+          <div class="term reveal">
+            <div class="term-bar"><span></span><span></span><span></span><em>macOS · Homebrew</em></div>
+            <pre><span class="prompt">$</span> <span class="type" data-text="brew install --cask darkace01/tap/pushback"></span><span class="caret"></span></pre>
+            <button class="copy" data-copy="brew install --cask darkace01/tap/pushback">Copy</button>
+          </div>
+          <div class="term reveal">
+            <div class="term-bar"><span></span><span></span><span></span><em>Windows · winget</em></div>
+            <pre><span class="prompt">&gt;</span> <span class="type" data-text="winget install Darkace01.Pushback"></span><span class="caret"></span></pre>
+            <button class="copy" data-copy="winget install Darkace01.Pushback">Copy</button>
+            <p class="term-note">The winget listing is waiting for approval. Until then, use the .exe above.</p>
+          </div>
+        </div>
+
+        <details class="unsigned reveal">
+          <summary>Seeing a security warning when you open it?</summary>
+          <p>
+            The builds aren't code-signed yet. On <b>Windows</b>, click <i>More info → Run anyway</i>. On <b>macOS</b>, right-click
+            Pushback in Applications and choose <i>Open</i> (the Homebrew install avoids this). Every installer is built in public by
+            <a href="https://github.com/Darkace01/pushback/actions/workflows/release.yml" target="_blank" rel="noopener">GitHub Actions</a> from the open-source code,
+            after the full test suite passes.
+          </p>
+        </details>
+      </section>
+
+      <!-- FAQ -->
+      <section class="section faq" id="faq">
+        <h2 class="reveal">Questions</h2>
+        <details class="reveal">
+          <summary>Is my GitHub token safe?</summary>
+          <p>Pushback uses your GitHub CLI login, or a token you paste in, which is stored encrypted by your operating system. It's never sent anywhere except api.github.com. There's no Pushback server, account or tracking.</p>
+        </details>
+        <details class="reveal">
+          <summary>Does it work with private and organisation repos?</summary>
+          <p>Yes, any repo your GitHub account can see. Pick them in Settings, or let Pushback find every clone on your computer and link them in one go.</p>
+        </details>
+        <details class="reveal">
+          <summary>Will it use up my API rate limit?</summary>
+          <p>Pushback polls with ETag requests, which GitHub doesn't count when nothing has changed, and it only polls faster while runs are active. The top bar always shows your remaining limit.</p>
+        </details>
+        <details class="reveal">
+          <summary>How does it know which client a deployment went to?</summary>
+          <p>From GitHub's deployment records, which Actions creates for any job with an <code>environment:</code>. Names like <code>prod-acme</code> or <code>staging-acme</code> are split into the stage and the client, with no setup needed.</p>
+        </details>
+        <details class="reveal">
+          <summary>How do updates work?</summary>
+          <p>On Windows and with the AppImage, updates download and install themselves. On macOS and .deb, Pushback tells you when a new version is out. Homebrew and winget users can upgrade with their package manager.</p>
+        </details>
+        <details class="reveal">
+          <summary>Can I contribute?</summary>
+          <p>Please do! Read the <a href="https://github.com/Darkace01/pushback/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">contributing guide</a>. Adding a theme is a great first PR.</p>
+        </details>
+      </section>
+
+      <section class="section final reveal">
+        <img src="img/icon.png" alt="" width="72" height="72" class="final-icon" />
+        <h2>Ready for pushback?</h2>
+        <a class="btn btn-primary btn-lg" href="#download">Download for free</a>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>© Pushback contributors · MIT licence</span>
+      <nav aria-label="Links">
+        <a href="https://github.com/Darkace01/pushback" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Darkace01/pushback/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/Darkace01/pushback/issues/new/choose" target="_blank" rel="noopener">Report an issue</a>
+        <a href="https://github.com/Darkace01/pushback/blob/main/README.md" target="_blank" rel="noopener">User guide</a>
+      </nav>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="main.js" defer></script>
+  </body>
+</html>

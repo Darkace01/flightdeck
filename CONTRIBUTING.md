@@ -154,6 +154,10 @@ The tag must match the `package.json` version, or the workflow stops.
 
 The source manifests are in `packaging/`. `packaging/winget` holds the version first submitted to winget, under `manifests/<first letter of the publisher>/` (`d/Darkace01/…`) as winget-pkgs requires; check changes with `winget validate --manifest <folder>`. `packaging/homebrew/pushback.rb` is the cask as published in the tap.
 
+## The website
+
+`site/` is the project website (plain HTML, CSS and JavaScript, no build step), published to GitHub Pages by `.github/workflows/site.yml` whenever it changes on `main`. Download links and the version come from the latest GitHub Release at runtime. To refresh the screenshots in `site/img/`, run `npm run screenshots`. It drives the app against the fake GitHub's demo data, so the screenshots never show real repos.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

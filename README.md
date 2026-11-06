@@ -18,6 +18,8 @@
 
 ---
 
+**Website and downloads:** https://darkace01.github.io/pushback/
+
 ## Features
 
 - **Multiple dashboards** for different jobs (CI watching, code review, releases), started from ready-made templates or from scratch, and switched with `Ctrl/⌘+1…9`.
@@ -28,7 +30,7 @@
 - **A tab for each repo**: open any repo, from your account or anywhere on GitHub, in its own tab, and switch with a click or `Ctrl+Tab`. Tabs run across the top or down a sidebar, and you can **pin** the repos you use most. A toggleable sidebar (`Ctrl/⌘+B`) keeps every watched repo one click away. Each repo tab is a full workspace with its README, PRs, runs, workflows and insights.
 - **GitHub tools**: browse, read, comment on, create and close **issues**; see **branches** with how far each is ahead of or behind the default branch, and create, delete or open a PR from them; browse **commits**; read and publish **releases** with generated notes; and open **new pull requests** from any branch.
 - **Local git tools**: find every GitHub clone on your computer in one go (or link or clone repos one at a time) to see changes with diffs, stage, commit, stash, switch, merge, rebase and create branches, fetch, pull and push, and open it in your editor or a terminal.
-- **GitLens-style history tools**: a **commit graph** with branch lines, labels and commit details (cherry-pick, revert, reset, branch or tag from any commit); **file history** and **blame** with an age heatmap; **compare** any two branches or tags; **search** commits by message, author, SHA, file or code change; plus **stashes**, **tags**, **remotes**, **worktrees** and **contributors**.
+- **Git history tools**: a **commit graph** with branch lines, labels and commit details (cherry-pick, revert, reset, branch or tag from any commit); **file history** and **blame** with an age heatmap; **compare** any two branches or tags; **search** commits by message, author, SHA, file or code change; plus **stashes**, **tags**, **remotes**, **worktrees** and **contributors**.
 - **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Pushback keeps running in the tray so you don't miss any.
 - **Fast and cheap on your rate limit**: it polls with ETag requests, which GitHub doesn't count against your limit when nothing changed, and polls faster while runs are active.
 - **Command palette** (`Ctrl/⌘+K`) to jump to any PR, run, workflow, repo, theme or command.
@@ -184,7 +186,7 @@ To link a single repo instead, open **Working copy** in its tab and choose **Lin
 - **Branches**: switch between local branches, create one from the current branch, **Merge** a branch into the current one, **Rebase** the current branch onto another, or delete one (you're warned before deleting unmerged work).
 - **Open in** your editor or IDE, **Terminal**, or click the path to open the folder. Choose the default in **Settings → Advanced → Default editor / IDE**, which lists the ones installed on your computer (VS Code, Cursor, Windsurf, Zed, Sublime Text, JetBrains IDEs, Visual Studio and more), or enter any other command.
 
-The other **Local** sections bring GitLens-style history tools into the app:
+The other **Local** sections bring git history tools into the app:
 
 | Section | What you can do |
 | --- | --- |
