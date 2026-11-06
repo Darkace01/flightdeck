@@ -442,6 +442,16 @@ function AdvancedSection() {
         <input type="checkbox" checked={settings.closeToTray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
         Keep running in the tray when the window is closed (so notifications keep coming)
       </label>
+      <label className="check">
+        <input type="checkbox" checked={settings.launchAtLogin} onChange={(e) => void updateSettings({ launchAtLogin: e.target.checked })} />
+        Start Pushback when I sign in to my computer
+      </label>
+      {settings.launchAtLogin && (
+        <label className="check">
+          <input type="checkbox" checked={settings.startInTray} onChange={(e) => void updateSettings({ startInTray: e.target.checked })} />
+          Start in the tray without opening the window
+        </label>
+      )}
       <div className="field">
         <span>Configuration</span>
         <div className="inline">

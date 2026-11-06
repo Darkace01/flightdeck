@@ -160,6 +160,10 @@ export interface Settings {
   fontSize: number
   density: 'comfortable' | 'compact'
   closeToTray: boolean
+  /** Start Pushback when you sign in to the computer (packaged builds only). */
+  launchAtLogin: boolean
+  /** When started at login, stay in the tray instead of opening the window. */
+  startInTray: boolean
   autoUpdate: boolean
   widgets: WidgetConfig[]
   layout: LayoutItem[]

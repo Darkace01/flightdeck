@@ -56,6 +56,8 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 13,
   density: 'comfortable',
   closeToTray: true,
+  launchAtLogin: false,
+  startInTray: true,
   autoUpdate: true,
   widgets,
   layout,

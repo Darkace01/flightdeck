@@ -11,6 +11,7 @@ import { listEditors } from './editors'
 import { findClones } from './scan'
 import { listDeployments } from './deployments'
 import { resolveEditor } from '../shared/defaults'
+import { attentionCount, badgeText } from '../shared/attention'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
 import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
@@ -69,11 +70,18 @@ function notify(events: AppEvent[]): void {
 
 function updateTray(): void {
   if (!tray) return
-  const unread = poller.snapshot.events.filter((e) => !e.read).length
+  const attention = attentionCount(poller.snapshot)
   const running = Object.values(poller.snapshot.repos).reduce((n, r) => n + r.runs.filter((x) => x.status !== 'completed').length, 0)
-  tray.setToolTip(`Pushback — ${running} running, ${unread} unread`)
-  if (process.platform === 'darwin') tray.setTitle(unread ? String(unread) : '')
-  if (process.platform !== 'win32') app.setBadgeCount(unread)
+  tray.setToolTip(`Pushback — ${running} running, ${attention} need attention`)
+  if (process.platform === 'darwin') tray.setTitle(badgeText(attention))
+  if (process.platform !== 'win32') app.setBadgeCount(attention)
+  tray.setContextMenu(trayMenu(attention))
+}
+
+/** Start with the OS login. Only for packaged builds: a dev or test run must not register electron.exe. */
+function applyLoginItem(): void {
+  if (!app.isPackaged) return
+  app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin, args: settings.startInTray ? ['--hidden'] : [] })
 }
 
 poller.on('update', (snapshot) => {
@@ -123,7 +131,9 @@ function createWindow(): void {
       nodeIntegration: false
     }
   })
-  win.once('ready-to-show', () => win?.show())
+  // Started by the login item with --hidden: sit in the tray until the user opens the window.
+  const hidden = process.argv.includes('--hidden') && settings.startInTray
+  win.once('ready-to-show', () => !hidden && win?.show())
   win.on('close', (e) => {
     if (settings.closeToTray && !quitting) {
       e.preventDefault()
@@ -144,11 +154,9 @@ function createWindow(): void {
   else void win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
-function createTray(): void {
-  tray = new Tray(appIcon(16))
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open Pushback', click: showWindow },
+function trayMenu(attention: number): Menu {
+  return Menu.buildFromTemplate([
+      { label: attention ? `Open Pushback (${attention} need attention)` : 'Open Pushback', click: showWindow },
       { label: 'Refresh now', click: () => poller.pollSoon() },
       {
         label: 'Check for updates',
@@ -165,8 +173,11 @@ function createTray(): void {
           app.quit()
         }
       }
-    ])
-  )
+  ])
+}
+
+function createTray(): void {
+  tray = new Tray(appIcon(16))
   tray.on('click', showWindow)
   updateTray()
 }
@@ -255,6 +266,7 @@ function registerIpc(): void {
     saveSettings(settings)
     if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) win?.setBackgroundColor(windowBackground())
     if (reposChanged || intervalChanged) poller.pollSoon()
+    if (patch.launchAtLogin !== undefined || patch.startInTray !== undefined) applyLoginItem()
     return settings
   })
   ipcMain.handle('auth:set', async (_e, token: string | null): Promise<ActionResult> => {
@@ -484,6 +496,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc()
     createWindow()
     createTray()
+    applyLoginItem()
     void connect()
     initUpdater(
       (s) => send('update', s),
