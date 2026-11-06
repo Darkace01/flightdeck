@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
+import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, ReviewEvent, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
 import { limitFirstImport } from '../shared/repos'
+import { isSilenced, normalizeNotifyRules, withoutMuted } from '../shared/notifyRules'
 import * as git from './git'
 import * as gitTools from './gitTools'
 import { listEditors } from './editors'
@@ -24,6 +25,8 @@ let quitting = false
 let settings: Settings
 
 const poller = new Poller(() => settings, [])
+
+const REVIEW_EVENTS: ReviewEvent[] = ['COMMENT', 'APPROVE', 'REQUEST_CHANGES']
 
 const NOTIFY_KEY: Record<EventKind, keyof NotifySettings> = {
   'run-started': 'runStarted',
@@ -44,8 +47,10 @@ function send(channel: string, payload: unknown): void {
 
 function notify(events: AppEvent[]): void {
   if (!Notification.isSupported()) return
+  // Snooze and quiet hours hold back toasts only: the events are already in the feed and the unread badge.
+  if (isSilenced(settings.notifyRules, new Date())) return
   const viewer = poller.snapshot.viewer?.login
-  const wanted = events.filter((e) => {
+  const wanted = withoutMuted(events, settings.notifyRules).filter((e) => {
     if (!settings.notify[NOTIFY_KEY[e.kind]]) return false
     // Review requests are always about you, so "only mine" never hides them.
     return !settings.notify.onlyMine || e.kind === 'pr-review' || !viewer || e.actor === viewer
@@ -272,7 +277,12 @@ function registerIpc(): void {
     // localPaths decide where git commands run, so only the link/clone dialogs may set them.
     const reposChanged = patch.repos && patch.repos.join() !== settings.repos.join()
     const intervalChanged = patch.pollSeconds !== undefined || patch.activePollSeconds !== undefined
-    settings = { ...settings, ...patch, notify: { ...settings.notify, ...patch.notify } }
+    settings = {
+      ...settings,
+      ...patch,
+      notify: { ...settings.notify, ...patch.notify },
+      notifyRules: patch.notifyRules ? normalizeNotifyRules(patch.notifyRules) : settings.notifyRules
+    }
     saveSettings(settings)
     if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) paintWindow()
     if (reposChanged || intervalChanged) poller.pollSoon()
@@ -343,6 +353,32 @@ function registerIpc(): void {
   )
   ipcMain.handle('pr:merge', (_e, repo: string, num: number, method: 'merge' | 'squash' | 'rebase') =>
     run(() => requireClient().send('PUT', `/repos/${repo}/pulls/${num}/merge`, { merge_method: method }), false)
+  )
+  ipcMain.handle('pr:review', (_e, repo: string, num: number, event: ReviewEvent, body: string) =>
+    run(() => {
+      if (!REVIEW_EVENTS.includes(event)) throw new Error('Unknown review type')
+      const text = typeof body === 'string' ? body.trim() : ''
+      // GitHub rejects these two without a message; say so here instead of with a bare 422.
+      if (event !== 'APPROVE' && !text) throw new Error(event === 'COMMENT' ? 'Write a comment first' : 'Say what needs to change')
+      return requireClient().send('POST', `/repos/${repo}/pulls/${num}/reviews`, { event, ...(text && { body: text }) })
+    }, false)
+  )
+  ipcMain.handle('pr:auto-merge', (_e, repo: string, num: number, method: 'merge' | 'squash' | 'rebase', enable: boolean) =>
+    run(async () => {
+      const gh = requireClient()
+      // Auto-merge exists only in GraphQL, which wants the pull request's node id.
+      const { node_id } = await gh.get<{ node_id: string }>(`/repos/${repo}/pulls/${num}`)
+      if (!enable) {
+        await gh.graphql(`mutation($id: ID!) { disablePullRequestAutoMerge(input: { pullRequestId: $id }) { clientMutationId } }`, { id: node_id })
+        return
+      }
+      const mergeMethod = { merge: 'MERGE', squash: 'SQUASH', rebase: 'REBASE' }[method]
+      if (!mergeMethod) throw new Error('Unknown merge method')
+      await gh.graphql(
+        `mutation($id: ID!, $method: PullRequestMergeMethod!) { enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method }) { clientMutationId } }`,
+        { id: node_id, method: mergeMethod }
+      )
+    }, false)
   )
   ipcMain.handle('settings:export', () => JSON.stringify(settings, null, 2))
   ipcMain.handle('settings:import', (_e, json: string): ActionResult => {

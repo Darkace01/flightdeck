@@ -1,7 +1,7 @@
 import { RepoRail } from './RepoRail'
 import { RunDeployments } from './Deployments'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Job, PullRequest, Workflow, WorkflowRun } from '../../../shared/types'
+import type { Job, PullRequest, ReviewEvent, Workflow, WorkflowRun } from '../../../shared/types'
 import { duration, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSnapshot } from '../lib/store'
 import { closeModal } from '../lib/ui'
@@ -273,15 +273,16 @@ export function RunDetailsModal({ run: initial }: { run: WorkflowRun }) {
 
 export function MergeModal({ pr }: { pr: Pick<PullRequest, 'repo' | 'number' | 'title' | 'url'> }) {
   const [method, setMethod] = useState<'squash' | 'merge' | 'rebase'>('squash')
+  const [auto, setAuto] = useState(false)
   const [busy, setBusy] = useState(false)
   const merge = async () => {
     setBusy(true)
-    const r = await api.mergePr(pr.repo, pr.number, method)
+    const r = auto ? await api.autoMergePr(pr.repo, pr.number, method, true) : await api.mergePr(pr.repo, pr.number, method)
     setBusy(false)
     if (r.ok) {
-      toast(`Merged ${pr.repo}#${pr.number}`, 'ok')
+      toast(auto ? `Auto-merge on for ${pr.repo}#${pr.number}` : `Merged ${pr.repo}#${pr.number}`, 'ok')
       closeModal()
-    } else toast(`Merge failed: ${r.error}`, 'error')
+    } else toast(`${auto ? 'Auto-merge' : 'Merge'} failed: ${r.error}`, 'error')
   }
   return (
     <Modal title={`Merge #${pr.number}`} onClose={closeModal} width={460}>
@@ -299,7 +300,15 @@ export function MergeModal({ pr }: { pr: Pick<PullRequest, 'repo' | 'number' | '
           ['rebase', 'Rebase and merge']
         ]}
       />
-      <p className="dim small">Branch protection rules still apply — GitHub will refuse the merge if required checks or reviews are missing.</p>
+      <label className="check">
+        <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
+        Merge automatically once checks and reviews pass
+      </label>
+      <p className="dim small">
+        {auto
+          ? "GitHub merges it for you when every requirement is met. The repository must have auto-merge enabled in its settings."
+          : 'Branch protection rules still apply — GitHub will refuse the merge if required checks or reviews are missing.'}
+      </p>
       <footer className="modal-actions">
         <button className="link" onClick={() => void api.openExternal(pr.url)}>
           Review on GitHub first →
@@ -309,7 +318,60 @@ export function MergeModal({ pr }: { pr: Pick<PullRequest, 'repo' | 'number' | '
           Cancel
         </button>
         <button className="btn btn-primary" disabled={busy} onClick={() => void merge()}>
-          {busy ? 'Merging…' : 'Confirm merge'}
+          {busy ? 'Working…' : auto ? 'Enable auto-merge' : 'Confirm merge'}
+        </button>
+      </footer>
+    </Modal>
+  )
+}
+
+const REVIEW_CHOICES: [ReviewEvent, string][] = [
+  ['COMMENT', 'Comment'],
+  ['APPROVE', 'Approve'],
+  ['REQUEST_CHANGES', 'Request changes']
+]
+
+export function ReviewModal({ pr }: { pr: Pick<PullRequest, 'repo' | 'number' | 'title' | 'url'> }) {
+  const [event, setEvent] = useState<ReviewEvent>('COMMENT')
+  const [body, setBody] = useState('')
+  const [busy, setBusy] = useState(false)
+  const needsBody = event !== 'APPROVE'
+  const submit = async () => {
+    setBusy(true)
+    const r = await api.reviewPr(pr.repo, pr.number, event, body)
+    setBusy(false)
+    if (r.ok) {
+      toast(`Review sent on ${pr.repo}#${pr.number}`, 'ok')
+      closeModal()
+    } else toast(`Review failed: ${r.error}`, 'error')
+  }
+  return (
+    <Modal title={`Review #${pr.number}`} onClose={closeModal} width={520}>
+      <p>
+        <span className="strong">{pr.title}</span>
+        <br />
+        <span className="dim">{pr.repo}</span>
+      </p>
+      <Segmented value={event} onChange={setEvent} options={REVIEW_CHOICES} />
+      <textarea
+        className="input"
+        rows={6}
+        autoFocus
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder={needsBody ? (event === 'COMMENT' ? 'Leave a comment' : 'What needs to change?') : 'Optional note with your approval'}
+      />
+      <p className="dim small">Inline comments on specific lines still need GitHub. Open the pull request there for those.</p>
+      <footer className="modal-actions">
+        <button className="link" onClick={() => void api.openExternal(pr.url)}>
+          Review on GitHub →
+        </button>
+        <span className="spacer" />
+        <button className="btn" onClick={closeModal}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" disabled={busy || (needsBody && !body.trim())} onClick={() => void submit()}>
+          {busy ? 'Sending…' : 'Submit review'}
         </button>
       </footer>
     </Modal>

@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_SETTINGS } from '../shared/defaults'
+import { normalizeNotifyRules } from '../shared/notifyRules'
 import type { AppEvent, Settings } from '../shared/types'
 
 const dir = () => app.getPath('userData')
@@ -32,6 +33,7 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
     ...DEFAULT_SETTINGS,
     ...rest,
     notify: { ...DEFAULT_SETTINGS.notify, ...rest.notify },
+    notifyRules: normalizeNotifyRules(rest.notifyRules),
     colorOverrides: { dark: {}, light: {}, ...rest.colorOverrides }
   }
   // 0.9 made vertical tabs the default; move existing installs over once (they can switch back in Settings).

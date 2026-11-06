@@ -199,6 +199,7 @@ function rest(path: string, rich: boolean): unknown {
   if ((m = p.match(/^\/repos\/[^/]+\/[^/]+\/pulls\/(\d+)$/)))
     return {
       number: Number(m[1]),
+      node_id: `PR_node_${m[1]}`,
       title: 'Add login page',
       state: 'open',
       draft: false,
@@ -228,9 +229,9 @@ function rest(path: string, rich: boolean): unknown {
 
 export interface FakeGitHub {
   url: string
-  requests: { method: string; path: string }[]
-  /** Requests that would change something on GitHub (anything but reads and GraphQL queries). */
-  writes: () => { method: string; path: string }[]
+  requests: { method: string; path: string; body?: string }[]
+  /** Requests that would change something on GitHub (anything but reads and GraphQL queries; mutations count). */
+  writes: () => { method: string; path: string; body?: string }[]
   close: () => Promise<void>
 }
 
@@ -244,18 +245,28 @@ const body = (req: IncomingMessage) =>
 /** `rich` adds more repos and history, for screenshots. */
 export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<FakeGitHub> {
   const rich = !!opts.rich
-  const requests: { method: string; path: string }[] = []
+  const requests: { method: string; path: string; body?: string }[] = []
   const server: Server = createServer(async (req, res) => {
     const path = req.url ?? '/'
-    requests.push({ method: req.method ?? 'GET', path })
+    const text = req.method === 'GET' ? '' : await body(req)
+    requests.push({ method: req.method ?? 'GET', path, ...(text && { body: text }) })
     const headers = { 'Content-Type': 'application/json', 'x-ratelimit-resource': 'core', 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4999', 'x-ratelimit-reset': String(Math.floor(now / 1000) + 3600) }
     if (!/^Bearer |^token /.test(req.headers.authorization ?? '')) {
       res.writeHead(401, headers).end(JSON.stringify({ message: 'Bad credentials' }))
       return
     }
     if (path === '/graphql' && req.method === 'POST') {
-      const { query, variables } = JSON.parse(await body(req)) as { query: string; variables: Record<string, string> }
+      const { query, variables } = JSON.parse(text) as { query: string; variables: Record<string, string> }
+      if (/^\s*mutation/.test(query)) {
+        res.writeHead(200, headers).end(JSON.stringify({ data: { ok: { clientMutationId: null } } }))
+        return
+      }
       res.writeHead(200, headers).end(JSON.stringify({ data: graphql(query, variables ?? {}, rich) }))
+      return
+    }
+    // Submitting a review is the one REST write the app is allowed to make in tests that ask for it.
+    if (req.method === 'POST' && /^\/repos\/[^/]+\/[^/]+\/pulls\/\d+\/reviews$/.test(path)) {
+      res.writeHead(200, headers).end(JSON.stringify({ id: 1 }))
       return
     }
     const data = req.method === 'GET' ? rest(path, rich) : undefined
@@ -268,7 +279,7 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
-    writes: () => requests.filter((r) => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/graphql')),
+    writes: () => requests.filter((r) => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/graphql' && !/^\s*mutation/.test(JSON.parse(r.body ?? '{}').query ?? ''))),
     close: () => new Promise((resolve) => server.close(() => resolve()))
   }
 }

@@ -47,6 +47,7 @@ export const DEFAULT_SETTINGS: Settings = {
     checksFailed: true,
     onlyMine: false
   },
+  notifyRules: { quietHours: { enabled: false, start: '22:00', end: '08:00' }, snoozedUntil: 0, mutedRepos: [] },
   mode: 'dark',
   darkTheme: DEFAULT_DARK,
   lightTheme: DEFAULT_LIGHT,

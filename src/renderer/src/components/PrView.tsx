@@ -81,6 +81,11 @@ export function PrModal({ repo, number }: { repo: string; number: number }) {
             ✓ Approve
           </button>
         )}
+        {open && pr?.author !== viewer && (
+          <button className="btn" onClick={() => pushModal({ kind: 'review', pr: { repo, number, title, url: pr?.url ?? `https://github.com/${repo}/pull/${number}` } })}>
+            Review…
+          </button>
+        )}
         {open && !pr?.isDraft && (
           <button className="btn btn-primary" onClick={() => pushModal({ kind: 'merge', pr: { repo, number, title, url: pr?.url ?? `https://github.com/${repo}/pull/${number}` } })}>
             Merge…

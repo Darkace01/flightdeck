@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { DispatchModal, MergeModal, RunDetailsModal } from './components/ActionModals'
+import { DispatchModal, MergeModal, ReviewModal, RunDetailsModal } from './components/ActionModals'
 import { Dashboard } from './components/Dashboard'
 import { DashboardTabs, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
@@ -193,6 +193,8 @@ function Modals() {
       return <RunDetailsModal run={modal.run} />
     case 'merge':
       return <MergeModal pr={modal.pr} />
+    case 'review':
+      return <ReviewModal pr={modal.pr} />
     case 'pr':
       return <PrModal key={`${modal.repo}#${modal.number}`} repo={modal.repo} number={modal.number} />
     case 'issue':

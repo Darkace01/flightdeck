@@ -142,12 +142,25 @@ export interface NotifySettings {
   onlyMine: boolean
 }
 
+export type ReviewEvent = 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES'
+
+/** When toasts are held back. Events still land in the activity feed either way. */
+export interface NotifyRules {
+  /** A daily window (local time, may cross midnight) with no toasts. */
+  quietHours: { enabled: boolean; start: string; end: string }
+  /** Epoch ms; no toasts until then. 0 when not snoozed. */
+  snoozedUntil: number
+  /** Repos that never produce toasts. */
+  mutedRepos: string[]
+}
+
 export interface Settings {
   repos: string[]
   pollSeconds: number
   /** Faster interval used while any run is queued or in progress. */
   activePollSeconds: number
   notify: NotifySettings
+  notifyRules: NotifyRules
   /** Which palette is active; 'system' follows the OS light/dark setting. */
   mode: 'dark' | 'light' | 'system'
   darkTheme: string
@@ -684,6 +697,10 @@ export interface PushbackApi {
   runJobs(repo: string, runId: number): Promise<Job[]>
   jobLog(repo: string, jobId: number): Promise<string>
   approvePr(repo: string, num: number): Promise<ActionResult>
+  /** Submits a review. A body is required for COMMENT and REQUEST_CHANGES. */
+  reviewPr(repo: string, num: number, event: ReviewEvent, body: string): Promise<ActionResult>
+  /** Turns auto-merge on (merges once required checks and reviews pass) or off. GitHub refuses it on repos that don't allow it. */
+  autoMergePr(repo: string, num: number, method: 'merge' | 'squash' | 'rebase', enable: boolean): Promise<ActionResult>
   mergePr(repo: string, num: number, method: 'merge' | 'squash' | 'rebase'): Promise<ActionResult>
   exportSettings(): Promise<string>
   importSettings(json: string): Promise<ActionResult>

@@ -17,6 +17,17 @@ describe('normalizeSettings', () => {
     expect(s.activeDashboard).toBe(s.dashboards[0].id)
   })
 
+  it('gives settings files from before notification rules the quiet defaults', () => {
+    const s = normalizeSettings({ repos: ['a/b'], notify: { ...DEFAULT_SETTINGS.notify, runSuccess: false } })
+    expect(s.notifyRules).toEqual(DEFAULT_SETTINGS.notifyRules)
+    expect(s.notify.runSuccess).toBe(false)
+  })
+
+  it('keeps saved notification rules and repairs bad ones', () => {
+    const s = normalizeSettings({ notifyRules: { quietHours: { enabled: true, start: 'bad', end: '06:15' }, snoozedUntil: 5, mutedRepos: ['a/b'] } })
+    expect(s.notifyRules).toEqual({ quietHours: { enabled: true, start: '22:00', end: '06:15' }, snoozedUntil: 5, mutedRepos: ['a/b'] })
+  })
+
   it('moves installs from before 0.9 to vertical tabs once', () => {
     const s = normalizeSettings({ tabLayout: 'horizontal', sidebarOpen: false })
     expect(s.tabLayout).toBe('vertical')

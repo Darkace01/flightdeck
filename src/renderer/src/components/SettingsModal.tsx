@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { COLOR_LABELS, findTheme, FONT_CHOICES, THEMES, type ThemeColors, type ThemePreset } from '../../../shared/themes'
-import type { NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
+import type { NotifyRules, NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
+import { isSnoozed } from '../../../shared/notifyRules'
 import { resolveEditor } from '../../../shared/defaults'
 import { applyTemplate } from '../lib/dashboards'
 import { useEditors } from '../lib/editors'
@@ -184,8 +185,63 @@ function NotifySection() {
           {label}
         </label>
       ))}
-      <p className="dim small">Clicking a notification opens the run or pull request on GitHub. Bursts of more than three updates are grouped.</p>
+      <p className="dim small">Clicking a notification opens the run or pull request in Pushback. Bursts of more than three updates are grouped.</p>
+      <NotifyRulesSection />
     </div>
+  )
+}
+
+/** Hours until the next 08:00, for "Snooze until tomorrow". */
+function untilTomorrowMorning(now: Date): number {
+  const t = new Date(now)
+  t.setHours(8, 0, 0, 0)
+  if (t.getTime() <= now.getTime()) t.setDate(t.getDate() + 1)
+  return t.getTime()
+}
+
+function NotifyRulesSection() {
+  const settings = useSettings()
+  const rules = settings.notifyRules
+  const now = new Date()
+  const set = (patch: Partial<NotifyRules>) => void updateSettings({ notifyRules: { ...rules, ...patch } })
+  const setQuiet = (patch: Partial<NotifyRules['quietHours']>) => set({ quietHours: { ...rules.quietHours, ...patch } })
+  const toggleMuted = (repo: string, muted: boolean) =>
+    set({ mutedRepos: muted ? [...rules.mutedRepos, repo] : rules.mutedRepos.filter((r) => r !== repo) })
+  const snoozed = isSnoozed(rules, now)
+  return (
+    <>
+      <h4 className="group-head">Quiet times</h4>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn" onClick={() => set({ snoozedUntil: now.getTime() + 60 * 60 * 1000 })}>Snooze 1 hour</button>
+        <button className="btn" onClick={() => set({ snoozedUntil: untilTomorrowMorning(now) })}>Until tomorrow 8:00</button>
+        {snoozed && <button className="btn" onClick={() => set({ snoozedUntil: 0 })}>Resume now</button>}
+      </div>
+      <p className="dim small">
+        {snoozed ? `Notifications are snoozed until ${new Date(rules.snoozedUntil).toLocaleString()}.` : 'Snoozing hides toasts only. Everything still appears in Activity.'}
+      </p>
+      <label className="check">
+        <input type="checkbox" checked={rules.quietHours.enabled} onChange={(e) => setQuiet({ enabled: e.target.checked })} />
+        No notifications during quiet hours
+      </label>
+      {rules.quietHours.enabled && (
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <input type="time" value={rules.quietHours.start} onChange={(e) => e.target.value && setQuiet({ start: e.target.value })} aria-label="Quiet hours start" />
+          <span className="dim">to</span>
+          <input type="time" value={rules.quietHours.end} onChange={(e) => e.target.value && setQuiet({ end: e.target.value })} aria-label="Quiet hours end" />
+        </div>
+      )}
+      {settings.repos.length > 0 && (
+        <>
+          <h4 className="group-head">Mute repositories</h4>
+          {settings.repos.map((repo) => (
+            <label key={repo} className="check">
+              <input type="checkbox" checked={rules.mutedRepos.includes(repo)} onChange={(e) => toggleMuted(repo, e.target.checked)} />
+              {repo}
+            </label>
+          ))}
+        </>
+      )}
+    </>
   )
 }
 
