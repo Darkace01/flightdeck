@@ -95,6 +95,8 @@ function ghCliToken(): Promise<string | null> {
 
 /** Prefer a saved PAT, fall back to the GitHub CLI's login. */
 export async function resolveToken(): Promise<{ token: string; source: 'pat' | 'gh' } | null> {
+  // End-to-end tests run against a fake API with a fake token, and must never pick up the real gh login.
+  if (process.env.PUSHBACK_API_URL) return process.env.PUSHBACK_TOKEN ? { token: process.env.PUSHBACK_TOKEN, source: 'pat' } : null
   const pat = loadPat()
   if (pat) return { token: pat, source: 'pat' }
   const gh = await ghCliToken()

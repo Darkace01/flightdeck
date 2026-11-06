@@ -1,5 +1,5 @@
-# Builds installers on Windows, macOS and Linux when a version tag (e.g. v0.2.0) is pushed,
-# then publishes them to a GitHub Release. The installed app's auto-updater reads that release.
+# When a version tag (e.g. v0.2.0) is pushed: runs the full test suite (ci.yml) on every platform, then builds
+# installers on Windows, macOS and Linux and publishes them to a GitHub Release. The installed app's auto-updater reads that release.
 name: Release
 
 on:
@@ -10,8 +10,13 @@ permissions:
   contents: write
 
 jobs:
+  # The full test suite on all three platforms; nothing is built or published unless it passes.
+  test:
+    uses: ./.github/workflows/ci.yml
+
   build:
     name: Build (${{ matrix.os }})
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

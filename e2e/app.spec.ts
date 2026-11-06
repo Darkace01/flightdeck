@@ -1,0 +1,199 @@
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { startFakeGitHub, type FakeGitHub } from './fake-github'
+
+// Drives the built app (out/) against the fake GitHub: every test gets a fresh profile and server, and checks
+// the app never wrote to GitHub or threw an uncaught error.
+
+const MAIN = resolve(__dirname, '..', 'out', 'main', 'index.js')
+
+interface Ctx {
+  app: ElectronApplication
+  page: Page
+  gh: FakeGitHub
+  profile: string
+  errors: string[]
+}
+
+async function launch(opts: { token?: boolean; settings?: object; profile?: string; gh?: FakeGitHub } = {}): Promise<Ctx> {
+  const gh = opts.gh ?? (await startFakeGitHub())
+  const profile = opts.profile ?? mkdtempSync(join(tmpdir(), 'pushback-e2e-'))
+  if (opts.settings) writeFileSync(join(profile, 'settings.json'), JSON.stringify(opts.settings))
+  const app = await electron.launch({
+    args: [MAIN, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
+    env: {
+      ...process.env,
+      PUSHBACK_API_URL: gh.url,
+      PUSHBACK_USER_DATA: profile,
+      ...(opts.token === false ? { PUSHBACK_TOKEN: '' } : { PUSHBACK_TOKEN: 'test-token' })
+    }
+  })
+  const page = await app.firstWindow()
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => m.type() === 'error' && !/Failed to load resource|ERR_/.test(m.text()) && errors.push(m.text()))
+  return { app, page, gh, profile, errors }
+}
+
+async function close(ctx: Ctx, opts: { keepProfile?: boolean; keepServer?: boolean } = {}) {
+  await ctx.app.close()
+  if (!opts.keepServer) await ctx.gh.close()
+  if (!opts.keepProfile) rmSync(ctx.profile, { recursive: true, force: true })
+}
+
+const savedSettings = (ctx: Ctx) => JSON.parse(readFileSync(join(ctx.profile, 'settings.json'), 'utf8'))
+
+/** A returning user: two watched repos, walkthrough already done. */
+const WATCHING = { repos: ['acme/api', 'acme/web'], uiVersion: 1, tourDone: true }
+
+let ctx: Ctx
+test.afterEach(async ({}, info) => {
+  if (!ctx) return
+  if (info.status !== info.expectedStatus) await ctx.page.screenshot({ path: info.outputPath('failure.png') }).catch(() => {})
+  // Browsing must never change anything on GitHub, and nothing may throw.
+  expect(ctx.gh.writes(), 'requests that would change GitHub').toEqual([])
+  expect(ctx.errors, 'uncaught errors in the app').toEqual([])
+  await close(ctx)
+})
+
+test('without a token it asks you to sign in', async () => {
+  ctx = await launch({ token: false })
+  await expect(ctx.page.getByRole('heading', { name: 'Connect to GitHub' })).toBeVisible()
+  await expect(ctx.page.getByPlaceholder(/ghp_|token/i).first()).toBeVisible()
+})
+
+test('a new user picks repos, then gets the walkthrough once', async () => {
+  ctx = await launch({ settings: { uiVersion: 1 } })
+  await expect(ctx.page.getByRole('heading', { name: 'Pick repositories to watch' })).toBeVisible()
+  await ctx.page.getByPlaceholder('owner/name or GitHub URL').fill('acme/api')
+  await ctx.page.getByRole('button', { name: 'Add', exact: true }).click()
+
+  const tour = ctx.page.getByRole('dialog', { name: 'Pushback walkthrough' })
+  await expect(tour.getByRole('heading', { name: 'Welcome to Pushback' })).toBeVisible()
+  // Step through every stop; each one either spotlights something or shows a centred card.
+  for (let i = 0; i < 9; i++) await tour.getByRole('button', { name: 'Next' }).click()
+  await expect(tour.getByRole('heading', { name: "You're all set" })).toBeVisible()
+  await tour.getByRole('button', { name: 'Done' }).click()
+  await expect(tour).toBeHidden()
+  await expect.poll(() => savedSettings(ctx).tourDone).toBe(true)
+
+  // Restart with the same profile: no walkthrough the second time.
+  await close(ctx, { keepProfile: true, keepServer: true })
+  ctx = await launch({ profile: ctx.profile, gh: ctx.gh })
+  await expect(ctx.page.locator('.widget').first()).toBeVisible()
+  await expect(ctx.page.getByRole('dialog', { name: 'Pushback walkthrough' })).toHaveCount(0)
+})
+
+test('the dashboard shows runs, PRs and the repo sidebar', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  // Vertical tabs are the default: the sidebar lists the dashboard and the watched repos.
+  await expect(page.locator('.repo-sidebar')).toBeVisible()
+  await expect(page.locator('.repo-sidebar').getByText('acme/web')).toBeVisible()
+  const runs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Workflow runs' }) })
+  await expect(runs.getByText('Deploy', { exact: true })).toBeVisible()
+  await expect(runs.getByText('Build site')).toBeVisible()
+  const prs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Pull requests' }) })
+  await expect(prs.getByText('Add login page')).toBeVisible()
+  await expect(prs.getByText('WIP: tidy config')).toBeVisible()
+  await expect(page.locator('.crumbs')).toContainText('Main')
+})
+
+test('a PR opens as a sub-page with breadcrumbs, and Esc goes back', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  const prs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Pull requests' }) })
+  await prs.getByText('Add login page').click()
+
+  await expect(page.locator('.page')).toBeVisible()
+  await expect(page.locator('.dashboard')).toHaveCount(0)
+  const crumbs = page.locator('.crumbs li')
+  await expect(crumbs).toHaveText(['Main', 'acme/api', '#7 Add login page'].map((t) => new RegExp(t.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&'))))
+  await expect(page.locator('.crumb-depth')).toHaveText('level 3')
+  await expect(page.getByText('Looks good to me!')).toBeVisible()
+  // The repo rail beside the page shows what's deployed.
+  await expect(page.locator('.panel-rail')).toContainText('prod-acme')
+
+  await page.getByRole('tab', { name: /Files/ }).click()
+  await expect(page.getByText('export const login = true')).toBeVisible()
+
+  // Clicking a crumb goes back up; Esc goes back one level.
+  await page.locator('.crumbs').getByRole('button', { name: 'Main' }).click()
+  await expect(page.locator('.dashboard')).toBeVisible()
+  await prs.getByText('Add login page').click()
+  await expect(page.locator('.page')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.dashboard')).toBeVisible()
+  await expect(crumbs).toHaveCount(1)
+})
+
+test('a workflow run opens as a page and shows where it deployed', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  const runs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Workflow runs' }) })
+  await runs.getByText('Deploy', { exact: true }).click()
+  await expect(page.locator('.crumbs li').last()).toHaveText('Deploy #102')
+  await expect(page.locator('.run-deploys')).toContainText('prod-acme')
+  await expect(page.getByText('build', { exact: true })).toBeVisible()
+})
+
+test('filters narrow a widget, are saved, and clear', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  const runs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Workflow runs' }) })
+  await expect(runs.locator('.row')).toHaveCount(4)
+  await runs.getByRole('button', { name: 'Filters' }).click()
+  await runs.locator('select.filter-select').nth(1).selectOption('workflow_dispatch')
+  await expect(runs.locator('.row')).toHaveCount(1)
+  await expect(runs.locator('.filter-count')).toHaveText('1')
+  await expect.poll(() => savedSettings(ctx).widgets.find((w: { type: string }) => w.type === 'runs').options.event).toBe('workflow_dispatch')
+
+  // Branch filter with suggestions from the data, combined with the repo picker.
+  await runs.getByRole('button', { name: 'Clear' }).click()
+  await expect(runs.locator('.row')).toHaveCount(4)
+  await runs.getByRole('button', { name: 'All repos' }).click()
+  await page.getByRole('checkbox', { name: 'acme/web' }).check()
+  await page.keyboard.press('Escape')
+  await expect(runs.locator('.row')).toHaveCount(1)
+  await expect(runs.getByText('Build site')).toBeVisible()
+})
+
+test('repo tabs: sections, deployments by client, and pinning', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  await page.locator('.repo-sidebar').getByText('acme/api').click()
+  await expect(page.locator('.ws-nav')).toBeVisible()
+  await expect(page.getByText('Readme for the fixture repo.')).toBeVisible()
+  await expect(page.locator('.crumbs li')).toHaveText(['acme/api', 'Overview'])
+
+  await page.locator('.ws-link', { hasText: 'Deployments' }).click()
+  await expect(page.locator('.crumbs li').last()).toHaveText('Deployments')
+  const table = page.locator('.deploy-table')
+  // Clients view by default: acme is live at v1.2.0 in prod; globex's prod deploy failed; dev is shared.
+  await expect(table.locator('tr', { hasText: 'acme' })).toContainText('v1.2.0')
+  await expect(table.locator('tr', { hasText: 'globex' }).locator('.state-failure')).toBeVisible()
+  await expect(table.locator('tr', { hasText: 'Shared' })).toContainText('v1.2.0')
+  await page.locator('.filter-bar select').first().selectOption('history')
+  await expect(page.locator('.deploy-history tbody tr')).toHaveCount(3)
+
+  // Pin the open tab from its right-click menu: it becomes a tile at the top of the sidebar.
+  await page.locator('.repo-sidebar .side-row', { hasText: 'acme/api' }).click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Pin tab' }).click()
+  await expect(page.locator('.pinned-tile', { hasText: 'api' })).toBeVisible()
+  await expect.poll(() => savedSettings(ctx).pinnedTabs).toEqual(['acme/api'])
+})
+
+test('the command palette finds repos and commands', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  await expect(page.locator('.widget').first()).toBeVisible()
+  await page.keyboard.press('Control+K')
+  const input = page.getByPlaceholder(/Search/)
+  await input.fill('take the tour')
+  await expect(page.getByText('Take the tour')).toBeVisible()
+  await input.fill('acme/web')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.crumbs li').first()).toHaveText('acme/web')
+})

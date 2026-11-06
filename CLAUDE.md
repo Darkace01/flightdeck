@@ -14,9 +14,18 @@ npm run typecheck   # must pass before every commit
 npm run build       # production build into out/ (main, preload, renderer)
 npm run dist        # installer for the current OS into dist/ (never publishes)
 npm run icon        # re-render build/icon.png after editing src/shared/icon.ts
+npm test            # unit + integration tests (Vitest)
+npm run test:coverage  # same, failing below the coverage thresholds in vitest.config.mts
+npm run test:e2e    # build, then drive the app with Playwright against a fake GitHub (e2e/)
+npm run test:all    # everything CI runs
 ```
 
-There is no test suite. Verify with `typecheck` + `build`, then run the app (see **Testing** below).
+Tests must pass before every commit: `npm run test:all`. CI runs it on Windows, macOS and Linux for every push and PR, and the Release workflow runs the same suite and won't build or publish if anything fails.
+
+- `tests/unit/`: pure logic (environment parsing, graph layout, filters, settings migrations, templates, GitHub data mapping with a fake client).
+- `tests/integration/`: real `git` in temp repos (`helpers.ts` builds a repo with branches, a merge and tags) for every query and action in `git.ts`/`gitTools.ts`, including refusing option-injection input; and the clone scanner on a fake home folder.
+- `e2e/`: launches `out/main/index.js` with `PUSHBACK_API_URL` (a fake GitHub from `fake-github.ts`), `PUSHBACK_TOKEN` and `PUSHBACK_USER_DATA` (a temp profile). Every test also checks the app made no write requests to GitHub and threw no errors.
+- New features need tests: logic in a pure module with unit tests, git behaviour in the integration suite, and a user-visible flow in `e2e/`. Add the fake API's responses to `fake-github.ts` when a feature calls a new endpoint.
 
 ## Layout
 

@@ -1,6 +1,7 @@
 import type { RateLimit } from '../shared/types'
 
-const API = 'https://api.github.com'
+// PUSHBACK_API_URL points the app at a fake GitHub for the end-to-end tests.
+const API = process.env.PUSHBACK_API_URL || 'https://api.github.com'
 
 export class GitHubError extends Error {
   constructor(message: string, readonly status: number) {

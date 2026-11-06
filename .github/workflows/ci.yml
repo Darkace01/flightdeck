@@ -1,19 +1,68 @@
+# Every push and PR, and every release before it builds (release.yml calls this), on Windows, macOS and Linux:
+# type check, dependency audit, unit + integration tests with coverage, production build, and end-to-end tests
+# that drive the built app against a fake GitHub.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
+
+      # npm 11+ can skip install scripts, which leaves Electron without its binary.
+      - name: Make sure Electron is installed
+        run: node node_modules/electron/install.js
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Unit and integration tests (with coverage thresholds)
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: End-to-end tests
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run --auto-servernum npx playwright test
+          else
+            npx playwright test
+          fi
+
+      - name: Keep test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ runner.os }}
+          path: |
+            test-results/
+            playwright-report/
+            coverage/
+          if-no-files-found: ignore

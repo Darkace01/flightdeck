@@ -8,7 +8,7 @@ import { git } from './git'
 const FORMAT = '%H%x1f%P%x1f%s%x1f%an%x1f%ae%x1f%aI%x1f%D%x1e'
 
 /** "HEAD -> refs/heads/main, refs/remotes/origin/main, tag: refs/tags/v1" → head:main, remote:origin/main, tag:v1. */
-function parseRefs(decoration: string): string[] {
+export function parseRefs(decoration: string): string[] {
   return decoration
     .split(', ')
     .filter(Boolean)
@@ -25,7 +25,7 @@ function parseRefs(decoration: string): string[] {
     })
 }
 
-function parseLog(out: string): GraphCommit[] {
+export function parseLog(out: string): GraphCommit[] {
   return out
     .split('\x1e')
     .map((l) => l.trim())
@@ -107,7 +107,7 @@ async function parentOf(path: string, commit: string): Promise<string> {
   return parents[0] ?? EMPTY_TREE
 }
 
-function parseBlame(out: string): BlameLine[] {
+export function parseBlame(out: string): BlameLine[] {
   const info = new Map<string, { author: string; date: string; summary: string }>()
   const lines: BlameLine[] = []
   let current: { sha: string; line: number } | undefined
@@ -195,7 +195,8 @@ async function answer(path: string, q: GitQuery): Promise<GitAnswer[keyof GitAns
       if (q.mode === 'author') return log(path, [...scope, '-i', `--author=${text}`])
       if (q.mode === 'change') return log(path, [...scope, `-S${text}`])
       if (q.mode === 'file') return log(path, [...scope, '--', `*${text}*`])
-      return log(path, ['-n', '1', sha(text)]).catch(() => [])
+      // Anything that isn't a SHA, or a SHA that isn't in the repo, simply matches nothing.
+      return /^[0-9a-f]{4,40}$/i.test(text) ? log(path, ['-n', '1', text]).catch(() => []) : []
     }
     case 'stashes': {
       const out = await git(path, ['stash', 'list', '--format=%gd%x1f%gs%x1f%cI'])

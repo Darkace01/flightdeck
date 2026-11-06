@@ -33,6 +33,9 @@ npm run dev
 | `npm run build` | Production build into `out/` |
 | `npm run dist` | Build an installer for your current OS into `dist/` |
 | `npm run icon` | Re-render `build/icon.png` after changing `src/shared/icon.ts` |
+| `npm test` | Unit and integration tests |
+| `npm run test:e2e` | Build, then run the end-to-end tests against a fake GitHub |
+| `npm run test:all` | Everything CI runs: type check, tests with coverage, end-to-end |
 
 **Tip:** to test without touching your real settings, use a throwaway profile: `npm run dev -- -- --user-data-dir=/tmp/pushback-test`.
 
@@ -105,14 +108,21 @@ Check it in both the dashboard and the settings dialog, and make sure `dim` text
 
 ## Testing your change
 
-There's no automated UI test suite yet, so please check your change by hand:
+Run `npm run test:all` before opening a PR. It covers three layers:
 
-1. `npm run typecheck` and `npm run build` pass.
-2. Run `npm run dev` and try the feature with at least one real repo.
-3. If you touched the layout or styles, check both a dark and a light theme.
-4. If you touched actions (dispatch, re-run, merge and so on), test them on a **sandbox repo you own**, not on real projects.
+- **Unit tests** (`tests/unit/`, Vitest) for pure logic: graph layout, environment parsing, filters, settings migrations, dashboard templates and how GitHub data is mapped.
+- **Integration tests** (`tests/integration/`) run real `git` in temporary repos for every git query and action, including checks that unsafe input (option injection, bad SHAs and refs) is refused, and the clone scanner on a fake home folder.
+- **End-to-end tests** (`e2e/`, Playwright) launch the built app against a fake GitHub API (`e2e/fake-github.ts`) and click through sign-in, the walkthrough, the dashboard, PR and run pages with breadcrumbs, filters, repo tabs, deployments and the command palette. Every test also fails if the app sends a write request to GitHub or throws an error.
 
-CI runs the type check and build on every pull request.
+Coverage of the tested modules must stay above the thresholds in `vitest.config.mts`. Add tests with your change: a unit test for new logic, an integration test for git behaviour, and an end-to-end test for a new user-facing flow.
+
+Then check by hand:
+
+1. Run `npm run dev` and try the feature with at least one real repo.
+2. If you touched the layout or styles, check both a dark and a light theme.
+3. If you touched actions (dispatch, re-run, merge and so on), test them on a **sandbox repo you own**, not on real projects.
+
+CI runs everything on Windows, macOS and Linux for every push and pull request. A release runs the same suite first and is not built or published unless it passes.
 
 ## Pull requests
 

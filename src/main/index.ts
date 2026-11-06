@@ -474,7 +474,9 @@ if (!app.requestSingleInstanceLock()) {
   // Windows only shows toasts for an AppUserModelID that has a Start-menu shortcut. The installer
   // registers our appId; an unpackaged dev build has no shortcut, so use Electron's own exe path there.
   app.setAppUserModelId(app.isPackaged ? 'dev.pushback.app' : process.execPath)
-  migrateUserData()
+  // A throwaway profile for the end-to-end tests.
+  if (process.env.PUSHBACK_USER_DATA) app.setPath('userData', process.env.PUSHBACK_USER_DATA)
+  else migrateUserData()
 
   app.whenReady().then(() => {
     settings = loadSettings()
