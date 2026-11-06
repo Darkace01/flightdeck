@@ -6,7 +6,7 @@ import type { GitAction, GitBranch, GitCommit, GitFile, GitStatus } from '../sha
 // Local git tools. Every command runs with execFile (no shell) inside a folder the user linked;
 // the renderer only ever names a repo, never a path.
 
-function git(cwd: string, args: string[], timeout = 120_000): Promise<string> {
+export function git(cwd: string, args: string[], timeout = 120_000): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       'git',
@@ -168,6 +168,8 @@ export async function run(path: string, action: GitAction, arg?: string | string
       return git(path, ['stash', 'push', '--include-untracked'])
     case 'stash-pop':
       return git(path, ['stash', 'pop'])
+    default:
+      throw new Error(`Unknown action ${action}`)
   }
 }
 

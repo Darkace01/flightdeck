@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import type { BranchInfo, CommitInfo, GraphCommit } from '../../../shared/types'
 import { matches, timeAgo, useNow } from '../lib/format'
 import { openIssue, openPr } from '../lib/open'
 import { api, toast } from '../lib/store'
 import { pushModal } from '../lib/ui'
 import { useLoad } from '../lib/useLoad'
+import { GitHubGraph } from './GitTools'
 import { Markdown } from './Markdown'
 import type { SectionProps } from './RepoWorkspace'
 import { Avatar, Empty, IconButton, Segmented, Skeleton, StatusIcon } from './ui'
@@ -77,6 +79,7 @@ export function BranchesSection({ repo, info }: SectionProps) {
   const base = info?.defaultBranch
   const { data, error, reload } = useLoad(repo, () => (base ? api.listBranches(repo, base) : new Promise<never>(() => {})), [base])
   const branches = data?.filter((b) => !q || matches(`${b.name} ${b.author} ${b.message}`, q))
+  const [view, setView] = useState<'list' | 'graph'>('list')
 
   const create = async () => {
     const r = await api.createBranch(repo, name.trim(), from || base!)
@@ -97,7 +100,15 @@ export function BranchesSection({ repo, info }: SectionProps) {
   return (
     <>
       <div className="ws-toolbar">
-        <Filter value={q} onChange={setQ} placeholder="Filter branches…" />
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[
+            ['list', 'List'],
+            ['graph', 'Graph']
+          ]}
+        />
+        {view === 'list' && <Filter value={q} onChange={setQ} placeholder="Filter branches…" />}
         <span className="spacer" />
         <button className="btn btn-sm" onClick={() => pushModal({ kind: 'new-pr', repo })}>
           New pull request
@@ -128,6 +139,8 @@ export function BranchesSection({ repo, info }: SectionProps) {
       )}
       {!branches ? (
         <Loading error={error} />
+      ) : view === 'graph' ? (
+        <BranchGraph repo={repo} branches={data!} />
       ) : (
         <ul className="list repo-tab">
           {branches.map((b) => (
@@ -174,7 +187,6 @@ export function BranchesSection({ repo, info }: SectionProps) {
 }
 
 export function CommitsSection({ repo, info }: SectionProps) {
-  const now = useNow()
   const [ref, setRef] = useState('')
   const [q, setQ] = useState('')
   const branch = ref || info?.defaultBranch
@@ -195,36 +207,36 @@ export function CommitsSection({ repo, info }: SectionProps) {
       {!commits ? (
         <Loading error={error} />
       ) : (
-        <ul className="list repo-tab">
-          {commits.map((c) => {
-            const [subject, ...rest] = c.message.split('\n')
-            return (
-              <li key={c.sha} className="row clickable" title={rest.join('\n').trim() || undefined} onClick={() => void api.openExternal(c.url)}>
-                <Avatar src={c.authorAvatar ?? ''} login={c.author} size={18} />
-                <div className="row-main">
-                  <div className="row-title">
-                    <span className="strong">{subject}</span>
-                  </div>
-                  <div className="row-meta">
-                    <span>{c.author}</span>
-                    <span>{timeAgo(c.date, now)}</span>
-                  </div>
-                </div>
-                <button
-                  className="chip chip-btn mono"
-                  title="Copy full SHA"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void navigator.clipboard.writeText(c.sha).then(() => toast('SHA copied', 'ok'))
-                  }}
-                >
-                  {c.sha.slice(0, 7)}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        <GitHubGraph commits={commits.map((c, i) => ({ ...toGraph(c), refs: i === 0 && !q ? [`head:${branch}`] : [] }))} />
       )}
+    </>
+  )
+}
+
+/** A GitHub commit as a graph row; clicking it opens the commit on GitHub. */
+const toGraph = (c: CommitInfo): GraphCommit => ({
+  sha: c.sha,
+  parents: c.parents,
+  subject: c.message.split('\n')[0],
+  author: c.author,
+  avatar: c.authorAvatar,
+  date: c.date,
+  refs: [],
+  url: c.url
+})
+
+/** Recent history of the default branch and the 7 most recently updated branches, drawn as one graph. */
+function BranchGraph({ repo, branches }: { repo: string; branches: BranchInfo[] }) {
+  const names = [...branches.filter((b) => b.isDefault), ...branches.filter((b) => !b.isDefault)].slice(0, 8).map((b) => b.name)
+  const { data, error } = useLoad(repo, () => api.branchGraph(repo, names), [names.join()])
+  if (!data) return <Loading error={error} />
+  return (
+    <>
+      <p className="dim small">
+        The last 40 commits of {names.length === 1 ? 'the default branch' : `the default branch and the ${names.length - 1} most recently updated branches`}. Click a
+        commit to open it on GitHub; link a clone for the full graph with every branch.
+      </p>
+      <GitHubGraph commits={data} />
     </>
   )
 }

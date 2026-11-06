@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, GitAction, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
+import { basename, dirname, join } from 'node:path'
+import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
 import * as git from './git'
+import * as gitTools from './gitTools'
 import { listEditors } from './editors'
 import { findClones } from './scan'
 import { resolveEditor } from '../shared/defaults'
@@ -418,7 +419,7 @@ function registerIpc(): void {
   ipcMain.handle('git:diff', (_e, repo: string, file: string, staged: boolean) => git.diff(localPath(repo), file, staged))
   ipcMain.handle('git:run', async (_e, repo: string, action: GitAction, arg?: string | string[]) => {
     try {
-      const output = await git.run(localPath(repo), action, arg)
+      const output = gitTools.HISTORY_ACTIONS.has(action) ? await gitTools.act(localPath(repo), action, arg) : await git.run(localPath(repo), action, arg)
       // Pushing can start CI runs and change PRs; check GitHub soon.
       if (action === 'push') poller.pollSoon(true)
       return { ok: true, output: output.trim() }
@@ -426,6 +427,22 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
+  ipcMain.handle('git:query', (_e, repo: string, q: GitQuery) => gitTools.query(localPath(repo), q))
+  ipcMain.handle('git:worktree-add', async (_e, repo: string, branch: string): Promise<ActionResult> => {
+    try {
+      const path = localPath(repo)
+      const name = gitTools.refName(branch)
+      const pick = await dialog.showOpenDialog(win!, { title: `Create a worktree for ${name} in…`, properties: ['openDirectory', 'createDirectory'] })
+      if (pick.canceled || !pick.filePaths[0]) return { ok: false }
+      const target = join(pick.filePaths[0], `${basename(path)}-${name.replace(/[\\/]/g, '-')}`)
+      if (existsSync(target)) return { ok: false, error: `${target} already exists` }
+      await git.git(path, ['worktree', 'add', target, name])
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('branches:graph', (_e, repo: string, branches: string[]) => tools.branchGraph(requireClient(), repo, branches))
   ipcMain.handle('git:open', async (_e, repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult> => {
     try {
       const path = localPath(repo)

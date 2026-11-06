@@ -311,6 +311,7 @@ export interface CommitInfo {
   authorAvatar?: string
   date: string
   url: string
+  parents: string[]
 }
 
 export interface ReleaseInfo {
@@ -469,6 +470,142 @@ export type GitAction =
   | 'commit'
   | 'stash'
   | 'stash-pop'
+  // History tools (arg is noted after each): commit actions take a SHA.
+  | 'cherry-pick' // sha
+  | 'revert' // sha
+  | 'reset-soft' // sha
+  | 'reset-mixed' // sha
+  | 'reset-hard' // sha
+  | 'branch-at' // [name, sha]
+  | 'delete-branch' // name
+  | 'force-delete-branch' // name
+  | 'merge' // branch
+  | 'rebase' // branch
+  | 'stash-apply' // index
+  | 'stash-drop' // index
+  | 'stash-pop-at' // index
+  | 'tag' // [name, sha, message?]
+  | 'delete-tag' // name
+  | 'push-tag' // name
+  | 'fetch-remote' // remote name
+  | 'worktree-remove' // path, as listed by the worktrees query
+
+/** A commit with its parents, as drawn in the commit graph (local history or GitHub branches). */
+export interface GraphCommit {
+  sha: string
+  parents: string[]
+  subject: string
+  author: string
+  email?: string
+  avatar?: string
+  date: string
+  /** Refs pointing here as "kind:name": head:main (checked out), branch:x, remote:origin/x, tag:v1. */
+  refs: string[]
+  url?: string
+}
+
+export interface CommitFile {
+  path: string
+  /** A (added), M, D, R (renamed), C, T. */
+  status: string
+  oldPath?: string
+  additions: number
+  deletions: number
+}
+
+export interface CommitDetail extends GraphCommit {
+  body: string
+  committer: string
+  committerDate: string
+  files: CommitFile[]
+}
+
+export interface BlameLine {
+  line: number
+  sha: string
+  author: string
+  date: string
+  summary: string
+  text: string
+}
+
+export interface GitTag {
+  name: string
+  sha: string
+  date: string
+  subject: string
+}
+
+export interface GitRemote {
+  name: string
+  fetchUrl: string
+  pushUrl: string
+}
+
+export interface GitWorktree {
+  path: string
+  branch: string | null
+  head: string
+  main: boolean
+  locked: boolean
+}
+
+export interface GitStash {
+  index: number
+  message: string
+  date: string
+}
+
+export interface Contributor {
+  name: string
+  email: string
+  commits: number
+}
+
+export interface GitRefs {
+  current: string | null
+  branches: string[]
+  remoteBranches: string[]
+  tags: string[]
+}
+
+/** Read-only questions about a linked clone; `GitAnswer[kind]` is what each returns. */
+export type GitQuery =
+  | { kind: 'graph'; all: boolean; limit: number }
+  | { kind: 'commit'; sha: string }
+  | { kind: 'commit-diff'; sha: string; path: string }
+  | { kind: 'files' }
+  | { kind: 'file-history'; path: string }
+  | { kind: 'blame'; path: string }
+  | { kind: 'refs' }
+  | { kind: 'compare'; base: string; head: string }
+  | { kind: 'compare-diff'; base: string; head: string; path: string }
+  | { kind: 'search'; mode: 'message' | 'author' | 'sha' | 'file' | 'change'; text: string }
+  | { kind: 'stashes' }
+  | { kind: 'stash-diff'; index: number }
+  | { kind: 'tags' }
+  | { kind: 'remotes' }
+  | { kind: 'worktrees' }
+  | { kind: 'contributors' }
+
+export interface GitAnswer {
+  graph: GraphCommit[]
+  commit: CommitDetail
+  'commit-diff': string
+  files: string[]
+  'file-history': GraphCommit[]
+  blame: BlameLine[]
+  refs: GitRefs
+  compare: { ahead: GraphCommit[]; behind: GraphCommit[]; files: CommitFile[] }
+  'compare-diff': string
+  search: GraphCommit[]
+  stashes: GitStash[]
+  'stash-diff': string
+  tags: GitTag[]
+  remotes: GitRemote[]
+  worktrees: GitWorktree[]
+  contributors: Contributor[]
+}
 
 export interface UpdateStatus {
   state: 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error' | 'unsupported'
@@ -545,6 +682,11 @@ export interface PushbackApi {
   gitDiff(repo: string, file: string, staged: boolean): Promise<string>
   gitRun(repo: string, action: GitAction, arg?: string | string[]): Promise<ActionResult & { output?: string }>
   gitOpen(repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult>
+  gitQuery<Q extends GitQuery>(repo: string, query: Q): Promise<GitAnswer[Q['kind']]>
+  /** Adds a worktree for an existing branch in a folder picked in a dialog. */
+  gitAddWorktree(repo: string, branch: string): Promise<ActionResult>
+  /** Commit graph across a repo's branches on GitHub (no clone needed): the default branch plus up to 7 more. */
+  branchGraph(repo: string, branches: string[]): Promise<GraphCommit[]>
   /**
    * Looks for clones of GitHub repos in the home folder, or in a folder picked in a dialog (`pick`).
    * Undefined if the dialog was cancelled.

@@ -37,7 +37,7 @@ export function LocalSection({ repo }: SectionProps) {
   const settings = useSettings()
   const editors = useEditors()
   const { status, error, refresh } = useGitStatus(repo)
-  const [view, setView] = useState<'changes' | 'history' | 'branches'>('changes')
+  const [view, setView] = useState<'changes' | 'branches'>('changes')
   const [busy, setBusy] = useState<string>()
 
   /** Runs a git action; on success optionally toasts git's last line of output (pull/push/fetch summaries). */
@@ -56,40 +56,7 @@ export function LocalSection({ repo }: SectionProps) {
   }
 
   if (status === undefined && !error) return <Skeleton rows={6} />
-  if (!status)
-    return (
-      <div className="link-card">
-        <h3>Work on {repo} locally</h3>
-        <p className="dim">Link the folder where you've cloned this repo, or clone it now. Pushback then shows its changes, lets you commit, switch branches, pull and push, and opens it in your editor or a terminal.</p>
-        {error && <p className="del small">{error}</p>}
-        <div className="inline">
-          <button
-            className="btn btn-primary"
-            onClick={async () => {
-              const r = await api.gitLink(repo)
-              if (r.error) toast(r.error, 'error')
-              await refresh()
-            }}
-          >
-            Link existing clone…
-          </button>
-          <button
-            className="btn"
-            disabled={busy === 'clone'}
-            onClick={async () => {
-              setBusy('clone')
-              const r = await api.gitClone(repo)
-              setBusy(undefined)
-              if (r.error) toast(`Clone failed: ${r.error}`, 'error')
-              else if (r.ok) toast(`Cloned ${repo}`, 'ok')
-              await refresh()
-            }}
-          >
-            {busy === 'clone' ? 'Cloning…' : 'Clone into…'}
-          </button>
-        </div>
-      </div>
-    )
+  if (!status) return <LinkClone repo={repo} error={error} onDone={refresh} />
 
   const staged = status.files.filter((f) => f.index !== ' ' && f.index !== '?')
   const changed = status.files.filter((f) => f.worktree !== ' ')
@@ -130,7 +97,6 @@ export function LocalSection({ repo }: SectionProps) {
           onChange={setView}
           options={[
             ['changes', `Changes ${status.files.length || ''}`],
-            ['history', 'History'],
             ['branches', 'Branches']
           ]}
         />
@@ -151,8 +117,7 @@ export function LocalSection({ repo }: SectionProps) {
         </button>
       </div>
       {view === 'changes' && <Changes repo={repo} status={status} staged={staged} changed={changed} act={act} busy={busy} />}
-      {view === 'history' && <History repo={repo} />}
-      {view === 'branches' && <Branches repo={repo} act={act} dirty={status.files.length > 0} />}
+      {view === 'branches' && <Branches repo={repo} act={act} dirty={status.files.length > 0} current={status.branch} />}
     </>
   )
 }
@@ -291,42 +256,7 @@ function Changes({ repo, status, staged, changed, act, busy }: { repo: string; s
   )
 }
 
-function History({ repo }: { repo: string }) {
-  const now = useNow()
-  const { data, error } = useLoad(repo, () => api.gitLog(repo), [])
-  if (!data) return error ? <p className="del">{error}</p> : <Skeleton rows={6} />
-  if (!data.length) return <Empty>No commits yet.</Empty>
-  return (
-    <ul className="list repo-tab">
-      {data.map((c) => (
-        <li key={c.sha} className="row">
-          <div className="row-main">
-            <div className="row-title">
-              <span className="strong">{c.subject}</span>
-              {c.refs
-                .split(', ')
-                .filter(Boolean)
-                .map((r) => (
-                  <span key={r} className={`chip mono${r.startsWith('HEAD') ? ' chip-head' : ''}`}>
-                    {r.replace('HEAD -> ', '⎇ ')}
-                  </span>
-                ))}
-            </div>
-            <div className="row-meta">
-              <span>{c.author}</span>
-              <span>{timeAgo(c.date, now)}</span>
-            </div>
-          </div>
-          <button className="chip chip-btn mono" title="Copy full SHA" onClick={() => void navigator.clipboard.writeText(c.sha).then(() => toast('SHA copied', 'ok'))}>
-            {c.sha.slice(0, 7)}
-          </button>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function Branches({ repo, act, dirty }: { repo: string; act: Act; dirty: boolean }) {
+function Branches({ repo, act, dirty, current }: { repo: string; act: Act; dirty: boolean; current: string | null }) {
   const now = useNow()
   const { data, error, reload } = useLoad(repo, () => api.gitBranches(repo), [])
   const [name, setName] = useState('')
@@ -365,13 +295,87 @@ function Branches({ repo, act, dirty }: { repo: string; act: Act; dirty: boolean
               </div>
             </div>
             {!b.current && (
-              <button className="btn btn-sm" onClick={() => void run('switch', b.name, `Switched to ${b.name}`)}>
-                Switch
-              </button>
+              <div className="row-actions show">
+                <button className="btn btn-sm" onClick={() => void run('switch', b.name, `Switched to ${b.name}`)}>
+                  Switch
+                </button>
+                {current && (
+                  <>
+                    <button
+                      className="btn btn-sm"
+                      title={`Merge ${b.name} into ${current}`}
+                      onClick={() => confirm(`Merge ${b.name} into ${current}?`) && void run('merge', b.name, `Merged ${b.name} into ${current}`)}
+                    >
+                      Merge
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      title={`Replay ${current}'s commits on top of ${b.name}`}
+                      onClick={() => confirm(`Rebase ${current} onto ${b.name}? This rewrites ${current}'s commits; don't do it to a branch others have pulled.`) && void run('rebase', b.name, `Rebased ${current} onto ${b.name}`)}
+                    >
+                      Rebase
+                    </button>
+                  </>
+                )}
+                <IconButton
+                  icon="trash"
+                  title="Delete this local branch"
+                  onClick={async () => {
+                    if (!confirm(`Delete the local branch ${b.name}?`)) return
+                    const r = await api.gitRun(repo, 'delete-branch', b.name)
+                    if (r.ok) return (toast(`Deleted ${b.name}`, 'ok'), reload())
+                    // git refuses (-d) when the branch has commits that aren't merged anywhere.
+                    if (/not fully merged/.test(r.error ?? '') && confirm(`${b.name} has commits that aren't merged anywhere. Delete it anyway? Those commits will be lost.`))
+                      void run('force-delete-branch', b.name, `Deleted ${b.name}`)
+                    else if (r.error) toast(r.error, 'error')
+                  }}
+                />
+              </div>
             )}
           </li>
         ))}
       </ul>
     </>
+  )
+}
+
+/** Shown in local views until the repo has a linked clone: link an existing folder or clone it. */
+export function LinkClone({ repo, error, onDone }: { repo: string; error?: string; onDone: () => void }) {
+  const [cloning, setCloning] = useState(false)
+  return (
+    <div className="link-card">
+      <h3>Work on {repo} locally</h3>
+      <p className="dim">
+        Link the folder where you've cloned this repo, or clone it now. Pushback then shows its changes, commit graph, file history and blame, lets you
+        commit, switch branches, pull and push, and opens it in your editor or a terminal.
+      </p>
+      {error && <p className="del small">{error}</p>}
+      <div className="inline">
+        <button
+          className="btn btn-primary"
+          onClick={async () => {
+            const r = await api.gitLink(repo)
+            if (r.error) toast(r.error, 'error')
+            onDone()
+          }}
+        >
+          Link existing clone…
+        </button>
+        <button
+          className="btn"
+          disabled={cloning}
+          onClick={async () => {
+            setCloning(true)
+            const r = await api.gitClone(repo)
+            setCloning(false)
+            if (r.error) toast(`Clone failed: ${r.error}`, 'error')
+            else if (r.ok) toast(`Cloned ${repo}`, 'ok')
+            onDone()
+          }}
+        >
+          {cloning ? 'Cloning…' : 'Clone into…'}
+        </button>
+      </div>
+    </div>
   )
 }

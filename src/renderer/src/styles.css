@@ -2237,3 +2237,246 @@ input[type='range'] {
   align-self: center;
   margin-bottom: 2px;
 }
+
+/* --- Commit graph and history tools -------------------------------------------- */
+.commit-graph {
+  display: flex;
+  flex-direction: column;
+  font-size: 12.5px;
+}
+.graph-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(80px, 150px) 72px 62px;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding-right: 10px;
+  border-radius: 6px;
+}
+.graph-row.clickable {
+  cursor: pointer;
+}
+.graph-row:hover {
+  background: var(--hover);
+}
+.graph-row.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.graph-row.faded {
+  opacity: 0.35;
+}
+.graph-cell {
+  display: block;
+  margin-left: 4px;
+}
+.graph-cell path {
+  fill: none;
+  stroke-width: 2;
+}
+.graph-dot {
+  width: 9px;
+  height: 9px;
+  margin-left: 8px;
+  border-radius: 50%;
+}
+.graph-subject {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.graph-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--dim);
+}
+.graph-date,
+.graph-sha {
+  color: var(--dim);
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+.ref-chip {
+  flex: none;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+  border-radius: 9px;
+  font: 600 10.5px/17px var(--mono);
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+.ref-head {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ref-branch {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.ref-tag {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+}
+.git-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 40%);
+  gap: 14px;
+  align-items: start;
+  margin-top: 10px;
+}
+.git-split-list {
+  min-width: 0;
+  overflow-x: auto;
+}
+@media (max-width: 1100px) {
+  .git-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.commit-panel {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-height: calc(100vh - 170px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.commit-title {
+  margin: 0;
+  font-size: 14px;
+}
+.commit-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font: 12px/1.5 var(--mono);
+  color: var(--dim);
+}
+.commit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.inline.wrap,
+.row-meta.wrap {
+  flex-wrap: wrap;
+}
+.row-actions.show {
+  display: flex;
+  position: static;
+  transform: none;
+  background: none;
+  gap: 6px;
+}
+.file-list .row {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.load-more {
+  align-self: center;
+  margin: 10px auto;
+  display: block;
+}
+.blame {
+  font: 12px/20px var(--mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+  background: var(--bg);
+}
+.blame-line {
+  display: grid;
+  grid-template-columns: 300px 3px 44px minmax(0, 1fr);
+  cursor: pointer;
+}
+.blame-line.first {
+  border-top: 1px solid var(--border);
+}
+.blame-line:hover,
+.blame-line.on {
+  background: var(--hover);
+}
+.blame-info {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-family: var(--font);
+  font-size: 11.5px;
+  background: var(--panel);
+}
+.blame-author {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.blame-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dim);
+}
+.blame-heat {
+  background: var(--warn);
+}
+.blame-no {
+  padding-right: 10px;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+}
+.blame-text {
+  white-space: pre;
+  padding-left: 8px;
+}
+.file-picker {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+  max-width: 560px;
+}
+.file-picker input {
+  width: 100%;
+}
+.file-hits {
+  top: calc(100% + 4px);
+  width: 100%;
+  max-height: 340px;
+  overflow: auto;
+}
+.file-hits button {
+  font-size: 12px;
+}
+.compare-files {
+  margin-top: 10px;
+}
+.contrib-bar {
+  height: 5px;
+  margin-top: 5px;
+  border-radius: 3px;
+  background: var(--hover);
+  overflow: hidden;
+}
+.contrib-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}

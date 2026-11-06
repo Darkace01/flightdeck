@@ -1,5 +1,5 @@
 import type { GitHub } from './github'
-import type { ActionResult, BranchInfo, CommitInfo, IssueDetail, IssueSummary, Label, NewPr, NewRelease, PrComment, ReleaseInfo } from '../shared/types'
+import type { ActionResult, BranchInfo, CommitInfo, GraphCommit, IssueDetail, IssueSummary, Label, NewPr, NewRelease, PrComment, ReleaseInfo } from '../shared/types'
 
 // GitHub tools for the repo workspace: issues, branches, commits, releases and creating PRs.
 // Everything here is fetched on demand when a section opens, never by the poller.
@@ -122,18 +122,58 @@ export async function createBranch(gh: GitHub, repo: string, name: string, from:
   return { ok: true, url: `https://github.com/${repo}/tree/${name}` }
 }
 
-export async function listCommits(gh: GitHub, repo: string, ref?: string): Promise<CommitInfo[]> {
-  const commits = await gh.get<{ sha: string; html_url: string; commit: { message: string; author: { name: string; date: string } }; author: GhUser | null }[]>(
-    `/repos/${repo}/commits?per_page=60${ref ? `&sha=${encodeURIComponent(ref)}` : ''}`
-  )
+export async function listCommits(gh: GitHub, repo: string, ref?: string, perPage = 60): Promise<CommitInfo[]> {
+  const commits = await gh.get<
+    { sha: string; html_url: string; parents: { sha: string }[]; commit: { message: string; author: { name: string; date: string } }; author: GhUser | null }[]
+  >(`/repos/${repo}/commits?per_page=${perPage}${ref ? `&sha=${encodeURIComponent(ref)}` : ''}`)
   return commits.map((c) => ({
     sha: c.sha,
     message: c.commit.message,
     author: c.author?.login ?? c.commit.author.name,
     authorAvatar: c.author?.avatar_url,
     date: c.commit.author.date,
-    url: c.html_url
+    url: c.html_url,
+    parents: c.parents.map((p) => p.sha)
   }))
+}
+
+/**
+ * A commit graph across branches without a clone: recent commits of each branch, merged and ordered so
+ * children come before parents. Costs one request per branch, so callers keep the list short.
+ */
+export async function branchGraph(gh: GitHub, repo: string, branches: string[]): Promise<GraphCommit[]> {
+  const names = branches.slice(0, 8)
+  const lists = await Promise.all(names.map((b) => listCommits(gh, repo, b, 40).catch(() => [] as CommitInfo[])))
+  const bySha = new Map<string, GraphCommit>()
+  lists.forEach((list, i) =>
+    list.forEach((c, j) => {
+      const g = bySha.get(c.sha) ?? {
+        sha: c.sha,
+        parents: c.parents,
+        subject: c.message.split('\n')[0],
+        author: c.author,
+        avatar: c.authorAvatar,
+        date: c.date,
+        refs: [],
+        url: c.url
+      }
+      // The first branch is the default one; label each branch at its tip.
+      if (j === 0) g.refs.push(`${i === 0 ? 'head' : 'branch'}:${names[i]}`)
+      bySha.set(c.sha, g)
+    })
+  )
+  // Newest first; then, should clock skew put a parent above its child, move the parent down below it.
+  const order = [...bySha.values()].sort((a, b) => b.date.localeCompare(a.date))
+  for (let i = 0; i < order.length; i++) {
+    const at = new Map(order.map((c, k) => [c.sha, k]))
+    const p = order[i].parents.map((s) => at.get(s)).filter((k): k is number => k !== undefined && k < i)
+    if (p.length) {
+      const moved = order.splice(Math.min(...p), 1)[0]
+      order.splice(i, 0, moved)
+      i = Math.min(...p) - 1
+    }
+  }
+  return order
 }
 
 export async function listReleases(gh: GitHub, repo: string): Promise<ReleaseInfo[]> {
