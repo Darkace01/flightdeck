@@ -214,3 +214,41 @@ test('the PR view says what blocks a merge, and shows the merge queue', async ()
   await expect(page.getByRole('region', { name: 'Merge status' })).toContainText('In the merge queue for main')
   await expect(page.getByRole('region', { name: 'Merge status' })).toContainText('position 2, waiting for checks')
 })
+
+test('stale cleanup lists merged and stale branches and old PRs, and only acts after a confirm', async () => {
+  ctx = await launch({ settings: WATCHING })
+  const { page } = ctx
+  await page.locator('.repo-sidebar').getByText('acme/api').click()
+  await page.locator('.ws-link', { hasText: 'Stale cleanup' }).click()
+
+  // The merged branch is ticked for you; the stale one (with unmerged work) and the old PR are not. A branch with an
+  // open PR, a brand-new empty branch and the default branch are never offered.
+  await expect(page.getByLabel('Select branch old/merged-feature')).toBeChecked()
+  await expect(page.getByLabel('Select branch experiments/abandoned')).not.toBeChecked()
+  await expect(page.getByLabel('Select pull request 3')).not.toBeChecked()
+  await expect(page.getByText('feat/login')).toHaveCount(0)
+  await expect(page.getByText('fresh-empty')).toHaveCount(0)
+  await expect(page.getByText('30 unmerged')).toBeVisible()
+
+  // Reviewing lists exactly what will happen, and cancelling does nothing.
+  await page.getByLabel('Select branch experiments/abandoned').check()
+  await page.getByLabel('Select pull request 3').check()
+  await page.getByRole('button', { name: /Review 2 branches and 1 PR/ }).click()
+  const confirm = page.getByRole('alertdialog', { name: 'Confirm cleanup' })
+  await expect(confirm).toContainText('Delete branch old/merged-feature')
+  await expect(confirm).toContainText('30 unmerged commits will be lost')
+  await expect(confirm).toContainText('Close pull request #3')
+  await confirm.getByRole('button', { name: 'Cancel' }).click()
+  expect(ctx.gh.writes()).toEqual([])
+
+  await page.getByRole('button', { name: /Review 2 branches and 1 PR/ }).click()
+  await confirm.getByRole('button', { name: /Yes, delete 2 and close 1/ }).click()
+  await expect(page.getByText('Cleaned up 3 items')).toBeVisible()
+  expect(ctx.gh.writes()).toEqual([
+    { method: 'DELETE', path: '/repos/acme/api/git/refs/heads/old/merged-feature' },
+    { method: 'DELETE', path: '/repos/acme/api/git/refs/heads/experiments/abandoned' },
+    { method: 'PATCH', path: '/repos/acme/api/pulls/3' }
+  ])
+  // The expected writes are checked; empty the log so the after-each "no writes" check applies to the rest.
+  ctx.gh.requests.length = 0
+})

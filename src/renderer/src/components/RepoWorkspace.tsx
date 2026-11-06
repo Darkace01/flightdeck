@@ -12,6 +12,7 @@ import { RunsWidget } from '../widgets/RunsWidget'
 import type { WidgetProps } from '../widgets/types'
 import { SecurityWidget } from '../widgets/SecurityWidget'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
+import { CleanupSection } from './Cleanup'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { CompareSection, ContributorsSection, FileHistorySection, GraphSection, RemotesSection, SearchSection, StashesSection, TagsSection } from './GitTools'
 import { DeploymentsSection } from './Deployments'
@@ -54,6 +55,7 @@ export const SECTIONS: Section[] = [
   { id: 'branches', label: 'Branches', group: 'GitHub', component: BranchesSection },
   { id: 'commits', label: 'Commits', group: 'GitHub', component: CommitsSection },
   { id: 'releases', label: 'Releases', group: 'GitHub', component: ReleasesSection },
+  { id: 'cleanup', label: 'Stale cleanup', group: 'GitHub', component: CleanupSection },
   { id: 'security', label: 'Security', group: 'GitHub', widget: ['security', SecurityWidget] },
   { id: 'runs', label: 'Runs', group: 'Actions', widget: ['runs', RunsWidget] },
   { id: 'workflows', label: 'Workflows', group: 'Actions', widget: ['workflows', WorkflowsWidget] },

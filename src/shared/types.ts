@@ -735,6 +735,11 @@ export interface PushbackApi {
   linkScanned(repos: string[]): Promise<number>
   /** Editors and IDEs installed on this machine, for the default-editor setting. */
   listEditors(): Promise<EditorOption[]>
+  // --- stale cleanup ---
+  /** Open PRs of a repo, least recently updated first (for finding old ones). */
+  listOpenPrs(repo: string): Promise<StalePr[]>
+  /** Deletes branches and closes PRs in bulk. The main process re-checks each one and reports per item. */
+  cleanup(repo: string, req: CleanupRequest): Promise<CleanupResult>
   // --- merge status ---
   /** What blocks a PR from merging (required checks, reviews, conflicts) and its merge-queue position. */
   prMergeStatus(repo: string, num: number): Promise<MergeStatus>
@@ -767,4 +772,30 @@ export interface RepoSecurity {
   alerts: SecurityAlert[]
   /** Kinds GitHub wouldn't list (feature off, or the token lacks access), with the reason. */
   unavailable: Partial<Record<AlertKind, string>>
+}
+
+// --- stale cleanup ---
+
+export interface StalePr {
+  number: number
+  title: string
+  url: string
+  author: string
+  createdAt: string
+  updatedAt: string
+  draft: boolean
+}
+
+export interface CleanupRequest {
+  /** Branch names to delete. */
+  branches: string[]
+  /** Pull request numbers to close. */
+  closePrs: number[]
+}
+
+export interface CleanupResult {
+  ok: boolean
+  /** What was deleted or closed, as "branch x" / "PR #n". */
+  done: string[]
+  failed: { item: string; error: string }[]
 }

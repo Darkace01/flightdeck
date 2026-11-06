@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
+import type { ActionResult, AppEvent, CleanupRequest, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
@@ -12,6 +12,7 @@ import { findClones } from './scan'
 import { listDeployments } from './deployments'
 import { listSecurity } from './security'
 import { fetchMergeStatus } from './mergeStatus'
+import { applyCleanup, listOpenPrs } from './cleanup'
 import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
@@ -459,6 +460,13 @@ function registerIpc(): void {
     } catch (err) {
       return { ok: false, error: (err as Error).message }
     }
+  })
+  // --- stale cleanup ---
+  ipcMain.handle('cleanup:prs', (_e, repo: string) => listOpenPrs(requireClient(), repo))
+  ipcMain.handle('cleanup:apply', async (_e, repo: string, req: CleanupRequest) => {
+    const result = await applyCleanup(requireClient(), repo, req)
+    poller.pollSoon()
+    return result
   })
   // --- merge status ---
   ipcMain.handle('pr:merge-status', (_e, repo: string, num: number) => fetchMergeStatus(requireClient(), repo, num))

@@ -117,6 +117,28 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
     return { viewer: { login: 'octo', avatarUrl: '' }, reviewRequests: { nodes: [node] }, myPrs: { nodes: [] }, assigned: { nodes: [] } }
   }
   const repo = `${vars.owner}/${vars.name}`
+  if (query.includes('refs/heads/')) {
+    const days = (n: number) => ago(n * 1440)
+    const branch = (name: string, age: number, aheadBy: number, behindBy: number, pr?: number) => ({
+      name,
+      target: { oid: name.length.toString(16).padStart(40, '0'), committedDate: days(age), messageHeadline: `Work on ${name}`, author: { name: 'alice', user: { login: 'alice', avatarUrl: '' } } },
+      compare: { aheadBy, behindBy },
+      associatedPullRequests: { nodes: pr ? [{ number: pr }] : [] }
+    })
+    return {
+      repository: {
+        refs: {
+          nodes: [
+            branch('main', 0, 0, 0),
+            branch('feat/login', 1, 0, 3, 7),
+            branch('old/merged-feature', 40, 12, 0),
+            branch('experiments/abandoned', 200, 4, 30),
+            branch('fresh-empty', 1, 0, 0)
+          ]
+        }
+      }
+    }
+  }
   if (query.includes('mergeStateStatus')) {
     const ctx = (name: string, conclusion: string, isRequired: boolean) => ({ __typename: 'CheckRun', name, status: 'COMPLETED', conclusion, isRequired })
     const base = { isDraft: false, mergeable: 'MERGEABLE', isInMergeQueue: false, mergeQueueEntry: null, autoMergeRequest: null, reviewThreads: { nodes: [] } }
@@ -203,6 +225,13 @@ function rest(path: string, rich: boolean): unknown {
         { number: 2, html_url: 'https://github.com/acme/api/security/dependabot/2', created_at: ago(900), dependency: { package: { name: 'minimist' } }, security_advisory: { summary: 'ReDoS in minimist', severity: 'low' } }
       ]
     return [{ number: 5, html_url: 'https://github.com/acme/api/security/code-scanning/5', created_at: ago(100), rule: { id: 'js/sql-injection', description: 'SQL injection', severity: 'error', security_severity_level: 'critical' }, most_recent_instance: { location: { path: 'src/db.ts' } } }]
+  }
+  // Open PRs for the cleanup view (and the "does this branch have a PR" check before deleting it).
+  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/pulls$/))) {
+    const prsOf = (n: number, title: string, updated: number, head: string) => ({ number: n, title, html_url: `https://github.com/${m![1]}/pull/${n}`, user: user('alice'), created_at: ago(updated + 60), updated_at: ago(updated), draft: false, head: { ref: head } })
+    const all = m[1] === 'acme/api' ? [prsOf(3, 'Old experiment', 200 * 1440, 'experiments/abandoned-pr'), prsOf(7, 'Add login page', 15, 'feat/login')] : []
+    const head = new URLSearchParams(path.split('?')[1] ?? '').get('head')
+    return head ? all.filter((x) => head.endsWith(':' + x.head.ref)) : all
   }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/runs$/))) return { workflow_runs: [...(RUNS[m[1]] ?? []), ...(rich ? (RICH_RUNS[m[1]] ?? []) : [])] }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/workflows$/)))
@@ -311,6 +340,9 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
       res.writeHead(200, headers).end(JSON.stringify({ data: graphql(query, variables ?? {}, rich) }))
       return
     }
+    // Writes (cleanup) are accepted and recorded; tests assert on exactly which ones happened.
+    if (req.method === 'DELETE') return void res.writeHead(204, headers).end()
+    if (req.method === 'PATCH') return void res.writeHead(200, headers).end('{}')
     const data = req.method === 'GET' ? rest(path, rich) : undefined
     if (data && typeof data === 'object' && 'status' in data && 'body' in data) res.writeHead(data.status as number, headers).end(JSON.stringify(data.body))
     else if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))

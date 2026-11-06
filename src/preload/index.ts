@@ -62,6 +62,9 @@ const api: PushbackApi = {
   listEditors: () => ipcRenderer.invoke('editors:list'),
   scanClones: (pick) => ipcRenderer.invoke('git:scan', pick),
   linkScanned: (repos) => ipcRenderer.invoke('git:link-scanned', repos),
+  // --- stale cleanup ---
+  listOpenPrs: (repo) => ipcRenderer.invoke('cleanup:prs', repo),
+  cleanup: (repo, req) => ipcRenderer.invoke('cleanup:apply', repo, req),
   // --- merge status ---
   prMergeStatus: (repo, num) => ipcRenderer.invoke('pr:merge-status', repo, num),
   // --- security alerts ---

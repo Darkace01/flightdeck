@@ -3107,3 +3107,27 @@ button.crumb:hover {
   gap: 14px;
   margin-top: 6px;
 }
+
+/* ---------- stale cleanup ---------- */
+.cleanup-title {
+  margin: 14px 0 4px;
+  font-size: 13px;
+}
+.cleanup-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0;
+  background: var(--bg);
+}
+.cleanup-confirm {
+  border: 1px solid color-mix(in srgb, var(--bad, #f85149) 55%, var(--border));
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+.cleanup-confirm h3 {
+  margin: 0 0 6px;
+}
+.cleanup-failures {
+  margin-top: 10px;
+}
