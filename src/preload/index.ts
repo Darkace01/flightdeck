@@ -80,6 +80,10 @@ const api: PushbackApi = {
   prMergeStatus: (repo, num) => ipcRenderer.invoke('pr:merge-status', repo, num),
   // --- security alerts ---
   listSecurity: (repo) => ipcRenderer.invoke('security:list', repo),
+  // --- packages ---
+  listPackages: (owner) => ipcRenderer.invoke('packages:list', owner),
+  listPackageOrgs: () => ipcRenderer.invoke('packages:orgs'),
+  packageVersions: (owner, type, name) => ipcRenderer.invoke('packages:versions', owner, type, name),
   onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 

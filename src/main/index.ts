@@ -13,6 +13,7 @@ import { listEditors } from './editors'
 import { findClones } from './scan'
 import { listDeployments } from './deployments'
 import { listSecurity } from './security'
+import { listPackageOrgs, listPackages, packageVersions } from './packages'
 import { fetchMergeStatus } from './mergeStatus'
 import { AccountClients, hasAccountToken, saveAccountToken } from './accounts'
 import { accountOf, apiUrlFor, hostOf, normalizeHost, GITHUB_HOST } from '../shared/accounts'
@@ -698,6 +699,10 @@ function registerIpc(): void {
   ipcMain.handle('pr:merge-status', (_e, repo: string, num: number) => fetchMergeStatus(clientFor(repo), repo, num))
   // --- security alerts ---
   ipcMain.handle('security:list', (_e, repo: string) => listSecurity(clientFor(repo), repo))
+  // --- packages (the primary login's: GitHub Packages for you and your organisations) ---
+  ipcMain.handle('packages:list', (_e, owner: string) => listPackages(requireClient(), String(owner)))
+  ipcMain.handle('packages:orgs', () => listPackageOrgs(requireClient()))
+  ipcMain.handle('packages:versions', (_e, owner: string, type: string, name: string) => packageVersions(requireClient(), String(owner), String(type), String(name)))
   ipcMain.handle('editors:list', () => listEditors())
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())

@@ -103,7 +103,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security' | 'cihealth' | 'search'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security' | 'cihealth' | 'search' | 'packages'
 
 export interface WidgetConfig {
   id: string
@@ -846,6 +846,13 @@ export interface PushbackApi {
   // --- security alerts ---
   /** Open Dependabot, code-scanning and secret-scanning alerts of a repo (a kind the token can't read is listed in `unavailable`). */
   listSecurity(repo: string): Promise<RepoSecurity>
+  // --- packages ---
+  /** GitHub Packages published by you ('@me') or by an organisation (its login). If the token can't read any type, `unavailable` says why. */
+  listPackages(owner: string): Promise<OwnerPackages>
+  /** Logins of the organisations you belong to. */
+  listPackageOrgs(): Promise<string[]>
+  /** Recent versions of one package, newest first. */
+  packageVersions(owner: string, type: PackageType, name: string): Promise<PackageVersion[]>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */
   onNavigate(cb: (url: string) => void): () => void
 }
@@ -872,6 +879,40 @@ export interface RepoSecurity {
   alerts: SecurityAlert[]
   /** Kinds GitHub wouldn't list (feature off, or the token lacks access), with the reason. */
   unavailable: Partial<Record<AlertKind, string>>
+}
+
+// --- packages ---
+
+export type PackageType = 'npm' | 'maven' | 'rubygems' | 'nuget' | 'container'
+
+export interface PackageInfo {
+  /** '@me' for your own packages, else the organisation's login. */
+  owner: string
+  name: string
+  type: PackageType
+  visibility: 'public' | 'private' | 'internal'
+  versionCount: number
+  /** The repository it was published from, when GitHub knows it. */
+  repo?: string
+  url: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OwnerPackages {
+  owner: string
+  packages: PackageInfo[]
+  unavailable?: string
+}
+
+export interface PackageVersion {
+  id: number
+  /** The version number (npm, Maven, RubyGems, NuGet) or the digest (container images). */
+  name: string
+  /** Container image tags; empty for the other types. */
+  tags: string[]
+  url: string
+  createdAt: string
 }
 
 // --- stale cleanup ---

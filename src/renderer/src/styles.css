@@ -3097,6 +3097,36 @@ button.crumb:hover {
   color: var(--dim);
 }
 
+/* ---------- packages ---------- */
+.packages {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.pkg-note {
+  padding: 6px 12px;
+}
+.pkg-caret {
+  display: inline-flex;
+  transform: rotate(90deg);
+  opacity: 0.6;
+  transition: transform 0.12s;
+}
+.pkg-caret.open {
+  transform: rotate(180deg);
+}
+.pkg-versions {
+  list-style: none;
+  margin: 0;
+  padding: 2px 12px 8px 36px;
+}
+.pkg-version {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
 /* ---------- CI health ---------- */
 .cihealth {
   display: flex;

@@ -63,6 +63,12 @@ export const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
     { key: 'kind', label: 'Source', kind: 'select', filter: true, choices: [['', 'All sources'], ['dependabot', 'Dependabot'], ['code-scanning', 'Code scanning'], ['secret-scanning', 'Secret scanning']] },
     { key: 'severity', label: 'Severity', kind: 'select', filter: true, choices: [['', 'Any severity'], ['critical', 'Critical'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']] }
   ],
+  packages: [
+    { key: 'scope', label: 'Published by', kind: 'select', filter: true, choices: [['user', 'Me'], ['org', 'Organisations']] },
+    { key: 'org', label: 'Organisation (blank for all of yours)', kind: 'text', filter: true, placeholder: 'all my organisations' },
+    { key: 'type', label: 'Type', kind: 'select', filter: true, choices: [['', 'Any type'], ['npm', 'npm'], ['container', 'Container'], ['nuget', 'NuGet'], ['maven', 'Maven'], ['rubygems', 'RubyGems']] },
+    { key: 'visibility', label: 'Visibility', kind: 'select', filter: true, choices: [['', 'Any visibility'], ['public', 'Public'], ['private', 'Private'], ['internal', 'Internal']] }
+  ],
   search: [
     { key: 'query', label: 'Search (GitHub qualifiers)', kind: 'text', placeholder: 'is:open author:@me' },
     { key: 'kind', label: 'Look for', kind: 'select', choices: [['pr', 'Pull requests'], ['issue', 'Issues']] },

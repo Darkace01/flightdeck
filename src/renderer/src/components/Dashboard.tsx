@@ -10,6 +10,7 @@ import { DeploymentsWidget } from '../widgets/DeploymentsWidget'
 import { EventsWidget } from '../widgets/EventsWidget'
 import { InboxWidget } from '../widgets/InboxWidget'
 import { InsightsWidget } from '../widgets/InsightsWidget'
+import { PackagesWidget } from '../widgets/PackagesWidget'
 import { PrsWidget } from '../widgets/PrsWidget'
 import { SearchWidget } from '../widgets/SearchWidget'
 import { RunsWidget } from '../widgets/RunsWidget'
@@ -32,6 +33,7 @@ export const WIDGETS: Record<WidgetType, { component: ComponentType<WidgetProps>
   inbox: { component: InboxWidget, description: 'Reviews requested from you, your PRs and assigned issues across all of GitHub.' },
   insights: { component: InsightsWidget, description: 'Pass rate, average duration and recent outcomes per workflow.' },
   cihealth: { component: CiHealthWidget, description: 'Failure rates, flaky and slowest workflows, and Actions minutes, from recent runs.' },
+  packages: { component: PackagesWidget, description: 'Packages and versions you have published to GitHub Packages, or that your organisations have. Switch between the two in the filters.' },
   security: { component: SecurityWidget, description: 'Open Dependabot, code-scanning and secret-scanning alerts, and Dependabot pull requests.' },
   deployments: {
     component: DeploymentsWidget,
