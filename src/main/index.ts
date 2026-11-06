@@ -5,6 +5,7 @@ import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
+import { limitFirstImport } from '../shared/repos'
 import * as git from './git'
 import * as gitTools from './gitTools'
 import { listEditors } from './editors'
@@ -98,11 +99,28 @@ function showWindow(): void {
   win.focus()
 }
 
-/** Paint the window in the theme's background before the page loads, so there's no white flash. */
-function windowBackground(): string {
+const IS_MAC = process.platform === 'darwin'
+// The app's top bar doubles as the title bar, so the OS window controls sit inside it. Matches .topbar in styles.css.
+const TITLE_BAR_HEIGHT = 44
+
+/** The theme colours the main process paints itself: the background before the page loads (no white flash) and the window controls. */
+function windowColors(): { bg: string; panel: string; text: string } {
   const light = settings.mode === 'light' || (settings.mode === 'system' && !nativeTheme.shouldUseDarkColors)
   const mode = light ? 'light' : 'dark'
-  return settings.colorOverrides[mode].bg ?? findTheme(light ? settings.lightTheme : settings.darkTheme, mode).colors.bg
+  const c = { ...findTheme(light ? settings.lightTheme : settings.darkTheme, mode).colors, ...settings.colorOverrides[mode] }
+  return { bg: c.bg, panel: c.panel, text: c.text }
+}
+
+function titleBarOverlay(): Electron.TitleBarOverlayOptions {
+  const c = windowColors()
+  return { color: c.panel, symbolColor: c.text, height: TITLE_BAR_HEIGHT }
+}
+
+/** Repaint after a theme change so the minimise/maximise/close buttons match the top bar. */
+function paintWindow(): void {
+  if (!win || win.isDestroyed()) return
+  win.setBackgroundColor(windowColors().bg)
+  if (!IS_MAC) win.setTitleBarOverlay(titleBarOverlay())
 }
 
 function createWindow(): void {
@@ -112,7 +130,10 @@ function createWindow(): void {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    backgroundColor: windowBackground(),
+    backgroundColor: windowColors().bg,
+    // No native title bar: the top bar is draggable and the OS draws its controls over its right end (left on macOS).
+    titleBarStyle: 'hidden',
+    ...(IS_MAC ? { trafficLightPosition: { x: 14, y: 14 } } : { titleBarOverlay: titleBarOverlay() }),
     autoHideMenuBar: true,
     title: 'Pushback',
     icon: appIcon(64),
@@ -253,7 +274,7 @@ function registerIpc(): void {
     const intervalChanged = patch.pollSeconds !== undefined || patch.activePollSeconds !== undefined
     settings = { ...settings, ...patch, notify: { ...settings.notify, ...patch.notify } }
     saveSettings(settings)
-    if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) win?.setBackgroundColor(windowBackground())
+    if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) paintWindow()
     if (reposChanged || intervalChanged) poller.pollSoon()
     return settings
   })
@@ -329,9 +350,18 @@ function registerIpc(): void {
       const parsed = JSON.parse(json) as Partial<Settings>
       if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Pushback settings file')
       // Imported settings may come from another machine; keep this machine's linked clones.
-      settings = { ...normalizeSettings(parsed), localPaths: settings.localPaths }
+      const imported = normalizeSettings(parsed)
+      // A first import (nothing watched yet) takes at most FIRST_IMPORT_LIMIT repos, favourites first.
+      const repos = limitFirstImport(imported.repos, imported.favoriteRepos, settings.repos.length)
+      settings = {
+        ...imported,
+        repos,
+        favoriteRepos: imported.favoriteRepos.filter((f) => repos.includes(f)),
+        localPaths: settings.localPaths
+      }
       saveSettings(settings)
       send('settings', settings)
+      paintWindow()
       poller.pollSoon()
       return { ok: true }
     } catch (err) {
@@ -490,6 +520,8 @@ if (!app.requestSingleInstanceLock()) {
       () => settings.autoUpdate
     )
     app.on('activate', showWindow)
+    // In "system" mode the OS switching light/dark changes the theme, and the window controls need to follow.
+    nativeTheme.on('updated', paintWindow)
     // After the first poll, so the scan's disk reads don't slow down startup.
     setTimeout(() => void autoLinkClones().catch(() => {}), 15_000)
   })

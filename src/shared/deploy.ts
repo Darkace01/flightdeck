@@ -38,3 +38,14 @@ export const stageRank = (stage: string) => {
   const i = STAGE_ORDER.indexOf(stage)
   return i < 0 ? STAGE_ORDER.indexOf('other') : i
 }
+
+/** One line per distinct error, so a spent rate limit across 20 repos reads as one message rather than twenty. */
+export function groupRepoErrors(errors: { repo: string; error: string }[]): string[] {
+  const byError = new Map<string, string[]>()
+  for (const { repo, error } of errors) byError.set(error, [...(byError.get(error) ?? []), repo])
+  return [...byError].map(([error, repos]) => {
+    if (repos.length === 1) return `${repos[0]}: ${error}`
+    const names = repos.length <= 3 ? repos.join(', ') : `${repos.slice(0, 2).join(', ')} and ${repos.length - 2} more`
+    return `${error} (${names})`
+  })
+}

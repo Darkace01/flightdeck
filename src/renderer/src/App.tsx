@@ -101,6 +101,7 @@ function TopBar() {
   const editing = useEditing()
   const now = useNow(5000)
   const rate = snapshot.rateLimit
+  const gql = snapshot.graphqlRateLimit
   const isMac = navigator.userAgent.includes('Mac')
   return (
     <header className="topbar">
@@ -121,8 +122,16 @@ function TopBar() {
           {snapshot.polling ? 'Refreshing…' : snapshot.lastPoll ? `Updated ${timeAgo(snapshot.lastPoll, now)}` : 'Waiting…'}
         </span>
         {rate && (
-          <span title={`Resets ${new Date(rate.reset).toLocaleTimeString()}`} className={rate.remaining < rate.limit * 0.1 ? 'del' : undefined}>
+          <span title={`GitHub's REST budget (runs, workflows, repo views). Resets ${new Date(rate.reset).toLocaleTimeString()}`} className={rate.remaining < rate.limit * 0.1 ? 'del' : undefined}>
             API {rate.remaining.toLocaleString()}/{rate.limit.toLocaleString()}
+          </span>
+        )}
+        {gql && (
+          <span
+            title={`GitHub's GraphQL budget (pull requests, inbox, deployments). Resets ${new Date(gql.reset).toLocaleTimeString()}`}
+            className={gql.remaining < gql.limit * 0.1 ? 'del' : undefined}
+          >
+            GraphQL {gql.remaining.toLocaleString()}/{gql.limit.toLocaleString()}
           </span>
         )}
       </div>

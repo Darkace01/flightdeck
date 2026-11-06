@@ -167,6 +167,8 @@ export interface Settings {
   activeDashboard: string
   /** Repos open as tabs, in order. The dashboard tab is always first and isn't listed. */
   openTabs: string[]
+  /** Watched repos starred as favourites: listed first, and pinned as tabs when starred. */
+  favoriteRepos: string[]
   /** Repos pinned as tabs: always open, shown as icons first. A repo is in pinnedTabs or openTabs, never both. */
   pinnedTabs: string[]
   /** "home" (the dashboard) or one of openTabs / pinnedTabs. */
@@ -242,6 +244,7 @@ export interface Snapshot {
   inbox?: Inbox
   events: AppEvent[]
   rateLimit?: RateLimit
+  graphqlRateLimit?: RateLimit
   lastPoll?: number
   nextPoll?: number
   polling: boolean

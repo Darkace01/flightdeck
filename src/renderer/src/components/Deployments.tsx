@@ -5,7 +5,7 @@ import { duration, matches, timeAgo, useNow } from '../lib/format'
 import { useDeployments } from '../lib/deployments'
 import { api, getSnapshot } from '../lib/store'
 import { pushModal } from '../lib/ui'
-import { FilterBar } from './FilterBar'
+import { CollapsibleFilterBar } from './FilterBar'
 import type { SectionProps } from './RepoWorkspace'
 import { Avatar, Empty, Segmented, Skeleton } from './ui'
 
@@ -317,7 +317,7 @@ export function DeploymentsSection({ repo }: SectionProps) {
   const [options, setOptions] = useState<Record<string, string | number | boolean>>(defaults)
   return (
     <>
-      <FilterBar type="deployments" scope={[repo]} options={options} defaults={defaults} onChange={(p) => p.options && setOptions(p.options)} />
+      <CollapsibleFilterBar type="deployments" scope={[repo]} options={options} defaults={defaults} onChange={(p) => p.options && setOptions(p.options)} />
       <DeploymentsView repos={[repo]} view={options.view as DeployView} environment={String(options.environment)} state={String(options.state)} />
     </>
   )

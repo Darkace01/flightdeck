@@ -134,6 +134,8 @@ test('repo tabs: sections, deployments by client, and pinning', async () => {
   await expect(table.locator('tr', { hasText: 'acme' })).toContainText('v1.2.0')
   await expect(table.locator('tr', { hasText: 'globex' }).locator('.state-failure')).toBeVisible()
   await expect(table.locator('tr', { hasText: 'Shared' })).toContainText('v1.2.0')
+  await expect(page.locator('.filter-bar')).toHaveCount(0) // filters start collapsed
+  await page.getByRole('button', { name: 'Filters' }).click()
   await page.locator('.filter-bar select').first().selectOption('history')
   await expect(page.locator('.deploy-history tbody tr')).toHaveCount(3)
 

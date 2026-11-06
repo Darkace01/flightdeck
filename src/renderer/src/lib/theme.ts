@@ -73,6 +73,8 @@ export function useApplyAppearance(): void {
     root.style.colorScheme = a.mode
     root.dataset.mode = a.mode
     root.dataset.density = settings.density
+    // The top bar leaves room for the macOS traffic lights on the left (see .topbar in styles.css).
+    root.dataset.platform = navigator.userAgent.includes('Mac') ? 'mac' : 'other'
     if (a.preset.effect) root.dataset.effect = a.preset.effect
     else delete root.dataset.effect
   }, [a, settings.fontSize, settings.density])

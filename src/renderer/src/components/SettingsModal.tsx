@@ -4,7 +4,8 @@ import type { NotifySettings, RepoOption, UpdateStatus } from '../../../shared/t
 import { resolveEditor } from '../../../shared/defaults'
 import { applyTemplate } from '../lib/dashboards'
 import { useEditors } from '../lib/editors'
-import { setTabLayout } from '../lib/tabs'
+import { favoritesFirst } from '../../../shared/repos'
+import { pinTab, setTabLayout } from '../lib/tabs'
 import { api, toast, updateSettings, useSettings, useSnapshot, useUpdate } from '../lib/store'
 import { useAppearance } from '../lib/theme'
 import { closeModal, pushModal } from '../lib/ui'
@@ -88,7 +89,15 @@ export function ReposSection() {
     void updateSettings({ repos: [...settings.repos, name] })
     setInput('')
   }
-  const remove = (repo: string) => void updateSettings({ repos: settings.repos.filter((r) => r !== repo) })
+  const remove = (repo: string) =>
+    void updateSettings({ repos: settings.repos.filter((r) => r !== repo), favoriteRepos: settings.favoriteRepos.filter((r) => r !== repo) })
+  // Starring lists a repo first everywhere (dashboard widgets and polling follow the repo order) and pins its tab.
+  const toggleFavorite = (repo: string) => {
+    const on = settings.favoriteRepos.includes(repo)
+    const favoriteRepos = on ? settings.favoriteRepos.filter((r) => r !== repo) : [...settings.favoriteRepos, repo]
+    void updateSettings({ favoriteRepos, repos: favoritesFirst(settings.repos, favoriteRepos) })
+    if (!on) pinTab(repo)
+  }
   const move = (repo: string, dir: -1 | 1) => {
     const list = [...settings.repos]
     const i = list.indexOf(repo)
@@ -126,6 +135,14 @@ export function ReposSection() {
       <ul className="repo-list">
         {settings.repos.map((repo) => (
           <li key={repo}>
+            <button
+              className="icon-btn"
+              title={settings.favoriteRepos.includes(repo) ? 'Remove from favourites' : 'Favourite: list first and pin its tab'}
+              aria-pressed={settings.favoriteRepos.includes(repo)}
+              onClick={() => toggleFavorite(repo)}
+            >
+              {settings.favoriteRepos.includes(repo) ? '★' : '☆'}
+            </button>
             <span className="mono">{repo}</span>
             {snapshot.repos[repo]?.error && <span className="del small">{snapshot.repos[repo].error}</span>}
             <span className="spacer" />

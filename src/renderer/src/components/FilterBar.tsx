@@ -1,10 +1,27 @@
 import { useId, useRef, useState } from 'react'
 import type { WidgetType } from '../../../shared/types'
-import { OPTIONS, suggestions } from '../lib/filters'
+import { activeFilters, OPTIONS, suggestions } from '../lib/filters'
 import { useSettings, useSnapshot } from '../lib/store'
-import { Popover } from './ui'
+import { IconButton, Popover } from './ui'
 
 type Options = Record<string, string | number | boolean>
+
+/** A filter bar behind a toggle: collapsed until the user opens it (or when a filter is already active), like dashboard widgets. */
+export function CollapsibleFilterBar(props: Parameters<typeof FilterBar>[0]) {
+  const active = activeFilters(props.type, props.repos ?? [], props.options, props.defaults)
+  const [open, setOpen] = useState(active > 0)
+  return (
+    <>
+      <div className="filter-toggle-row">
+        <span className="filter-toggle">
+          <IconButton icon="filter" title="Filters" active={open} onClick={() => setOpen(!open)} />
+          {active > 0 && <span className="filter-count">{active}</span>}
+        </span>
+      </div>
+      {open && <FilterBar {...props} />}
+    </>
+  )
+}
 
 /**
  * Inline filters for a widget or repo view: which repos (when `repos` is given) plus the widget type's

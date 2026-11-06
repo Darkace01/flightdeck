@@ -127,6 +127,15 @@ describe('listDeployments', () => {
   it('lists configured environments plus any only seen in deployments', async () => {
     expect((await listDeployments(gh, 'o/r')).environments).toEqual(['dev', 'prod-acme', 'staging-acme'])
   })
+
+  it('explains a repo GitHub can’t find instead of crashing on null', async () => {
+    await expect(listDeployments(fakeGh(() => ({ repository: null })), 'o/gone')).rejects.toThrow(/not found/)
+  })
+
+  it('copes with missing connections and null nodes', async () => {
+    const r = await listDeployments(fakeGh(() => ({ repository: { environments: null, deployments: { nodes: [null] }, refs: { nodes: [null] } } })), 'o/r')
+    expect(r).toEqual({ repo: 'o/r', environments: [], deployments: [] })
+  })
 })
 
 describe('branchGraph', () => {

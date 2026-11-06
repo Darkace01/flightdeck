@@ -13,7 +13,7 @@ import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { CompareSection, ContributorsSection, FileHistorySection, GraphSection, RemotesSection, SearchSection, StashesSection, TagsSection } from './GitTools'
 import { DeploymentsSection } from './Deployments'
-import { FilterBar } from './FilterBar'
+import { CollapsibleFilterBar } from './FilterBar'
 import { LocalSection } from './LocalGit'
 import { Markdown } from './Markdown'
 import { Empty, runTone, Skeleton, StatusIcon } from './ui'
@@ -75,7 +75,7 @@ function SectionWidget({ repo, type, Body }: { repo: string; type: WidgetType; B
   const [options, setOptions] = useState(defaults)
   return (
     <div className="repo-tab">
-      <FilterBar type={type} scope={[repo]} options={options} defaults={defaults} onChange={(p) => p.options && setOptions(p.options)} />
+      <CollapsibleFilterBar type={type} scope={[repo]} options={options} defaults={defaults} onChange={(p) => p.options && setOptions(p.options)} />
       <Body widget={{ id: `repo-${type}`, type, repos: [repo], options }} filter="" />
     </div>
   )

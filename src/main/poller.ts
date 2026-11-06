@@ -13,6 +13,7 @@ import type {
   Workflow,
   WorkflowRun
 } from '../shared/types'
+import { pollSlowdown } from '../shared/repos'
 import { GitHub } from './github'
 
 const MAX_EVENTS = 300
@@ -20,6 +21,9 @@ const MAX_EVENTS = 300
 const WORKFLOW_REFRESH_EVERY = 10
 /** After a dispatch / rerun, poll at the active rate for this long so the new run shows up quickly. */
 const BOOST_MS = 90_000
+
+type Settled<T> = { status: 'fulfilled'; value: T } | { status: 'rejected'; reason: unknown }
+type PrFetch = { defaultBranch?: string; prs: PullRequest[] }
 
 interface Events {
   update: [Snapshot]
@@ -34,6 +38,13 @@ export class Poller extends EventEmitter<Events> {
   private queued = false
   private cycle = 0
   private boostUntil = 0
+  // PRs and the inbox come from GraphQL, whose hourly budget (5,000 points) a 10-second active rate across a dozen
+  // repos would spend in well under an hour. So they refresh at the normal interval, or when asked to, and the
+  // fast rate only applies to runs, which are REST GETs where an unchanged answer (304) is free.
+  private graphqlAt = 0
+  private forceGraphql = true
+  private lastInbox?: Settled<InboxFetch>
+  private lastPrs = new Map<string, Settled<PrFetch>>()
 
   constructor(
     private readonly getSettings: () => Settings,
@@ -50,6 +61,9 @@ export class Poller extends EventEmitter<Events> {
   setClient(gh: GitHub | undefined, source?: 'pat' | 'gh'): void {
     this.gh = gh
     this.cycle = 0
+    this.forceGraphql = true
+    this.lastInbox = undefined
+    this.lastPrs.clear()
     this.snapshot = {
       ...this.snapshot,
       auth: gh ? 'ok' : 'missing',
@@ -63,6 +77,7 @@ export class Poller extends EventEmitter<Events> {
   /** Poll now (or as soon as the in-flight poll finishes). */
   pollSoon(boost = false): void {
     if (boost) this.boostUntil = Date.now() + BOOST_MS
+    this.forceGraphql = true
     if (this.running) {
       this.queued = true
       return
@@ -105,7 +120,7 @@ export class Poller extends EventEmitter<Events> {
       const active =
         Date.now() < this.boostUntil ||
         Object.values(this.snapshot.repos).some((r) => r.runs.some((run) => run.status !== 'completed'))
-      const seconds = active ? Math.min(settings.activePollSeconds, settings.pollSeconds) : settings.pollSeconds
+      const seconds = (active ? Math.min(settings.activePollSeconds, settings.pollSeconds) : settings.pollSeconds) * pollSlowdown(settings.repos.length)
       this.schedule(this.queued ? 0 : Math.max(5, seconds) * 1000)
       this.queued = false
       this.publish()
@@ -119,14 +134,23 @@ export class Poller extends EventEmitter<Events> {
 
     // Separate small GraphQL queries per repo: one combined query gets slow enough for GitHub to 502,
     // and this way one broken repo can't blank out the others.
+    const refreshGraphql = this.forceGraphql || Date.now() - this.graphqlAt >= settings.pollSeconds * pollSlowdown(repos.length) * 1000 - 2000
+    const settle = <T>(p: Promise<T>): Promise<Settled<T>> =>
+      p.then(
+        (value) => ({ status: 'fulfilled' as const, value }),
+        (reason: unknown) => ({ status: 'rejected' as const, reason })
+      )
     const [inboxResult, runResults, prResults] = await Promise.all([
-      this.fetchInbox(gh).then(
-        (v) => ({ status: 'fulfilled' as const, value: v }),
-        (e: unknown) => ({ status: 'rejected' as const, reason: e })
-      ),
+      refreshGraphql || !this.lastInbox ? settle(this.fetchInbox(gh)) : Promise.resolve(this.lastInbox),
       Promise.allSettled(repos.map((repo) => this.fetchRuns(gh, repo))),
-      Promise.allSettled(repos.map((repo) => this.fetchPullRequests(gh, repo)))
+      Promise.all(repos.map((repo) => (!refreshGraphql && this.lastPrs.get(repo)) || settle(this.fetchPullRequests(gh, repo))))
     ])
+    if (refreshGraphql) {
+      this.graphqlAt = Date.now()
+      this.forceGraphql = false
+    }
+    this.lastInbox = inboxResult
+    this.lastPrs = new Map(repos.map((repo, i) => [repo, prResults[i]]))
     const workflowResults = await Promise.allSettled(
       repos.map((repo) =>
         refreshWorkflows || !prev[repo]?.workflows.length ? this.fetchWorkflows(gh, repo) : Promise.resolve(prev[repo].workflows)
@@ -170,6 +194,7 @@ export class Poller extends EventEmitter<Events> {
     })
     this.snapshot.repos = next
     this.snapshot.rateLimit = gh.rate
+    this.snapshot.graphqlRateLimit = gh.graphqlRate
     // Review requests in repos you don't track still deserve a ping.
     if (oldInbox && inboxData) {
       const seen = new Set(oldInbox.reviewRequests.map((i) => i.url))
@@ -242,7 +267,7 @@ export class Poller extends EventEmitter<Events> {
     }
   }
 
-  private async fetchPullRequests(gh: GitHub, repo: string): Promise<{ defaultBranch?: string; prs: PullRequest[] }> {
+  private async fetchPullRequests(gh: GitHub, repo: string): Promise<PrFetch> {
     const [owner, name] = repo.split('/')
     const data = await gh.graphql<{ repository: GqlRepo | null }>(PR_QUERY, { owner, name })
     const r = data.repository

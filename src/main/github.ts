@@ -21,6 +21,8 @@ interface Cached {
 export class GitHub {
   private cache = new Map<string, Cached>()
   rate?: RateLimit
+  /** GraphQL has its own hourly budget (points, not requests), separate from REST's `core`. */
+  graphqlRate?: RateLimit
 
   constructor(private readonly token: string) {}
 
@@ -35,11 +37,21 @@ export class GitHub {
   }
 
   private trackRate(res: Response): void {
-    if (res.headers.get('x-ratelimit-resource') !== 'core') return
+    const resource = res.headers.get('x-ratelimit-resource')
+    if (resource !== 'core' && resource !== 'graphql') return
     const limit = Number(res.headers.get('x-ratelimit-limit'))
     const remaining = Number(res.headers.get('x-ratelimit-remaining'))
     const reset = Number(res.headers.get('x-ratelimit-reset'))
-    if (!Number.isNaN(limit)) this.rate = { limit, remaining, reset: reset * 1000 }
+    if (Number.isNaN(limit) || !res.headers.has('x-ratelimit-limit')) return
+    const rate = { limit, remaining, reset: reset * 1000 }
+    if (resource === 'core') this.rate = rate
+    else this.graphqlRate = rate
+  }
+
+  /** When GraphQL's budget is spent, the time it resets. Until then every query would fail, so we don't send any. */
+  graphqlBlockedUntil(now = Date.now()): number | undefined {
+    const r = this.graphqlRate
+    return r && r.remaining <= 0 && r.reset > now ? r.reset : undefined
   }
 
   /** `accept` can ask for GitHub's rendered, sanitised HTML of markdown bodies (`application/vnd.github.html+json`). */
@@ -78,17 +90,35 @@ export class GitHub {
   }
 
   async graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+    const blocked = this.graphqlBlockedUntil()
+    if (blocked) throw rateLimited(blocked)
     const res = await fetch(API + '/graphql', {
       method: 'POST',
       headers: this.headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ query, variables })
     })
-    if (!res.ok) throw await toError(res)
-    const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
+    this.trackRate(res)
+    if (!res.ok) {
+      const blockedNow = this.graphqlBlockedUntil()
+      throw blockedNow ? rateLimited(blockedNow) : await toError(res)
+    }
+    const json = (await res.json()) as { data?: T; errors?: { message: string; type?: string }[] }
+    // GitHub can answer a spent budget with 200 and a RATE_LIMITED error; hold off until the reset it gave (or a minute).
+    if (json.errors?.some((e) => e.type === 'RATE_LIMITED')) {
+      const reset = this.graphqlRate && this.graphqlRate.reset > Date.now() ? this.graphqlRate.reset : Date.now() + 60_000
+      this.graphqlRate = { limit: this.graphqlRate?.limit ?? 5000, remaining: 0, reset }
+      throw rateLimited(reset)
+    }
     // Partial data is still useful (e.g. one repo of many was renamed), so only fail with no data.
     if (!json.data) throw new GitHubError(json.errors?.map((e) => e.message).join('; ') ?? 'GraphQL error', 200)
     return json.data
   }
+}
+
+/** Status 429 so callers can tell a spent budget from a broken query. */
+export function rateLimited(reset: number): GitHubError {
+  const at = new Date(reset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return new GitHubError(`GitHub's GraphQL limit is used up until ${at}. Pushback carries on by itself then.`, 429)
 }
 
 async function toError(res: Response): Promise<GitHubError> {

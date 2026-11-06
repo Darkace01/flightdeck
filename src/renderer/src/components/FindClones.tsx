@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FoundClone } from '../../../shared/types'
+import { BUSY_REPO_COUNT, FIRST_IMPORT_LIMIT, limitFirstImport, pollSlowdown } from '../../../shared/repos'
 import { api, toast, updateSettings, useSettings } from '../lib/store'
 import { closeModal } from '../lib/ui'
 import { Empty, Modal, Skeleton } from './ui'
-
-// Past this many watched repos, polling every cycle starts to eat into GitHub's rate limit.
-const MANY = 25
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
@@ -43,7 +41,10 @@ export function FindClonesModal() {
   }, [found])
 
   const toggle = (repo: string) => setPicked((p) => (p.has(repo) ? (p.delete(repo), new Set(p)) : new Set(p.add(repo))))
-  const newlyWatched = [...picked].filter((r) => !settings.repos.some((w) => same(w, r)))
+  // The first import watches at most FIRST_IMPORT_LIMIT repos (favourites first); everything picked is still linked.
+  const wanted = [...picked].filter((r) => !settings.repos.some((w) => same(w, r)))
+  const newlyWatched = limitFirstImport(wanted, settings.favoriteRepos, settings.repos.length)
+  const heldBack = wanted.length - newlyWatched.length
   const watchedAfter = settings.repos.length + (watch ? newlyWatched.length : 0)
 
   const lookElsewhere = async () => {
@@ -116,10 +117,15 @@ export function FindClonesModal() {
             <input type="checkbox" checked={watch} onChange={(e) => setWatch(e.target.checked)} />
             Also watch them on the dashboard (runs, PRs and notifications)
           </label>
-          {watch && watchedAfter > MANY && (
+          {watch && heldBack > 0 && (
             <p className="warn-text small">
-              That's {watchedAfter} watched repos. Each is refreshed every cycle, so consider a longer poll interval in Settings → Advanced to stay within
-              GitHub's rate limit.
+              To start, only {FIRST_IMPORT_LIMIT} repos are watched ({heldBack} more will be linked but not watched). Star your favourites in Settings → Repositories
+              to choose which ones, and add more there later.
+            </p>
+          )}
+          {watch && watchedAfter >= BUSY_REPO_COUNT && (
+            <p className="dim small">
+              With {watchedAfter} watched repos, Pushback polls {pollSlowdown(watchedAfter)}x less often to stay within GitHub's rate limit.
             </p>
           )}
           <label className="check">

@@ -54,20 +54,22 @@ export async function listDeployments(gh: GitHub, repo: string): Promise<RepoDep
   const [owner, name] = repo.split('/')
   const data = await gh.graphql<{
     repository: {
-      environments: { nodes: { name: string }[] }
-      deployments: { nodes: Node[] }
-      refs: { nodes: { name: string; target: { oid: string; target?: { oid: string } } }[] }
-    }
+      environments: { nodes: { name: string }[] } | null
+      deployments: { nodes: (Node | null)[] } | null
+      refs: { nodes: ({ name: string; target: { oid: string; target?: { oid: string } } | null } | null)[] } | null
+    } | null
   }>(QUERY, { owner, name })
   const r = data.repository
+  // GraphQL answers a renamed, deleted or inaccessible repo with `repository: null` (and an error alongside).
+  if (!r) throw new Error('Repository not found. It may have been renamed or deleted, or your token can’t see it.')
   // A tag points at a commit directly (lightweight) or through a tag object (annotated).
   const tags = new Map<string, string>()
-  for (const t of r.refs.nodes) {
-    const sha = t.target.target?.oid ?? t.target.oid
-    if (!tags.has(sha)) tags.set(sha, t.name)
+  for (const t of r.refs?.nodes ?? []) {
+    const sha = t?.target?.target?.oid ?? t?.target?.oid
+    if (t && sha && !tags.has(sha)) tags.set(sha, t.name)
   }
-  const deployments = r.deployments.nodes
-    .filter((d) => d.environment)
+  const deployments = (r.deployments?.nodes ?? [])
+    .filter((d): d is Node => !!d?.environment)
     .map((d): Deployment => {
       const status = d.latestStatus
       const finished = status && ['SUCCESS', 'FAILURE', 'ERROR', 'INACTIVE'].includes(status.state) ? status.createdAt : null
@@ -98,6 +100,6 @@ export async function listDeployments(gh: GitHub, repo: string): Promise<RepoDep
     const key = `${d.environment}|${d.runId ?? d.id}`
     return !seen.has(key) && seen.add(key)
   })
-  const environments = [...new Set([...r.environments.nodes.map((e) => e.name), ...unique.map((d) => d.environment)])]
+  const environments = [...new Set([...(r.environments?.nodes ?? []).map((e) => e.name), ...unique.map((d) => d.environment)])]
   return { repo, environments, deployments: unique }
 }

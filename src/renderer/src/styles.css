@@ -77,14 +77,40 @@ code,
 }
 
 /* ---------- top bar ---------- */
+/* The top bar is also the window's title bar (titleBarStyle: 'hidden' in main/index.ts): drag it to move the
+   window, double-click to maximise. Its height matches TITLE_BAR_HEIGHT there. */
 .topbar {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
+  height: 44px;
+  padding: 0 16px;
+  /* Windows and Linux draw the window controls over the right end; the overlay's env() area says how far. */
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 12px);
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   flex-shrink: 0;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+/* macOS keeps its traffic lights at the left end. */
+:root[data-platform='mac'] .topbar {
+  padding-left: 84px;
+}
+.topbar button,
+.topbar a,
+.topbar input,
+.topbar select,
+.topbar .dash-tabs {
+  -webkit-app-region: no-drag;
+}
+/* Drag regions win over anything stacked on top of them, so overlays that can cover the bar opt out. */
+.modal-backdrop,
+.menu-backdrop,
+.menu.popover,
+.tour,
+.toasts {
+  -webkit-app-region: no-drag;
 }
 .brand {
   display: flex;
@@ -3008,4 +3034,10 @@ button.crumb:hover {
 }
 .tour-dots span.on {
   background: var(--accent);
+}
+
+.filter-toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
 }
