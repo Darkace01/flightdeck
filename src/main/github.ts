@@ -1,3 +1,4 @@
+import { graphqlUrl } from '../shared/accounts'
 import type { RateLimit } from '../shared/types'
 
 // PUSHBACK_API_URL points the app at a fake GitHub for the end-to-end tests.
@@ -22,7 +23,11 @@ export class GitHub {
   private cache = new Map<string, Cached>()
   rate?: RateLimit
 
-  constructor(private readonly token: string) {}
+  /** `base` is the REST API root: api.github.com by default, or an Enterprise Server's /api/v3. */
+  constructor(
+    private readonly token: string,
+    private readonly base: string = API
+  ) {}
 
   private headers(extra?: Record<string, string>): Record<string, string> {
     return {
@@ -46,7 +51,7 @@ export class GitHub {
   async get<T>(path: string, accept?: string): Promise<T> {
     const key = accept ? `${accept} ${path}` : path
     const cached = this.cache.get(key)
-    const res = await fetch(API + path, {
+    const res = await fetch(this.base + path, {
       headers: this.headers({ ...(accept && { Accept: accept }), ...(cached && { 'If-None-Match': cached.etag }) })
     })
     this.trackRate(res)
@@ -60,14 +65,14 @@ export class GitHub {
 
   /** GET a plain-text resource (e.g. job logs, which redirect to blob storage, or a README as HTML). */
   async text(path: string, accept?: string): Promise<string> {
-    const res = await fetch(API + path, { headers: this.headers(accept ? { Accept: accept } : undefined) })
+    const res = await fetch(this.base + path, { headers: this.headers(accept ? { Accept: accept } : undefined) })
     this.trackRate(res)
     if (!res.ok) throw await toError(res)
     return res.text()
   }
 
   async send(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<unknown> {
-    const res = await fetch(API + path, {
+    const res = await fetch(this.base + path, {
       method,
       headers: this.headers(body ? { 'Content-Type': 'application/json' } : undefined),
       body: body ? JSON.stringify(body) : undefined
@@ -78,7 +83,7 @@ export class GitHub {
   }
 
   async graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
-    const res = await fetch(API + '/graphql', {
+    const res = await fetch(graphqlUrl(this.base), {
       method: 'POST',
       headers: this.headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ query, variables })

@@ -29,6 +29,9 @@ interface Events {
 export class Poller extends EventEmitter<Events> {
   snapshot: Snapshot
   private gh?: GitHub
+  /** Client for a repo on an extra account (undefined: use the primary). Set by the main process. */
+  private resolve?: (repo: string) => GitHub | undefined
+  private hasExtra = false
   private timer?: NodeJS.Timeout
   private running = false
   private queued = false
@@ -47,12 +50,18 @@ export class Poller extends EventEmitter<Events> {
     return this.gh
   }
 
+  /** Lets repos on extra accounts (GitHub Enterprise Server) be polled with their own client. */
+  setResolver(resolve: (repo: string) => GitHub | undefined, hasExtra: boolean): void {
+    this.resolve = resolve
+    this.hasExtra = hasExtra
+  }
+
   setClient(gh: GitHub | undefined, source?: 'pat' | 'gh'): void {
     this.gh = gh
     this.cycle = 0
     this.snapshot = {
       ...this.snapshot,
-      auth: gh ? 'ok' : 'missing',
+      auth: gh || this.hasExtra ? 'ok' : 'missing',
       authSource: source,
       authError: undefined,
       viewer: undefined,
@@ -90,7 +99,7 @@ export class Poller extends EventEmitter<Events> {
     this.snapshot.polling = true
     this.publish()
     try {
-      if (this.gh) await this.pollAll(this.gh, settings)
+      if (this.gh || this.hasExtra) await this.pollAll(this.gh, settings)
     } catch (err) {
       const status = (err as { status?: number }).status
       if (status === 401) {
@@ -112,24 +121,26 @@ export class Poller extends EventEmitter<Events> {
     }
   }
 
-  private async pollAll(gh: GitHub, settings: Settings): Promise<void> {
+  private async pollAll(primary: GitHub | undefined, settings: Settings): Promise<void> {
     const repos = settings.repos
+    // Each repo is polled with its own account's client; the inbox and rate limit are the primary account's.
+    const clientOf = (repo: string): GitHub => this.resolve?.(repo) ?? primary ?? failNoClient(repo)
     const prev = this.snapshot.repos
     const refreshWorkflows = this.cycle % WORKFLOW_REFRESH_EVERY === 0
 
     // Separate small GraphQL queries per repo: one combined query gets slow enough for GitHub to 502,
     // and this way one broken repo can't blank out the others.
     const [inboxResult, runResults, prResults] = await Promise.all([
-      this.fetchInbox(gh).then(
+      (primary ? this.fetchInbox(primary) : Promise.reject(new Error('no primary account'))).then(
         (v) => ({ status: 'fulfilled' as const, value: v }),
         (e: unknown) => ({ status: 'rejected' as const, reason: e })
       ),
-      Promise.allSettled(repos.map((repo) => this.fetchRuns(gh, repo))),
-      Promise.allSettled(repos.map((repo) => this.fetchPullRequests(gh, repo)))
+      Promise.allSettled(repos.map((repo) => this.fetchRuns(clientOf(repo), repo))),
+      Promise.allSettled(repos.map((repo) => this.fetchPullRequests(clientOf(repo), repo)))
     ])
     const workflowResults = await Promise.allSettled(
       repos.map((repo) =>
-        refreshWorkflows || !prev[repo]?.workflows.length ? this.fetchWorkflows(gh, repo) : Promise.resolve(prev[repo].workflows)
+        refreshWorkflows || !prev[repo]?.workflows.length ? this.fetchWorkflows(clientOf(repo), repo) : Promise.resolve(prev[repo].workflows)
       )
     )
 
@@ -169,7 +180,7 @@ export class Poller extends EventEmitter<Events> {
       }
     })
     this.snapshot.repos = next
-    this.snapshot.rateLimit = gh.rate
+    this.snapshot.rateLimit = primary?.rate
     // Review requests in repos you don't track still deserve a ping.
     if (oldInbox && inboxData) {
       const seen = new Set(oldInbox.reviewRequests.map((i) => i.url))
@@ -182,7 +193,7 @@ export class Poller extends EventEmitter<Events> {
     }
 
     const closed = newEvents.filter((e) => e.kind === 'pr-closed')
-    await Promise.all(closed.map((e) => this.resolveClosed(gh, e)))
+    await Promise.all(closed.map((e) => this.resolveClosed(clientOf(e.repo), e)))
     const events = newEvents.filter((e) => e.kind !== 'pr-closed' || e.title)
     if (events.length) {
       this.snapshot.events = [...events, ...this.snapshot.events].slice(0, MAX_EVENTS)
@@ -319,6 +330,10 @@ export class Poller extends EventEmitter<Events> {
       // leave title empty so it is dropped
     }
   }
+}
+
+function failNoClient(repo: string): never {
+  throw new Error(`No account is signed in for ${repo}`)
 }
 
 function diffRuns(repo: string, old: WorkflowRun[], next: WorkflowRun[]): AppEvent[] {

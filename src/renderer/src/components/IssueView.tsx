@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { openRepo } from '../lib/open'
 import { api, toast } from '../lib/store'
 import { closeModal } from '../lib/ui'
@@ -13,7 +14,7 @@ export function IssueModal({ repo, number }: { repo: string; number: number }) {
   const { data: issue, error, reload } = useLoad(repo, () => api.issueDetail(repo, number), [number])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const url = `https://github.com/${repo}/issues/${number}`
+  const url = webUrl(repo, `/issues/${number}`)
 
   const setState = async (state: 'open' | 'closed', reason?: 'completed' | 'not_planned') => {
     const r = await api.setIssueState(repo, number, state, reason)

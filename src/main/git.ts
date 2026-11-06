@@ -21,24 +21,25 @@ export function git(cwd: string, args: string[], timeout = 120_000): Promise<str
   })
 }
 
-/** Does any remote of the repo at `path` point at github.com/<repo>? */
-export async function remoteMatches(path: string, repo: string): Promise<boolean> {
+/** Does any remote of the repo at `path` point at <host>/<repo>? (`host` is github.com or an Enterprise Server.) */
+export async function remoteMatches(path: string, repo: string, host = 'github.com'): Promise<boolean> {
   const remotes = await git(path, ['remote', '-v'])
   const want = repo.toLowerCase()
+  const at = host.toLowerCase()
   return remotes
     .toLowerCase()
     .split('\n')
-    .some((l) => l.includes(`github.com/${want}`) || l.includes(`github.com:${want}`))
+    .some((l) => l.includes(`${at}/${want}`) || l.includes(`${at}:${want}`))
 }
 
 export async function topLevel(path: string): Promise<string> {
   return (await git(path, ['rev-parse', '--show-toplevel'])).trim()
 }
 
-export async function clone(repo: string, parent: string): Promise<string> {
+export async function clone(repo: string, parent: string, host = 'github.com'): Promise<string> {
   const target = join(parent, repo.split('/')[1])
   if (existsSync(target)) throw new Error(`${target} already exists`)
-  await git(parent, ['clone', `https://github.com/${repo}.git`, target], 30 * 60_000)
+  await git(parent, ['clone', `https://${host}/${repo}.git`, target], 30 * 60_000)
   return target
 }
 

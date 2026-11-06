@@ -22,6 +22,7 @@ export default defineConfig({
         'src/main/security.ts',
         'src/shared/security.ts',
         'src/shared/cihealth.ts',
+        'src/shared/accounts.ts',
         'src/shared/cleanup.ts',
         'src/main/cleanup.ts',
         'src/shared/mergeStatus.ts',

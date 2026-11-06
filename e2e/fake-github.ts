@@ -36,6 +36,7 @@ export const RUNS: Record<string, object[]> = {
     run('acme/api', 102, { workflow_id: 2, name: 'Deploy', display_title: 'Deploy', event: 'workflow_dispatch', created_at: ago(20), run_started_at: ago(20), updated_at: ago(18) }),
     run('acme/api', 103, { conclusion: 'failure', event: 'pull_request', head_branch: 'feat/login', display_title: 'Add login page', created_at: ago(10), run_started_at: ago(10), updated_at: ago(9) })
   ],
+  'corp/tools': [run('corp/tools', 501, { name: 'Enterprise CI', display_title: 'Ship it', html_url: 'https://ghe.test/corp/tools/actions/runs/501' })],
   'acme/web': [run('acme/web', 201, { status: 'in_progress', conclusion: null, display_title: 'Build site', created_at: ago(2), run_started_at: ago(2), updated_at: ago(1) })]
 }
 
@@ -69,6 +70,7 @@ const pr = (number: number, over: object) => ({
 
 const PRS: Record<string, object[]> = {
   'acme/api': [pr(7, {}), pr(8, { title: 'WIP: tidy config', isDraft: true, author: { login: 'octo', avatarUrl: '' }, headRefName: 'chore/tidy', labels: { nodes: [] }, reviewRequests: { nodes: [] } })],
+  'corp/tools': [pr(21, { title: 'Enterprise PR', url: 'https://ghe.test/corp/tools/pull/21', headRefName: 'feat/ent' })],
   'acme/web': [pr(9, { title: 'Bump lodash from 4.17.20 to 4.17.21', url: 'https://github.com/acme/web/pull/9', headRefName: 'dependabot/npm_and_yarn/lodash', author: { login: 'dependabot', avatarUrl: '' }, labels: { nodes: [] }, reviewRequests: { nodes: [] } })]
 }
 
@@ -211,10 +213,10 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
   return { repository: null }
 }
 
-function rest(path: string, rich: boolean): unknown {
+function rest(path: string, rich: boolean, enterprise = false): unknown {
   const [p] = path.split('?')
   let m: RegExpMatchArray | null
-  if (p === '/user') return { login: 'octo', avatar_url: '' }
+  if (p === '/user') return { login: enterprise ? 'octo-ent' : 'octo', avatar_url: '' }
   if (p === '/user/repos') return path.includes('page=1') ? [{ full_name: 'acme/api', description: 'The API', private: true, pushed_at: ago(5) }, { full_name: 'acme/web', description: 'The website', private: false, pushed_at: ago(60) }] : []
   // Security alerts: acme/api has some, secret scanning is off there; acme/web has the features switched off.
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/(dependabot|code-scanning|secret-scanning)\/alerts$/))) {
@@ -311,6 +313,8 @@ function rest(path: string, rich: boolean): unknown {
 export interface FakeGitHub {
   url: string
   requests: { method: string; path: string }[]
+  /** Every distinct Authorization token the server was called with. */
+  tokens: Set<string>
   /** Requests that would change something on GitHub (anything but reads and GraphQL queries). */
   writes: () => { method: string; path: string }[]
   close: () => Promise<void>
@@ -323,15 +327,22 @@ const body = (req: IncomingMessage) =>
     req.on('end', () => resolve(data))
   })
 
-/** `rich` adds more repos and history, for screenshots. */
-export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<FakeGitHub> {
+/**
+ * `rich` adds more repos and history, for screenshots. `enterprise` makes it a GitHub Enterprise Server: the API lives under
+ * /api/v3 (GraphQL at /api/graphql) and only the token `ghes-token` is accepted.
+ */
+export async function startFakeGitHub(opts: { rich?: boolean; enterprise?: boolean } = {}): Promise<FakeGitHub> {
   const rich = !!opts.rich
+  const enterprise = !!opts.enterprise
   const requests: { method: string; path: string }[] = []
+  const tokens = new Set<string>()
   const server: Server = createServer(async (req, res) => {
-    const path = req.url ?? '/'
+    let path = req.url ?? '/'
+    if (enterprise) path = path.replace(/^\/api\/graphql/, '/graphql').replace(/^\/api\/v3/, '')
+    tokens.add((req.headers.authorization ?? '').replace(/^(Bearer|token) /, ''))
     requests.push({ method: req.method ?? 'GET', path })
     const headers = { 'Content-Type': 'application/json', 'x-ratelimit-resource': 'core', 'x-ratelimit-limit': '5000', 'x-ratelimit-remaining': '4999', 'x-ratelimit-reset': String(Math.floor(now / 1000) + 3600) }
-    if (!/^Bearer |^token /.test(req.headers.authorization ?? '')) {
+    if (!/^Bearer |^token /.test(req.headers.authorization ?? '') || (enterprise && req.headers.authorization !== 'Bearer ghes-token')) {
       res.writeHead(401, headers).end(JSON.stringify({ message: 'Bad credentials' }))
       return
     }
@@ -343,7 +354,7 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
     // Writes (cleanup) are accepted and recorded; tests assert on exactly which ones happened.
     if (req.method === 'DELETE') return void res.writeHead(204, headers).end()
     if (req.method === 'PATCH') return void res.writeHead(200, headers).end('{}')
-    const data = req.method === 'GET' ? rest(path, rich) : undefined
+    const data = req.method === 'GET' ? rest(path, rich, enterprise) : undefined
     if (data && typeof data === 'object' && 'status' in data && 'body' in data) res.writeHead(data.status as number, headers).end(JSON.stringify(data.body))
     else if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
     else if (typeof data === 'string') res.writeHead(200, { ...headers, 'Content-Type': 'text/html' }).end(data)
@@ -354,6 +365,7 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
+    tokens,
     writes: () => requests.filter((r) => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/graphql')),
     close: () => new Promise((resolve) => server.close(() => resolve()))
   }

@@ -14,7 +14,7 @@ const api: PushbackApi = {
   saveSettings: (patch) => ipcRenderer.invoke('settings:save', patch),
   setToken: (token) => ipcRenderer.invoke('auth:set', token),
   refresh: () => ipcRenderer.invoke('poll:now'),
-  listMyRepos: () => ipcRenderer.invoke('repos:mine'),
+  listMyRepos: (accountId) => ipcRenderer.invoke('repos:mine', accountId),
   dispatch: (repo, workflowId, ref, inputs) => ipcRenderer.invoke('wf:dispatch', repo, workflowId, ref, inputs),
   rerun: (repo, runId, failedOnly) => ipcRenderer.invoke('run:rerun', repo, runId, failedOnly),
   cancel: (repo, runId) => ipcRenderer.invoke('run:cancel', repo, runId),
@@ -62,6 +62,11 @@ const api: PushbackApi = {
   listEditors: () => ipcRenderer.invoke('editors:list'),
   scanClones: (pick) => ipcRenderer.invoke('git:scan', pick),
   linkScanned: (repos) => ipcRenderer.invoke('git:link-scanned', repos),
+  // --- accounts ---
+  listAccounts: () => ipcRenderer.invoke('accounts:list'),
+  addAccount: (account) => ipcRenderer.invoke('accounts:add', account),
+  removeAccount: (id) => ipcRenderer.invoke('accounts:remove', id),
+  setRepoAccount: (repo, accountId) => ipcRenderer.invoke('accounts:assign', repo, accountId),
   // --- stale cleanup ---
   listOpenPrs: (repo) => ipcRenderer.invoke('cleanup:prs', repo),
   cleanup: (repo, req) => ipcRenderer.invoke('cleanup:apply', repo, req),

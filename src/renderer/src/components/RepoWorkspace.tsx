@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import type { RepoInfo, WidgetType } from '../../../shared/types'
 import { timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { setRepoSection, useRepoSection } from '../lib/tabs'
 import { pushModal } from '../lib/ui'
@@ -187,7 +188,7 @@ export function RepoWorkspace({ repo, page }: { repo: string; page?: ReactNode }
             <button className="btn btn-sm" onClick={() => void navigator.clipboard.writeText(`gh repo clone ${repo}`).then(() => toast('Clone command copied', 'ok'))}>
               Copy clone command
             </button>
-            <button className="btn btn-sm" onClick={() => void api.openExternal(`https://github.com/${repo}`)}>
+            <button className="btn btn-sm" onClick={() => void api.openExternal(webUrl(repo))}>
               Open in browser
             </button>
           </div>

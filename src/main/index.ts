@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, CleanupRequest, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
+import type { AccountInfo, ActionResult, AppEvent, CleanupRequest, NewAccount, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
@@ -12,6 +12,8 @@ import { findClones } from './scan'
 import { listDeployments } from './deployments'
 import { listSecurity } from './security'
 import { fetchMergeStatus } from './mergeStatus'
+import { AccountClients, hasAccountToken, saveAccountToken } from './accounts'
+import { accountOf, apiUrlFor, hostOf, normalizeHost, GITHUB_HOST } from '../shared/accounts'
 import { applyCleanup, listOpenPrs } from './cleanup'
 import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
@@ -88,7 +90,19 @@ poller.on('events', (events) => {
   notify(events)
 })
 
+/** Forget account mappings for repos that are neither tracked nor open as a tab. */
+function pruneRepoAccounts(): void {
+  const used = new Set([...settings.repos, ...settings.openTabs, ...settings.pinnedTabs])
+  const kept = Object.entries(settings.repoAccounts).filter(([repo]) => used.has(repo))
+  if (kept.length !== Object.keys(settings.repoAccounts).length) settings = { ...settings, repoAccounts: Object.fromEntries(kept) }
+}
+
+function failSignedOut(account: { name: string; host: string }): never {
+  throw new Error(`Not signed in to ${account.name} (${account.host})`)
+}
+
 async function connect(): Promise<void> {
+  wireAccounts()
   const auth = await resolveToken()
   poller.setClient(auth ? new GitHub(auth.token) : undefined, auth?.source)
   poller.pollSoon()
@@ -248,13 +262,38 @@ function requireClient(): GitHub {
   return poller.client
 }
 
+const accountClients = new AccountClients()
+
+/** The client for a repo: its extra account's (GitHub Enterprise Server), or the primary login's. */
+function clientFor(repo: string): GitHub {
+  const account = accountOf(repo, settings.repoAccounts, settings.accounts)
+  if (!account) return requireClient()
+  const client = accountClients.get(account)
+  if (!client) throw new Error(`Not signed in to ${account.name} (${account.host})`)
+  return client
+}
+
+const hostFor = (repo: string): string => hostOf(repo, settings.repoAccounts, settings.accounts)
+
+/** Points the poller at each repo's own account. Called whenever accounts or tokens change. */
+function wireAccounts(): void {
+  poller.setResolver(
+    (repo) => {
+      const account = accountOf(repo, settings.repoAccounts, settings.accounts)
+      return account ? accountClients.get(account) : undefined
+    },
+    settings.accounts.some((a) => hasAccountToken(a.id))
+  )
+}
+
 function registerIpc(): void {
   ipcMain.handle('state:get', () => ({ snapshot: poller.snapshot, settings }))
-  ipcMain.handle('settings:save', (_e, { localPaths: _ignored, ...patch }: Partial<Settings>) => {
+  ipcMain.handle('settings:save', (_e, { localPaths: _ignored, accounts: _accounts, repoAccounts: _repoAccounts, ...patch }: Partial<Settings>) => {
     // localPaths decide where git commands run, so only the link/clone dialogs may set them.
     const reposChanged = patch.repos && patch.repos.join() !== settings.repos.join()
     const intervalChanged = patch.pollSeconds !== undefined || patch.activePollSeconds !== undefined
     settings = { ...settings, ...patch, notify: { ...settings.notify, ...patch.notify } }
+    pruneRepoAccounts()
     saveSettings(settings)
     if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) win?.setBackgroundColor(windowBackground())
     if (reposChanged || intervalChanged) poller.pollSoon()
@@ -274,8 +313,9 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle('poll:now', () => poller.pollSoon())
-  ipcMain.handle('repos:mine', async (): Promise<RepoOption[]> => {
-    const gh = requireClient()
+  ipcMain.handle('repos:mine', async (_e, accountId?: string): Promise<RepoOption[]> => {
+    const account = settings.accounts.find((a) => a.id === accountId)
+    const gh = account ? (accountClients.get(account) ?? failSignedOut(account)) : requireClient()
     type GhRepo = { full_name: string; description: string | null; private: boolean; pushed_at: string }
     // Up to 500 repos, most recently pushed first; a short page means we've reached the end.
     const repos: GhRepo[] = []
@@ -287,16 +327,16 @@ function registerIpc(): void {
     return repos.map((r) => ({ fullName: r.full_name, description: r.description, private: r.private, pushedAt: r.pushed_at }))
   })
   ipcMain.handle('wf:dispatch', (_e, repo: string, id: number, ref: string, inputs: Record<string, string>) =>
-    run(() => requireClient().send('POST', `/repos/${repo}/actions/workflows/${id}/dispatches`, { ref, inputs }))
+    run(() => clientFor(repo).send('POST', `/repos/${repo}/actions/workflows/${id}/dispatches`, { ref, inputs }))
   )
   ipcMain.handle('run:rerun', (_e, repo: string, id: number, failedOnly: boolean) =>
-    run(() => requireClient().send('POST', `/repos/${repo}/actions/runs/${id}/${failedOnly ? 'rerun-failed-jobs' : 'rerun'}`))
+    run(() => clientFor(repo).send('POST', `/repos/${repo}/actions/runs/${id}/${failedOnly ? 'rerun-failed-jobs' : 'rerun'}`))
   )
   ipcMain.handle('run:cancel', (_e, repo: string, id: number) =>
-    run(() => requireClient().send('POST', `/repos/${repo}/actions/runs/${id}/cancel`))
+    run(() => clientFor(repo).send('POST', `/repos/${repo}/actions/runs/${id}/cancel`))
   )
   ipcMain.handle('run:jobs', async (_e, repo: string, id: number): Promise<Job[]> => {
-    const data = await requireClient().get<{ jobs: GhJob[] }>(`/repos/${repo}/actions/runs/${id}/jobs?per_page=100`)
+    const data = await clientFor(repo).get<{ jobs: GhJob[] }>(`/repos/${repo}/actions/runs/${id}/jobs?per_page=100`)
     return data.jobs.map((j) => ({
       id: j.id,
       name: j.name,
@@ -316,15 +356,15 @@ function registerIpc(): void {
     }))
   })
   ipcMain.handle('job:log', async (_e, repo: string, jobId: number): Promise<string> => {
-    const log = await requireClient().text(`/repos/${repo}/actions/jobs/${jobId}/logs`)
+    const log = await clientFor(repo).text(`/repos/${repo}/actions/jobs/${jobId}/logs`)
     // Keep the tail: that's where failures are, and full logs can be many MB.
     return log.split(/\r?\n/).slice(-400).join('\n')
   })
   ipcMain.handle('pr:approve', (_e, repo: string, num: number) =>
-    run(() => requireClient().send('POST', `/repos/${repo}/pulls/${num}/reviews`, { event: 'APPROVE' }), false)
+    run(() => clientFor(repo).send('POST', `/repos/${repo}/pulls/${num}/reviews`, { event: 'APPROVE' }), false)
   )
   ipcMain.handle('pr:merge', (_e, repo: string, num: number, method: 'merge' | 'squash' | 'rebase') =>
-    run(() => requireClient().send('PUT', `/repos/${repo}/pulls/${num}/merge`, { merge_method: method }), false)
+    run(() => clientFor(repo).send('PUT', `/repos/${repo}/pulls/${num}/merge`, { merge_method: method }), false)
   )
   ipcMain.handle('settings:export', () => JSON.stringify(settings, null, 2))
   ipcMain.handle('settings:import', (_e, json: string): ActionResult => {
@@ -332,7 +372,7 @@ function registerIpc(): void {
       const parsed = JSON.parse(json) as Partial<Settings>
       if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Pushback settings file')
       // Imported settings may come from another machine; keep this machine's linked clones.
-      settings = { ...normalizeSettings(parsed), localPaths: settings.localPaths }
+      settings = { ...normalizeSettings(parsed), localPaths: settings.localPaths, accounts: settings.accounts, repoAccounts: settings.repoAccounts }
       saveSettings(settings)
       send('settings', settings)
       poller.pollSoon()
@@ -357,35 +397,35 @@ function registerIpc(): void {
     send('snapshot', poller.snapshot)
     updateTray()
   })
-  ipcMain.handle('pr:detail', (_e, repo: string, num: number) => fetchPrDetail(requireClient(), repo, num))
+  ipcMain.handle('pr:detail', (_e, repo: string, num: number) => fetchPrDetail(clientFor(repo), repo, num))
   ipcMain.handle('pr:comment', (_e, repo: string, num: number, body: string) =>
-    run(() => requireClient().send('POST', `/repos/${repo}/issues/${num}/comments`, { body }), false)
+    run(() => clientFor(repo).send('POST', `/repos/${repo}/issues/${num}/comments`, { body }), false)
   )
-  ipcMain.handle('repo:info', (_e, repo: string) => fetchRepoInfo(requireClient(), repo))
-  ipcMain.handle('issues:list', (_e, repo: string, state: 'open' | 'closed') => tools.listIssues(requireClient(), repo, state))
-  ipcMain.handle('issue:detail', (_e, repo: string, num: number) => tools.issueDetail(requireClient(), repo, num))
+  ipcMain.handle('repo:info', (_e, repo: string) => fetchRepoInfo(clientFor(repo), repo))
+  ipcMain.handle('issues:list', (_e, repo: string, state: 'open' | 'closed') => tools.listIssues(clientFor(repo), repo, state))
+  ipcMain.handle('issue:detail', (_e, repo: string, num: number) => tools.issueDetail(clientFor(repo), repo, num))
   ipcMain.handle('issue:create', (_e, repo: string, issue: { title: string; body: string; labels: string[] }) =>
-    create(() => tools.createIssue(requireClient(), repo, issue))
+    create(() => tools.createIssue(clientFor(repo), repo, issue))
   )
   ipcMain.handle('issue:state', (_e, repo: string, num: number, state: 'open' | 'closed', reason?: string) =>
-    run(() => requireClient().send('PATCH', `/repos/${repo}/issues/${num}`, { state, ...(reason && { state_reason: reason }) }), false)
+    run(() => clientFor(repo).send('PATCH', `/repos/${repo}/issues/${num}`, { state, ...(reason && { state_reason: reason }) }), false)
   )
-  ipcMain.handle('labels:list', (_e, repo: string) => tools.listLabels(requireClient(), repo))
-  ipcMain.handle('branches:list', (_e, repo: string, defaultBranch: string) => tools.listBranches(requireClient(), repo, defaultBranch))
-  ipcMain.handle('branch:create', (_e, repo: string, name: string, from: string) => create(() => tools.createBranch(requireClient(), repo, name, from)))
+  ipcMain.handle('labels:list', (_e, repo: string) => tools.listLabels(clientFor(repo), repo))
+  ipcMain.handle('branches:list', (_e, repo: string, defaultBranch: string) => tools.listBranches(clientFor(repo), repo, defaultBranch))
+  ipcMain.handle('branch:create', (_e, repo: string, name: string, from: string) => create(() => tools.createBranch(clientFor(repo), repo, name, from)))
   ipcMain.handle('branch:delete', (_e, repo: string, name: string) =>
-    run(() => requireClient().send('DELETE', `/repos/${repo}/git/refs/heads/${tools.refPath(name)}`), false)
+    run(() => clientFor(repo).send('DELETE', `/repos/${repo}/git/refs/heads/${tools.refPath(name)}`), false)
   )
-  ipcMain.handle('commits:list', (_e, repo: string, ref?: string) => tools.listCommits(requireClient(), repo, ref))
-  ipcMain.handle('releases:list', (_e, repo: string) => tools.listReleases(requireClient(), repo))
-  ipcMain.handle('release:create', (_e, repo: string, release: NewRelease) => create(() => tools.createRelease(requireClient(), repo, release)))
-  ipcMain.handle('pr:create', (_e, repo: string, pr: NewPr) => create(() => tools.createPr(requireClient(), repo, pr)))
+  ipcMain.handle('commits:list', (_e, repo: string, ref?: string) => tools.listCommits(clientFor(repo), repo, ref))
+  ipcMain.handle('releases:list', (_e, repo: string) => tools.listReleases(clientFor(repo), repo))
+  ipcMain.handle('release:create', (_e, repo: string, release: NewRelease) => create(() => tools.createRelease(clientFor(repo), repo, release)))
+  ipcMain.handle('pr:create', (_e, repo: string, pr: NewPr) => create(() => tools.createPr(clientFor(repo), repo, pr)))
   ipcMain.handle('git:link', async (_e, repo: string): Promise<ActionResult> => {
     const pick = await dialog.showOpenDialog(win!, { title: `Choose your local clone of ${repo}`, properties: ['openDirectory'] })
     if (pick.canceled || !pick.filePaths[0]) return { ok: false }
     try {
       const root = await git.topLevel(pick.filePaths[0])
-      if (!(await git.remoteMatches(root, repo))) return { ok: false, error: `None of the remotes in ${root} point at github.com/${repo}` }
+      if (!(await git.remoteMatches(root, repo, hostFor(repo)))) return { ok: false, error: `None of the remotes in ${root} point at ${hostFor(repo)}/${repo}` }
       setLocalPath(repo, root)
       return { ok: true }
     } catch {
@@ -396,7 +436,7 @@ function registerIpc(): void {
     const pick = await dialog.showOpenDialog(win!, { title: `Clone ${repo} into…`, properties: ['openDirectory', 'createDirectory'] })
     if (pick.canceled || !pick.filePaths[0]) return { ok: false }
     try {
-      setLocalPath(repo, await git.clone(repo, pick.filePaths[0]))
+      setLocalPath(repo, await git.clone(repo, pick.filePaths[0], hostFor(repo)))
       return { ok: true }
     } catch (err) {
       return { ok: false, error: (err as Error).message }
@@ -446,8 +486,8 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
-  ipcMain.handle('deployments:list', (_e, repo: string) => listDeployments(requireClient(), repo))
-  ipcMain.handle('branches:graph', (_e, repo: string, branches: string[]) => tools.branchGraph(requireClient(), repo, branches))
+  ipcMain.handle('deployments:list', (_e, repo: string) => listDeployments(clientFor(repo), repo))
+  ipcMain.handle('branches:graph', (_e, repo: string, branches: string[]) => tools.branchGraph(clientFor(repo), repo, branches))
   ipcMain.handle('git:open', async (_e, repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult> => {
     try {
       const path = localPath(repo)
@@ -461,17 +501,96 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
+  // --- accounts ---
+  ipcMain.handle('accounts:list', async (): Promise<AccountInfo[]> => {
+    const primary: AccountInfo = {
+      id: 'primary',
+      name: 'GitHub',
+      host: GITHUB_HOST,
+      apiUrl: apiUrlFor(GITHUB_HOST),
+      primary: true,
+      login: poller.snapshot.viewer?.login,
+      status: poller.client ? 'ok' : 'missing'
+    }
+    const extra = await Promise.all(
+      settings.accounts.map(async (a): Promise<AccountInfo> => {
+        const client = accountClients.get(a)
+        if (!client) return { ...a, primary: false, status: 'missing', error: 'No token saved' }
+        try {
+          return { ...a, primary: false, status: 'ok', login: (await client.get<{ login: string }>('/user')).login }
+        } catch (err) {
+          return { ...a, primary: false, status: 'error', error: (err as Error).message }
+        }
+      })
+    )
+    return [primary, ...extra]
+  })
+  ipcMain.handle('accounts:add', async (_e, input: NewAccount): Promise<ActionResult & { id?: string }> => {
+    try {
+      const host = normalizeHost(input.host)
+      if (!host) throw new Error('Enter the host name, such as ghe.example.com (https only)')
+      if (host === GITHUB_HOST) throw new Error('github.com is the primary account. Sign in with a token above instead.')
+      if (settings.accounts.some((a) => a.host === host)) throw new Error(`There is already an account for ${host}`)
+      const name = input.name.trim() || host
+      const token = input.token.trim()
+      if (!token) throw new Error('Paste a personal access token for that host')
+      // End-to-end tests point every Enterprise host at a fake server.
+      const apiUrl = process.env.PUSHBACK_GHES_API_URL || apiUrlFor(host)
+      await AccountClients.probe(token, apiUrl).get('/user') // validate before saving
+      const id = `acct-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+      saveAccountToken(id, token)
+      settings = { ...settings, accounts: [...settings.accounts, { id, name, host, apiUrl }] }
+      saveSettings(settings)
+      send('settings', settings)
+      wireAccounts()
+      void connect()
+      return { ok: true, id }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('accounts:remove', (_e, id: string): ActionResult => {
+    const account = settings.accounts.find((a) => a.id === id)
+    if (!account) return { ok: false, error: 'No such account' }
+    try {
+      saveAccountToken(id, null)
+      accountClients.forget(id)
+      settings = {
+        ...settings,
+        accounts: settings.accounts.filter((a) => a.id !== id),
+        repoAccounts: Object.fromEntries(Object.entries(settings.repoAccounts).filter(([, a]) => a !== id))
+      }
+      saveSettings(settings)
+      send('settings', settings)
+      wireAccounts()
+      void connect()
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('accounts:assign', (_e, repo: string, accountId: string | null): ActionResult => {
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return { ok: false, error: 'Not a repository name' }
+    if (accountId && !settings.accounts.some((a) => a.id === accountId)) return { ok: false, error: 'No such account' }
+    const repoAccounts = { ...settings.repoAccounts }
+    if (accountId) repoAccounts[repo] = accountId
+    else delete repoAccounts[repo]
+    settings = { ...settings, repoAccounts }
+    saveSettings(settings)
+    send('settings', settings)
+    return { ok: true }
+  })
   // --- stale cleanup ---
-  ipcMain.handle('cleanup:prs', (_e, repo: string) => listOpenPrs(requireClient(), repo))
+  ipcMain.handle('cleanup:prs', (_e, repo: string) => listOpenPrs(clientFor(repo), repo))
   ipcMain.handle('cleanup:apply', async (_e, repo: string, req: CleanupRequest) => {
-    const result = await applyCleanup(requireClient(), repo, req)
+    const result = await applyCleanup(clientFor(repo), repo, req)
     poller.pollSoon()
     return result
   })
   // --- merge status ---
-  ipcMain.handle('pr:merge-status', (_e, repo: string, num: number) => fetchMergeStatus(requireClient(), repo, num))
+  ipcMain.handle('pr:merge-status', (_e, repo: string, num: number) => fetchMergeStatus(clientFor(repo), repo, num))
   // --- security alerts ---
-  ipcMain.handle('security:list', (_e, repo: string) => listSecurity(requireClient(), repo))
+  ipcMain.handle('security:list', (_e, repo: string) => listSecurity(clientFor(repo), repo))
   ipcMain.handle('editors:list', () => listEditors())
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())

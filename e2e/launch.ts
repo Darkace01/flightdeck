@@ -17,7 +17,7 @@ export interface Ctx {
   errors: string[]
 }
 
-export async function launch(opts: { token?: boolean; settings?: object; profile?: string; gh?: FakeGitHub; rich?: boolean } = {}): Promise<Ctx> {
+export async function launch(opts: { token?: boolean; settings?: object; profile?: string; gh?: FakeGitHub; rich?: boolean; env?: Record<string, string> } = {}): Promise<Ctx> {
   const gh = opts.gh ?? (await startFakeGitHub({ rich: opts.rich }))
   const profile = opts.profile ?? mkdtempSync(join(tmpdir(), 'pushback-e2e-'))
   if (opts.settings) writeFileSync(join(profile, 'settings.json'), JSON.stringify(opts.settings))
@@ -27,6 +27,7 @@ export async function launch(opts: { token?: boolean; settings?: object; profile
       ...process.env,
       PUSHBACK_API_URL: gh.url,
       PUSHBACK_USER_DATA: profile,
+      ...opts.env,
       ...(opts.token === false ? { PUSHBACK_TOKEN: '' } : { PUSHBACK_TOKEN: 'test-token' })
     }
   })

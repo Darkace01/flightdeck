@@ -186,6 +186,10 @@ export interface Settings {
   editorCommand: string
   /** Look for new clones in the home folder at startup and link them (watching is still up to the user). */
   autoLinkClones: boolean
+  /** Accounts besides the primary github.com login: GitHub Enterprise Server hosts, with their tokens kept in the main process. */
+  accounts: Account[]
+  /** Which extra account a repo belongs to, by full name. A repo that isn't listed uses the primary account. */
+  repoAccounts: Record<string, string>
 }
 
 export interface InboxItem {
@@ -675,7 +679,8 @@ export interface PushbackApi {
   saveSettings(patch: Partial<Settings>): Promise<Settings>
   setToken(token: string | null): Promise<ActionResult>
   refresh(): Promise<void>
-  listMyRepos(): Promise<RepoOption[]>
+  /** The repos you can access on the primary account, or on an extra one (`accountId`). */
+  listMyRepos(accountId?: string): Promise<RepoOption[]>
   dispatch(repo: string, workflowId: number, ref: string, inputs: Record<string, string>): Promise<ActionResult>
   rerun(repo: string, runId: number, failedOnly: boolean): Promise<ActionResult>
   cancel(repo: string, runId: number): Promise<ActionResult>
@@ -735,6 +740,14 @@ export interface PushbackApi {
   linkScanned(repos: string[]): Promise<number>
   /** Editors and IDEs installed on this machine, for the default-editor setting. */
   listEditors(): Promise<EditorOption[]>
+  // --- accounts ---
+  /** The primary login plus every extra account, each with its sign-in state. Never includes a token. */
+  listAccounts(): Promise<AccountInfo[]>
+  /** Checks the token against the host, then stores it encrypted in the main process. */
+  addAccount(account: NewAccount): Promise<ActionResult & { id?: string }>
+  removeAccount(id: string): Promise<ActionResult>
+  /** Makes a repo use an extra account (null: the primary one). Call before tracking the repo. */
+  setRepoAccount(repo: string, accountId: string | null): Promise<ActionResult>
   // --- stale cleanup ---
   /** Open PRs of a repo, least recently updated first (for finding old ones). */
   listOpenPrs(repo: string): Promise<StalePr[]>
@@ -798,4 +811,30 @@ export interface CleanupResult {
   /** What was deleted or closed, as "branch x" / "PR #n". */
   done: string[]
   failed: { item: string; error: string }[]
+}
+
+// --- accounts ---
+
+/** An extra account. The token is stored by the main process under `id` and is never part of this. */
+export interface Account {
+  id: string
+  name: string
+  /** Web host, e.g. ghe.example.com. */
+  host: string
+  /** REST API root, e.g. https://ghe.example.com/api/v3. */
+  apiUrl: string
+}
+
+export interface AccountInfo extends Account {
+  /** The github.com login (PAT or gh CLI); it can't be removed here. */
+  primary: boolean
+  login?: string
+  status: 'ok' | 'error' | 'missing'
+  error?: string
+}
+
+export interface NewAccount {
+  name: string
+  host: string
+  token: string
 }

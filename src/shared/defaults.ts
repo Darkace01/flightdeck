@@ -72,7 +72,9 @@ export const DEFAULT_SETTINGS: Settings = {
   tourDone: false,
   localPaths: {},
   editorCommand: 'code',
-  autoLinkClones: false
+  autoLinkClones: false,
+  accounts: [],
+  repoAccounts: {}
 }
 
 /**

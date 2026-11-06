@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import type { BlameLine, CommitFile, GitAction, GitAnswer, GitQuery, GraphCommit } from '../../../shared/types'
 import { matches, timeAgo, useNow } from '../lib/format'
+import { webUrl } from '../lib/hosts'
 import { api, toast } from '../lib/store'
 import { invalidate, useLoad } from '../lib/useLoad'
 import { CommitGraph, DiffView, RefChips } from './CommitGraph'
@@ -109,7 +110,7 @@ function CommitPanel({ repo, sha, file, onPick }: { repo: string; sha: string; f
           <option value="mixed">Mixed (keep changes unstaged)</option>
           <option value="hard">Hard (discard changes)</option>
         </select>
-        <IconButton icon="external" title="Open on GitHub" onClick={() => void api.openExternal(`https://github.com/${repo}/commit/${c.sha}`)} />
+        <IconButton icon="external" title="Open on GitHub" onClick={() => void api.openExternal(webUrl(repo, `/commit/${c.sha}`))} />
       </div>
       {form && (
         <form

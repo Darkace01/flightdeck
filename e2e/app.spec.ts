@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { startFakeGitHub } from './fake-github'
 import { close, launch, savedSettings, type Ctx } from './launch'
 
 // Drives the built app (out/) against the fake GitHub: every test gets a fresh profile and server, and checks
@@ -251,4 +254,55 @@ test('stale cleanup lists merged and stale branches and old PRs, and only acts a
   ])
   // The expected writes are checked; empty the log so the after-each "no writes" check applies to the rest.
   ctx.gh.requests.length = 0
+})
+
+test('a GitHub Enterprise Server account polls its own repos with its own token', async () => {
+  const ghes = await startFakeGitHub({ enterprise: true })
+  ctx = await launch({ settings: WATCHING, env: { PUSHBACK_GHES_API_URL: `${ghes.url}/api/v3` } })
+  const { page } = ctx
+  try {
+    await page.getByTitle(/Settings/).click()
+    await page.getByRole('tab', { name: 'Account', exact: true }).click()
+    const other = page.getByRole('region', { name: 'Other accounts' })
+    await other.getByLabel('Account name').fill('Corp')
+    await other.getByLabel('Host').fill('https://ghe.test/')
+    await other.getByLabel('Token').fill('ghes-token')
+    await other.getByRole('button', { name: 'Add account' }).click()
+    await expect(other.getByText('Signed in as octo-ent')).toBeVisible()
+    await expect(other.getByText('ghe.test')).toBeVisible()
+
+    // Track a repo by its Enterprise URL: it is routed to the Corp account and polled on the Enterprise server.
+    await page.getByRole('tab', { name: 'Repositories' }).click()
+    await page.getByPlaceholder('owner/name or GitHub URL').fill('https://ghe.test/corp/tools')
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect(page.locator('.repo-list li', { hasText: 'corp/tools' })).toContainText('Corp')
+    await page.keyboard.press('Escape')
+    const runs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Workflow runs' }) })
+    await expect(runs.getByText('Ship it')).toBeVisible()
+    await expect(runs.getByText('Build site')).toBeVisible() // the github.com repos still update
+
+    // Each server only ever saw its own account's token, and its own repos.
+    expect([...ghes.tokens]).toEqual(['ghes-token'])
+    expect([...ctx.gh.tokens]).toEqual(['test-token'])
+    expect(ctx.gh.requests.some((r) => r.path.includes('corp/tools'))).toBe(false)
+    expect(ghes.requests.some((r) => r.path.includes('acme/'))).toBe(false)
+
+    // The account is saved without its token, and the window never receives it.
+    const saved = readFileSync(join(ctx.profile, 'settings.json'), 'utf8')
+    expect(saved).not.toContain('ghes-token')
+    expect(savedSettings(ctx).accounts).toMatchObject([{ name: 'Corp', host: 'ghe.test' }])
+    expect(savedSettings(ctx).repoAccounts['corp/tools']).toBe(savedSettings(ctx).accounts[0].id)
+    const exposed = await page.evaluate(async () => JSON.stringify([await window.pushback.getState(), await window.pushback.listAccounts()]))
+    expect(exposed).not.toContain('ghes-token')
+
+    // Removing the account forgets its token and its repo routing.
+    await page.getByTitle(/Settings/).click()
+    await page.getByRole('tab', { name: 'Account', exact: true }).click()
+    page.once('dialog', (d) => void d.accept())
+    await page.getByRole('region', { name: 'Other accounts' }).getByRole('button', { name: 'Remove' }).click()
+    await expect.poll(() => savedSettings(ctx).accounts).toEqual([])
+    expect(savedSettings(ctx).repoAccounts).toEqual({})
+  } finally {
+    await ghes.close()
+  }
 })
