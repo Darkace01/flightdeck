@@ -33,6 +33,10 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $version"
             exit 1
           fi
+          if [ ! -s "release-notes/$GITHUB_REF_NAME.md" ]; then
+            echo "::error::Write release-notes/$GITHUB_REF_NAME.md describing what's new before tagging"
+            exit 1
+          fi
 
       - run: npm ci
       - run: npm run typecheck
@@ -60,6 +64,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: release-notes
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -68,6 +76,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          # The hand-written notes for this version, followed by GitHub's changelog link.
+          body_path: release-notes/${{ github.ref_name }}.md
           generate_release_notes: true
 
   # Keeps `brew install --cask darkace01/tap/pushback` current. Needs a HOMEBREW_TAP_TOKEN secret:

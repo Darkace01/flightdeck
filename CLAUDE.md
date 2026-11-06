@@ -55,4 +55,4 @@ There is no test suite. Verify with `typecheck` + `build`, then run the app (see
 
 - Commit after each logical step, with an imperative subject and a body that explains why.
 - **Don't add AI attribution**: no `Co-Authored-By` trailers for Claude or other AI tools, and no "Generated with" lines in commits or PRs. The maintainer doesn't want Claude listed as a contributor.
-- To release, bump `version` in `package.json`, commit, then push a `vX.Y.Z` tag. The Release workflow builds every platform, publishes the GitHub Release, bumps the Homebrew cask and opens a winget PR (when those token secrets are set). The tag must match `package.json`.
+- To release, bump `version` in `package.json`, write `release-notes/vX.Y.Z.md` describing every new feature (plus improvements and fixes) for users, commit both, then push a `vX.Y.Z` tag. The workflow refuses to release without the notes file and uses it as the release description. The Release workflow builds every platform, publishes the GitHub Release, bumps the Homebrew cask and opens a winget PR (when those token secrets are set). The tag must match `package.json`.

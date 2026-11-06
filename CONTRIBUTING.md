@@ -126,10 +126,11 @@ Add an entry to `TEMPLATES` in `src/shared/templates.ts`. Each widget gives its 
 
 ## Releasing (maintainers)
 
-1. Bump `version` in `package.json` (and run `npm install` to update the lockfile), then commit.
-2. Tag and push: `git tag v0.3.0 && git push origin main v0.3.0`.
-3. The **Release** workflow builds Windows, macOS and Linux installers and publishes them to a GitHub Release with generated notes. Installed copies pick up the update automatically.
-4. The same workflow updates the package managers, if their secrets are set (repo **Settings → Secrets and variables → Actions**):
+1. Bump `version` in `package.json` (and run `npm install` to update the lockfile).
+2. Write `release-notes/vX.Y.Z.md`: what's new, improved and fixed, in words users understand (see the earlier files for the format). Commit it with the version bump.
+3. Tag and push: `git tag v0.3.0 && git push origin main v0.3.0`.
+4. The **Release** workflow builds Windows, macOS and Linux installers and publishes them to a GitHub Release, with your notes as its description. It stops if the notes file is missing. Installed copies pick up the update automatically.
+5. The same workflow updates the package managers, if their secrets are set (repo **Settings → Secrets and variables → Actions**):
 
    | Secret | What it does | Token needed |
    | --- | --- | --- |
