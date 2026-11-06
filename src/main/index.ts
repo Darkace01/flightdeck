@@ -388,6 +388,7 @@ function registerIpc(): void {
   ipcMain.handle('commits:list', (_e, repo: string, ref?: string) => tools.listCommits(requireClient(), repo, ref))
   ipcMain.handle('releases:list', (_e, repo: string) => tools.listReleases(requireClient(), repo))
   ipcMain.handle('release:create', (_e, repo: string, release: NewRelease) => create(() => tools.createRelease(requireClient(), repo, release)))
+  ipcMain.handle('release:draft', (_e, repo: string, base: string) => tools.releaseDraft(requireClient(), repo, base))
   ipcMain.handle('pr:create', (_e, repo: string, pr: NewPr) => create(() => tools.createPr(requireClient(), repo, pr)))
   ipcMain.handle('git:link', async (_e, repo: string): Promise<ActionResult> => {
     const pick = await dialog.showOpenDialog(win!, { title: `Choose your local clone of ${repo}`, properties: ['openDirectory'] })
@@ -479,6 +480,10 @@ function registerIpc(): void {
   })
 }
 
+// A throwaway profile for the end-to-end tests. Set before the single-instance lock, which is keyed on the
+// profile folder, so a test run doesn't collide with a Pushback you have open.
+if (process.env.PUSHBACK_USER_DATA) app.setPath('userData', process.env.PUSHBACK_USER_DATA)
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -486,9 +491,7 @@ if (!app.requestSingleInstanceLock()) {
   // Windows only shows toasts for an AppUserModelID that has a Start-menu shortcut. The installer
   // registers our appId; an unpackaged dev build has no shortcut, so use Electron's own exe path there.
   app.setAppUserModelId(app.isPackaged ? 'dev.pushback.app' : process.execPath)
-  // A throwaway profile for the end-to-end tests.
-  if (process.env.PUSHBACK_USER_DATA) app.setPath('userData', process.env.PUSHBACK_USER_DATA)
-  else migrateUserData()
+  if (!process.env.PUSHBACK_USER_DATA) migrateUserData()
 
   app.whenReady().then(() => {
     settings = loadSettings()

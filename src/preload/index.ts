@@ -46,6 +46,7 @@ const api: PushbackApi = {
   listReleases: (repo) => ipcRenderer.invoke('releases:list', repo),
   createRelease: (repo, release) => ipcRenderer.invoke('release:create', repo, release),
   createPr: (repo, pr) => ipcRenderer.invoke('pr:create', repo, pr),
+  releaseDraft: (repo, base) => ipcRenderer.invoke('release:draft', repo, base),
   gitLink: (repo) => ipcRenderer.invoke('git:link', repo),
   gitClone: (repo) => ipcRenderer.invoke('git:clone', repo),
   gitUnlink: (repo) => ipcRenderer.invoke('git:unlink', repo),

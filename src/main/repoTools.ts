@@ -1,5 +1,5 @@
 import type { GitHub } from './github'
-import type { ActionResult, BranchInfo, CommitInfo, GraphCommit, IssueDetail, IssueSummary, Label, NewPr, NewRelease, PrComment, ReleaseInfo } from '../shared/types'
+import type { ActionResult, BranchInfo, CommitInfo, GraphCommit, IssueDetail, IssueSummary, Label, MergedPr, NewPr, NewRelease, PrComment, ReleaseDraft, ReleaseInfo } from '../shared/types'
 
 // GitHub tools for the repo workspace: issues, branches, commits, releases and creating PRs.
 // Everything here is fetched on demand when a section opens, never by the poller.
@@ -228,4 +228,28 @@ export async function createIssue(gh: GitHub, repo: string, issue: { title: stri
 export async function createPr(gh: GitHub, repo: string, pr: NewPr): Promise<ActionResult> {
   const created = (await gh.send('POST', `/repos/${repo}/pulls`, pr)) as { number: number; html_url: string }
   return { ok: true, number: created.number, url: created.html_url }
+}
+
+/**
+ * PRs merged into `base` since the latest published release. Uses the plain pulls list (newest-updated first,
+ * ETag-cached) rather than the search API, whose rate limit is much lower, and stops after 3 pages.
+ */
+export async function releaseDraft(gh: GitHub, repo: string, base: string): Promise<ReleaseDraft> {
+  const releases = await gh.get<{ tag_name: string; created_at: string; draft: boolean; prerelease: boolean }[]>(`/repos/${repo}/releases?per_page=30`)
+  const last = releases.find((r) => !r.draft && !r.prerelease)
+  const since = last ? Date.parse(last.created_at) : 0
+  const prs: MergedPr[] = []
+  for (let page = 1; page <= 3; page++) {
+    const batch = await gh.get<
+      { number: number; title: string; html_url: string; merged_at: string | null; updated_at: string; user: GhUser | null; labels: { name: string }[] }[]
+    >(`/repos/${repo}/pulls?state=closed&base=${encodeURIComponent(base)}&sort=updated&direction=desc&per_page=100&page=${page}`)
+    for (const p of batch) {
+      if (p.merged_at && Date.parse(p.merged_at) > since) {
+        prs.push({ number: p.number, title: p.title, url: p.html_url, author: p.user?.login ?? 'ghost', labels: p.labels.map((l) => l.name), mergedAt: p.merged_at })
+      }
+    }
+    // Sorted by last update, and a PR can't be updated before it was merged: once a page ends before the release, we're done.
+    if (batch.length < 100 || Date.parse(batch[batch.length - 1].updated_at) < since) break
+  }
+  return { since: last?.tag_name ?? null, prs }
 }

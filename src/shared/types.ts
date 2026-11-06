@@ -336,6 +336,22 @@ export interface ReleaseInfo {
   assets: { name: string; size: number; downloads: number; url: string }[]
 }
 
+/** A pull request merged since the last release, as input to the release-notes draft. */
+export interface MergedPr {
+  number: number
+  title: string
+  url: string
+  author: string
+  labels: string[]
+  mergedAt: string
+}
+
+export interface ReleaseDraft {
+  /** Tag of the last published release the PRs are counted from; null if the repo has none. */
+  since: string | null
+  prs: MergedPr[]
+}
+
 export interface NewPr {
   title: string
   head: string
@@ -710,6 +726,8 @@ export interface PushbackApi {
   listReleases(repo: string): Promise<ReleaseInfo[]>
   createRelease(repo: string, release: NewRelease): Promise<ActionResult>
   createPr(repo: string, pr: NewPr): Promise<ActionResult>
+  /** PRs merged into `base` since the repo's latest published release, for drafting release notes. */
+  releaseDraft(repo: string, base: string): Promise<ReleaseDraft>
   /** Asks for a folder and links it as the repo's local clone (its remote must point at the repo). */
   gitLink(repo: string): Promise<ActionResult>
   /** Asks for a parent folder and clones the repo into it. */

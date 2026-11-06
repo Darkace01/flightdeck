@@ -142,6 +142,21 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
       }
     }
   }
+  if (query.includes('refPrefix: "refs/heads/"'))
+    return {
+      repository: {
+        refs: {
+          nodes: [
+            {
+              name: 'main',
+              target: { oid: 'c1', committedDate: ago(10), messageHeadline: 'Latest change', author: { name: 'octo', user: { login: 'octo', avatarUrl: '' } } },
+              compare: { aheadBy: 0, behindBy: 0 },
+              associatedPullRequests: { nodes: [] }
+            }
+          ]
+        }
+      }
+    }
   if (query.includes('pullRequests(')) return { repository: { defaultBranchRef: { name: 'main' }, pullRequests: { nodes: [...(PRS[repo] ?? []), ...(rich ? (RICH_PRS[repo] ?? []) : [])] } } }
   return { repository: null }
 }
@@ -218,6 +233,15 @@ function rest(path: string, rich: boolean): unknown {
       requested_reviewers: [user('octo')],
       labels: [{ name: 'ui', color: '0e8a16' }]
     }
+  if (p.match(/^\/repos\/[^/]+\/[^/]+\/releases$/))
+    return [{ id: 1, tag_name: 'v1.2.0', name: 'v1.2.0', html_url: '', draft: false, prerelease: false, published_at: ago(3000), created_at: ago(3000), author: user('octo'), assets: [] }]
+  if (p.match(/^\/repos\/[^/]+\/[^/]+\/pulls$/))
+    return [
+      { number: 20, title: 'feat: tray badge', html_url: 'https://github.com/acme/api/pull/20', merged_at: ago(200), updated_at: ago(200), user: user('alice'), labels: [] },
+      { number: 21, title: 'Fix the login crash', html_url: 'https://github.com/acme/api/pull/21', merged_at: ago(100), updated_at: ago(100), user: user('bob'), labels: [{ name: 'bug' }] },
+      { number: 22, title: 'Closed without merging', html_url: '', merged_at: null, updated_at: ago(90), user: user('bob'), labels: [] },
+      { number: 3, title: 'Old change before the release', html_url: '', merged_at: ago(5000), updated_at: ago(5000), user: user('carol'), labels: [] }
+    ]
   if (p.match(/\/issues\/\d+\/comments$/)) return [{ id: 1, user: user('bob'), body_html: '<p>Looks good to me!</p>', created_at: ago(30), html_url: '' }]
   if (p.match(/\/pulls\/\d+\/reviews$/)) return []
   if (p.match(/\/pulls\/\d+\/commits$/)) return [{ sha: 'b'.repeat(40), commit: { message: 'Add login page', author: { name: 'alice', date: ago(600) } }, author: user('alice') }]
@@ -231,6 +255,8 @@ export interface FakeGitHub {
   requests: { method: string; path: string }[]
   /** Requests that would change something on GitHub (anything but reads and GraphQL queries). */
   writes: () => { method: string; path: string }[]
+  /** JSON bodies of the writes the app made, in order, for tests that expect one. */
+  bodies: { method: string; path: string; body: unknown }[]
   close: () => Promise<void>
 }
 
@@ -245,6 +271,7 @@ const body = (req: IncomingMessage) =>
 export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<FakeGitHub> {
   const rich = !!opts.rich
   const requests: { method: string; path: string }[] = []
+  const bodies: { method: string; path: string; body: unknown }[] = []
   const server: Server = createServer(async (req, res) => {
     const path = req.url ?? '/'
     requests.push({ method: req.method ?? 'GET', path })
@@ -258,6 +285,11 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
       res.writeHead(200, headers).end(JSON.stringify({ data: graphql(query, variables ?? {}, rich) }))
       return
     }
+    if (req.method === 'POST' && /^\/repos\/[^/]+\/[^/]+\/releases$/.test(path)) {
+      bodies.push({ method: 'POST', path, body: JSON.parse((await body(req)) || '{}') })
+      res.writeHead(201, headers).end(JSON.stringify({ html_url: 'https://github.com/acme/api/releases/tag/v1.3.0' }))
+      return
+    }
     const data = req.method === 'GET' ? rest(path, rich) : undefined
     if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
     else if (typeof data === 'string') res.writeHead(200, { ...headers, 'Content-Type': 'text/html' }).end(data)
@@ -268,6 +300,7 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
+    bodies,
     writes: () => requests.filter((r) => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/graphql')),
     close: () => new Promise((resolve) => server.close(() => resolve()))
   }
