@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
+import { exportDashboard, exportTemplate } from '../../../shared/share'
 import { TEMPLATES } from '../../../shared/templates'
 import type { LayoutItem, WidgetConfig } from '../../../shared/types'
 import { createDashboard, deleteDashboard, duplicateDashboard, moveDashboard, renameDashboard, switchDashboard } from '../lib/dashboards'
-import { useSettings } from '../lib/store'
+import { api, toast, useSettings } from '../lib/store'
 import { HOME } from '../lib/tabs'
-import { closeModal, openModal } from '../lib/ui'
+import { closeModal, openModal, pushModal } from '../lib/ui'
 import { Icon, IconButton, Modal, Popover } from './ui'
 
 // More tabs than this crowd the search box, so the rest go in the overflow menu.
@@ -141,6 +142,11 @@ export function NewDashboardModal() {
         </div>
       </div>
       <footer className="modal-actions">
+        {template && (
+          <button className="btn" onClick={() => pushModal({ kind: 'share-dashboard', id: `template:${template.id}` })}>
+            Share this template…
+          </button>
+        )}
         <span className="spacer" />
         <button className="btn" onClick={closeModal}>
           Cancel
@@ -196,6 +202,9 @@ export function ManageDashboardsModal() {
                     Open
                   </button>
                 )}
+                <button className="btn btn-sm" onClick={() => pushModal({ kind: 'share-dashboard', id: d.id })}>
+                  Share
+                </button>
                 <IconButton icon="up" title="Move up" disabled={i === 0} onClick={() => moveDashboard(d.id, -1)} />
                 <IconButton icon="plus" title="Duplicate" onClick={() => duplicateDashboard(d.id)} />
                 <IconButton icon="trash" title="Delete" disabled={settings.dashboards.length < 2} onClick={() => confirm(`Delete “${d.name}”?`) && deleteDashboard(d.id)} />
@@ -208,9 +217,95 @@ export function ManageDashboardsModal() {
         <button className="btn" onClick={() => openModal({ kind: 'new-dashboard' })}>
           <Icon name="plus" /> New dashboard…
         </button>
+        <button className="btn" onClick={() => pushModal({ kind: 'import-dashboard' })}>
+          Import…
+        </button>
         <span className="spacer" />
         <button className="btn btn-primary" onClick={closeModal}>
           Done
+        </button>
+      </footer>
+    </Modal>
+  )
+}
+
+/** Export a dashboard or template as text: copy it, or save it to a file. */
+export function ShareDashboardModal({ id }: { id: string }) {
+  const settings = useSettings()
+  const [includeRepos, setIncludeRepos] = useState(false)
+  const templateId = id.startsWith('template:') ? id.slice('template:'.length) : null
+  const saved = settings.dashboards.find((d) => d.id === id)
+  // The open dashboard's live widgets are in settings.widgets/layout, not its saved copy.
+  const dashboard = saved && (saved.id === settings.activeDashboard ? { ...saved, widgets: settings.widgets, layout: settings.layout } : saved)
+  const name = templateId ? (TEMPLATES.find((t) => t.id === templateId)?.name ?? 'Template') : (dashboard?.name ?? 'Dashboard')
+  const payload = templateId ? exportTemplate(templateId) : dashboard ? exportDashboard(dashboard, { includeRepos }) : ''
+  const fileName = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'dashboard'}.pushback.json`
+  return (
+    <Modal title={`Share “${name}”`} onClose={closeModal} width={620}>
+      <p className="dim small">
+        Anyone can import this in Pushback (Manage dashboards → Import). It holds the widgets and layout only, never your token or local folders.
+      </p>
+      {!templateId && (
+        <label className="check">
+          <input type="checkbox" checked={includeRepos} onChange={(e) => setIncludeRepos(e.target.checked)} />
+          Include each widget's repo selection (may reveal private repo names)
+        </label>
+      )}
+      <textarea rows={10} readOnly value={payload} aria-label="Dashboard payload" onFocus={(e) => e.currentTarget.select()} />
+      <footer className="modal-actions">
+        <span className="spacer" />
+        <button
+          className="btn"
+          onClick={async () => {
+            await navigator.clipboard.writeText(payload)
+            toast('Dashboard copied to clipboard', 'ok')
+          }}
+        >
+          Copy
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={async () => {
+            const r = await api.saveTextFile(fileName, payload)
+            if (r.ok) (toast(`Saved ${fileName}`, 'ok'), closeModal())
+            else if (r.error) toast(`Couldn't save: ${r.error}`, 'error')
+          }}
+        >
+          Save to file…
+        </button>
+      </footer>
+    </Modal>
+  )
+}
+
+/** Import a shared dashboard (or a full settings export) from pasted text or a file. */
+export function ImportDashboardModal() {
+  const [json, setJson] = useState('')
+  const run = async (text: string) => {
+    const r = await api.importSettings(text)
+    toast(r.ok ? 'Imported' : `Import failed: ${r.error}`, r.ok ? 'ok' : 'error')
+    if (r.ok) closeModal()
+  }
+  return (
+    <Modal title="Import a dashboard" onClose={closeModal} width={620}>
+      <p className="dim small">Paste a shared dashboard, or open a .json file. It's added as a new dashboard; yours are not changed.</p>
+      <textarea rows={10} value={json} placeholder="Paste dashboard JSON…" aria-label="Dashboard JSON" onChange={(e) => setJson(e.target.value)} />
+      <footer className="modal-actions">
+        <button
+          className="btn"
+          onClick={async () => {
+            const text = await api.openTextFile()
+            if (text) setJson(text)
+          }}
+        >
+          Open file…
+        </button>
+        <span className="spacer" />
+        <button className="btn" onClick={closeModal}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" disabled={!json.trim()} onClick={() => void run(json)}>
+          Import
         </button>
       </footer>
     </Modal>

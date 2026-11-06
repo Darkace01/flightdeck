@@ -11,7 +11,8 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: 
   insights: { title: 'CI insights', w: 7, h: 8, options: {} },
   deployments: { title: 'Deployments', w: 12, h: 8, options: { view: 'environments' } },
   security: { title: 'Security alerts', w: 6, h: 8, options: { view: 'alerts', kind: '', severity: '' } },
-  cihealth: { title: 'CI health', w: 12, h: 9, options: { view: 'failing', days: 14, branch: '' } }
+  cihealth: { title: 'CI health', w: 12, h: 9, options: { view: 'failing', days: 14, branch: '' } },
+  search: { title: 'Saved search', w: 6, h: 9, options: { query: 'is:open author:@me archived:false', kind: 'pr', author: '', label: '', repo: '', hideDrafts: false } }
 }
 
 const widgets: WidgetConfig[] = [
@@ -59,6 +60,8 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 13,
   density: 'comfortable',
   closeToTray: true,
+  launchAtLogin: false,
+  startInTray: true,
   autoUpdate: true,
   widgets,
   layout,
@@ -76,7 +79,8 @@ export const DEFAULT_SETTINGS: Settings = {
   editorCommand: 'code',
   autoLinkClones: false,
   accounts: [],
-  repoAccounts: {}
+  repoAccounts: {},
+  savedSearches: []
 }
 
 /**

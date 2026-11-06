@@ -63,6 +63,14 @@ export const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
     { key: 'kind', label: 'Source', kind: 'select', filter: true, choices: [['', 'All sources'], ['dependabot', 'Dependabot'], ['code-scanning', 'Code scanning'], ['secret-scanning', 'Secret scanning']] },
     { key: 'severity', label: 'Severity', kind: 'select', filter: true, choices: [['', 'Any severity'], ['critical', 'Critical'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']] }
   ],
+  search: [
+    { key: 'query', label: 'Search (GitHub qualifiers)', kind: 'text', placeholder: 'is:open author:@me' },
+    { key: 'kind', label: 'Look for', kind: 'select', choices: [['pr', 'Pull requests'], ['issue', 'Issues']] },
+    { key: 'repo', label: 'Repo or org', kind: 'text', filter: true, placeholder: 'any repo' },
+    { key: 'author', label: 'Author', kind: 'text', filter: true, placeholder: 'anyone' },
+    { key: 'label', label: 'Label', kind: 'text', filter: true, placeholder: 'any label' },
+    { key: 'hideDrafts', label: 'Hide drafts', kind: 'bool', filter: true }
+  ],
   deployments: [
     { key: 'view', label: 'Show', kind: 'select', filter: true, choices: [['environments', 'Projects × environments'], ['clients', 'Clients × stages'], ['history', 'Deployment history']] },
     { key: 'environment', label: 'Environment', kind: 'text', filter: true, placeholder: 'any environment' },

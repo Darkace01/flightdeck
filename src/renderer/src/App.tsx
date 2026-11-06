@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { DispatchModal, MergeModal, ReviewModal, RunDetailsModal } from './components/ActionModals'
 import { Dashboard } from './components/Dashboard'
-import { DashboardTabs, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
+import { SavedSearchesModal } from './components/SavedSearches'
+import { DashboardTabs, ImportDashboardModal, ManageDashboardsModal, NewDashboardModal, ShareDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
 import { PrModal } from './components/PrView'
 import { NewIssueModal, NewPrModal, NewReleaseModal } from './components/CreateModals'
@@ -209,6 +210,12 @@ function Modals() {
       return <NewDashboardModal />
     case 'dashboards':
       return <ManageDashboardsModal />
+    case 'share-dashboard':
+      return <ShareDashboardModal id={modal.id} />
+    case 'import-dashboard':
+      return <ImportDashboardModal />
+    case 'saved-searches':
+      return <SavedSearchesModal />
     case 'find-clones':
       return <FindClonesModal />
   }

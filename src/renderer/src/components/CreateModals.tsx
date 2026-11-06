@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, toast } from '../lib/store'
 import { closeModal, openModal } from '../lib/ui'
 import { invalidate, useLoad } from '../lib/useLoad'
+import { draftReleaseNotes } from '../../../shared/releaseNotes'
 import { Modal } from './ui'
 
 /** Branches plus the default branch, which the PR and release forms both need. */
@@ -177,7 +178,9 @@ export function NewReleaseModal({ repo }: { repo: string }) {
   const [name, setName] = useState('')
   const [body, setBody] = useState('')
   const [generateNotes, setGenerateNotes] = useState(true)
-  const [draft, setDraft] = useState(false)
+  // Releases start as drafts: Pushback never publishes unless you untick this yourself.
+  const [draft, setDraft] = useState(true)
+  const [drafting, setDrafting] = useState(false)
   const [prerelease, setPrerelease] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -190,6 +193,18 @@ export function NewReleaseModal({ repo }: { repo: string }) {
   }, [releases])
 
   const exists = releases?.some((r) => r.tag === tag.trim())
+  const draftNotes = async () => {
+    setDrafting(true)
+    try {
+      const d = await api.releaseDraft(repo, target || data?.defaultBranch || 'main')
+      setBody(draftReleaseNotes(d.prs, { repo, since: d.since, tag: tag.trim() }))
+      setGenerateNotes(false)
+      toast(`Drafted notes from ${d.prs.length} merged PR${d.prs.length === 1 ? '' : 's'}${d.since ? ` since ${d.since}` : ''}`, 'ok')
+    } catch (err) {
+      toast(`Couldn't draft the notes: ${(err as Error).message}`, 'error')
+    }
+    setDrafting(false)
+  }
   const submit = async () => {
     setBusy(true)
     const r = await api.createRelease(repo, { tag: tag.trim(), target, name: name.trim(), body, draft, prerelease, generateNotes })
@@ -222,9 +237,14 @@ export function NewReleaseModal({ repo }: { repo: string }) {
         <span>Title</span>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tag || 'Release title'} />
       </label>
+      <div className="inline">
+        <button className="btn btn-sm" type="button" disabled={drafting || !data} onClick={() => void draftNotes()}>
+          {drafting ? 'Drafting…' : 'Draft from merged PRs since the last release'}
+        </button>
+      </div>
       <label className="field">
         <span>Notes (Markdown)</span>
-        <textarea rows={6} value={body} onChange={(e) => setBody(e.target.value)} placeholder={generateNotes ? 'Optional — GitHub adds generated notes below this' : ''} />
+        <textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)} placeholder={generateNotes ? 'Optional — GitHub adds generated notes below this' : ''} />
       </label>
       <label className="check">
         <input type="checkbox" checked={generateNotes} onChange={(e) => setGenerateNotes(e.target.checked)} />

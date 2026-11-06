@@ -212,6 +212,21 @@ function graphql(query: string, vars: Record<string, string>, rich: boolean) {
       }
     }
   }
+  if (query.includes('refPrefix: "refs/heads/"'))
+    return {
+      repository: {
+        refs: {
+          nodes: [
+            {
+              name: 'main',
+              target: { oid: 'c1', committedDate: ago(10), messageHeadline: 'Latest change', author: { name: 'octo', user: { login: 'octo', avatarUrl: '' } } },
+              compare: { aheadBy: 0, behindBy: 0 },
+              associatedPullRequests: { nodes: [] }
+            }
+          ]
+        }
+      }
+    }
   if (query.includes('pullRequests(')) return { repository: { defaultBranchRef: { name: 'main' }, pullRequests: { nodes: [...(PRS[repo] ?? []), ...(rich ? (RICH_PRS[repo] ?? []) : [])] } } }
   return { repository: null }
 }
@@ -306,6 +321,38 @@ function rest(path: string, rich: boolean, enterprise = false): unknown {
       requested_reviewers: [user('octo')],
       labels: [{ name: 'ui', color: '0e8a16' }]
     }
+  if (p === '/search/issues') {
+    const q = decodeURIComponent(path.split('q=')[1]?.split('&')[0] ?? '')
+    const found = (repo: string, number: number, title: string, login: string, extra: object = {}) => ({
+      number,
+      title,
+      html_url: `https://github.com/${repo}/pull/${number}`,
+      state: 'open',
+      repository_url: `https://api.github.com/repos/${repo}`,
+      user: user(login),
+      created_at: ago(900),
+      updated_at: ago(number),
+      comments: 0,
+      draft: false,
+      labels: [],
+      pull_request: {},
+      ...extra
+    })
+    // One PR in a tracked repo and two in orgs that aren't tracked: the point of a cross-org search.
+    const items = q.includes('is:issue')
+      ? [found('globex/web', 40, 'Slow page load', 'dana', { pull_request: undefined })]
+      : [found('acme/api', 7, 'Add login page', 'octo'), found('globex/web', 31, 'Upgrade the router', 'octo', { draft: true }), found('initech/tool', 9, 'Fix the build', 'octo', { labels: [{ name: 'bug', color: 'd73a4a' }] })]
+    return { total_count: items.length, incomplete_results: false, items }
+  }
+  if (p.match(/^\/repos\/[^/]+\/[^/]+\/releases$/))
+    return [{ id: 1, tag_name: 'v1.2.0', name: 'v1.2.0', html_url: '', draft: false, prerelease: false, published_at: ago(3000), created_at: ago(3000), author: user('octo'), assets: [] }]
+  if (p.match(/^\/repos\/[^/]+\/[^/]+\/pulls$/))
+    return [
+      { number: 20, title: 'feat: tray badge', html_url: 'https://github.com/acme/api/pull/20', merged_at: ago(200), updated_at: ago(200), user: user('alice'), labels: [] },
+      { number: 21, title: 'Fix the login crash', html_url: 'https://github.com/acme/api/pull/21', merged_at: ago(100), updated_at: ago(100), user: user('bob'), labels: [{ name: 'bug' }] },
+      { number: 22, title: 'Closed without merging', html_url: '', merged_at: null, updated_at: ago(90), user: user('bob'), labels: [] },
+      { number: 3, title: 'Old change before the release', html_url: '', merged_at: ago(5000), updated_at: ago(5000), user: user('carol'), labels: [] }
+    ]
   if (p.match(/\/issues\/\d+\/comments$/)) return [{ id: 1, user: user('bob'), body_html: '<p>Looks good to me!</p>', created_at: ago(30), html_url: '' }]
   if (p.match(/\/pulls\/\d+\/reviews$/)) return []
   if (p.match(/\/pulls\/\d+\/commits$/)) return [{ sha: 'b'.repeat(40), commit: { message: 'Add login page', author: { name: 'alice', date: ago(600) } }, author: user('alice') }]
@@ -321,6 +368,8 @@ export interface FakeGitHub {
   tokens: Set<string>
   /** Requests that would change something on GitHub (anything but reads and GraphQL queries; mutations count). */
   writes: () => { method: string; path: string; body?: string }[]
+  /** JSON bodies of the writes the app made, in order, for tests that expect one. */
+  bodies: { method: string; path: string; body: unknown }[]
   close: () => Promise<void>
 }
 
@@ -341,6 +390,7 @@ export async function startFakeGitHub(opts: { rich?: boolean; enterprise?: boole
   const requests: { method: string; path: string; body?: string }[] = []
   const tokens = new Set<string>()
   let dispatched = false
+  const bodies: { method: string; path: string; body: unknown }[] = []
   const server: Server = createServer(async (req, res) => {
     let path = req.url ?? '/'
     if (enterprise) path = path.replace(/^\/api\/graphql/, '/graphql').replace(/^\/api\/v3/, '')
@@ -378,6 +428,11 @@ export async function startFakeGitHub(opts: { rich?: boolean; enterprise?: boole
       res.writeHead(200, headers).end(JSON.stringify({ id: 1 }))
       return
     }
+    if (req.method === 'POST' && /^\/repos\/[^/]+\/[^/]+\/releases$/.test(path)) {
+      bodies.push({ method: 'POST', path, body: JSON.parse(text || '{}') })
+      res.writeHead(201, headers).end(JSON.stringify({ html_url: 'https://github.com/acme/api/releases/tag/v1.3.0' }))
+      return
+    }
     // Writes (cleanup) are accepted and recorded; tests assert on exactly which ones happened.
     if (req.method === 'DELETE') return void res.writeHead(204, headers).end()
     if (req.method === 'PATCH') return void res.writeHead(200, headers).end('{}')
@@ -393,6 +448,7 @@ export async function startFakeGitHub(opts: { rich?: boolean; enterprise?: boole
     url: `http://127.0.0.1:${port}`,
     requests,
     tokens,
+    bodies,
     writes: () => requests.filter((r) => r.method !== 'GET' && !(r.method === 'POST' && r.path === '/graphql' && !/^\s*mutation/.test(JSON.parse(r.body ?? '{}').query ?? ''))),
     close: () => new Promise((resolve) => server.close(() => resolve()))
   }

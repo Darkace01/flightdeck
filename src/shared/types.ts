@@ -103,7 +103,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security' | 'cihealth'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security' | 'cihealth' | 'search'
 
 export interface WidgetConfig {
   id: string
@@ -174,6 +174,10 @@ export interface Settings {
   fontSize: number
   density: 'comfortable' | 'compact'
   closeToTray: boolean
+  /** Start Pushback when you sign in to the computer (packaged builds only). */
+  launchAtLogin: boolean
+  /** When started at login, stay in the tray instead of opening the window. */
+  startInTray: boolean
   autoUpdate: boolean
   widgets: WidgetConfig[]
   layout: LayoutItem[]
@@ -205,6 +209,40 @@ export interface Settings {
   accounts: Account[]
   /** Which extra account a repo belongs to, by full name. A repo that isn't listed uses the primary account. */
   repoAccounts: Record<string, string>
+  /** Named GitHub searches the user saved; pinning one makes a `search` widget that carries its own copy of the query. */
+  savedSearches: SavedSearch[]
+}
+
+/** A cross-repo issue or PR search, e.g. "is:open author:@me" for your open PRs across every org. */
+export interface SavedSearch {
+  id: string
+  name: string
+  kind: 'pr' | 'issue'
+  /** GitHub search qualifiers; the is:pr / is:issue part is added from `kind`. */
+  query: string
+}
+
+export interface SearchItem {
+  repo: string
+  number: number
+  title: string
+  url: string
+  kind: 'pr' | 'issue'
+  state: 'open' | 'closed' | 'merged'
+  author: string
+  authorAvatar: string
+  createdAt: string
+  updatedAt: string
+  comments: number
+  isDraft: boolean
+  labels: { name: string; color: string }[]
+}
+
+export interface SearchResult {
+  /** Matches on GitHub; `items` holds the 50 most recently updated. */
+  total: number
+  incomplete: boolean
+  items: SearchItem[]
 }
 
 export interface InboxItem {
@@ -356,6 +394,22 @@ export interface ReleaseInfo {
   author: string
   bodyHtml: string
   assets: { name: string; size: number; downloads: number; url: string }[]
+}
+
+/** A pull request merged since the last release, as input to the release-notes draft. */
+export interface MergedPr {
+  number: number
+  title: string
+  url: string
+  author: string
+  labels: string[]
+  mergedAt: string
+}
+
+export interface ReleaseDraft {
+  /** Tag of the last published release the PRs are counted from; null if the repo has none. */
+  since: string | null
+  prs: MergedPr[]
 }
 
 export interface NewPr {
@@ -716,6 +770,10 @@ export interface PushbackApi {
   exportSettings(): Promise<string>
   importSettings(json: string): Promise<ActionResult>
   openExternal(url: string): Promise<void>
+  /** Asks where to save, then writes `content` there (used to export dashboards). `ok: false` with no error if cancelled. */
+  saveTextFile(defaultName: string, content: string): Promise<ActionResult>
+  /** Asks for a JSON file and returns its text; null if cancelled. */
+  openTextFile(): Promise<string | null>
   markRead(ids?: string[]): Promise<void>
   clearEvents(): Promise<void>
   updateStatus(): Promise<UpdateStatus>
@@ -730,6 +788,8 @@ export interface PushbackApi {
   createIssue(repo: string, issue: { title: string; body: string; labels: string[] }): Promise<ActionResult>
   setIssueState(repo: string, num: number, state: 'open' | 'closed', reason?: 'completed' | 'not_planned'): Promise<ActionResult>
   listLabels(repo: string): Promise<Label[]>
+  /** Runs a cross-repo issue or PR search (the type qualifier is added from `kind`). Rejects on an empty or too long query. */
+  runSearch(query: string, kind: 'pr' | 'issue'): Promise<SearchResult>
   listBranches(repo: string, defaultBranch: string): Promise<BranchInfo[]>
   createBranch(repo: string, name: string, from: string): Promise<ActionResult>
   deleteBranch(repo: string, name: string): Promise<ActionResult>
@@ -737,6 +797,8 @@ export interface PushbackApi {
   listReleases(repo: string): Promise<ReleaseInfo[]>
   createRelease(repo: string, release: NewRelease): Promise<ActionResult>
   createPr(repo: string, pr: NewPr): Promise<ActionResult>
+  /** PRs merged into `base` since the repo's latest published release, for drafting release notes. */
+  releaseDraft(repo: string, base: string): Promise<ReleaseDraft>
   /** Asks for a folder and links it as the repo's local clone (its remote must point at the repo). */
   gitLink(repo: string): Promise<ActionResult>
   /** Asks for a parent folder and clones the repo into it. */

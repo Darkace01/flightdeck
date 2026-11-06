@@ -38,6 +38,7 @@ export function Palette() {
     const commands: Item[] = [
       { id: 'c-refresh', kind: 'Command', label: 'Refresh now', keywords: 'reload poll', action: () => (closeModal(), void api.refresh()) },
       { id: 'c-settings', kind: 'Command', label: 'Open settings', keywords: 'preferences config', action: () => openModal({ kind: 'settings' }) },
+      { id: 'c-searches', kind: 'Command', label: 'Saved searches…', keywords: 'search query my prs across orgs pin widget', action: () => openModal({ kind: 'saved-searches' }) },
       { id: 'c-tour', kind: 'Command', label: 'Take the tour', keywords: 'walkthrough help guide onboarding tutorial', action: () => (closeModal(), void updateSettings({ tourDone: false })) },
       { id: 'c-sidebar', kind: 'Command', label: 'Toggle repo sidebar', keywords: 'sidebar left panel ctrl+b', action: () => (toggleSidebar(), closeModal()) },
       {

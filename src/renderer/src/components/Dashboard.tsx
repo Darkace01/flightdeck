@@ -2,7 +2,7 @@ import { rowHeight as gridRowHeight } from '../lib/layout'
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
-import type { LayoutItem, WidgetConfig, WidgetType } from '../../../shared/types'
+import type { LayoutItem, SavedSearch, WidgetConfig, WidgetType } from '../../../shared/types'
 import { getSettings, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { openModal, useEditing } from '../lib/ui'
 import { CiHealthWidget } from '../widgets/CiHealthWidget'
@@ -11,6 +11,7 @@ import { EventsWidget } from '../widgets/EventsWidget'
 import { InboxWidget } from '../widgets/InboxWidget'
 import { InsightsWidget } from '../widgets/InsightsWidget'
 import { PrsWidget } from '../widgets/PrsWidget'
+import { SearchWidget } from '../widgets/SearchWidget'
 import { RunsWidget } from '../widgets/RunsWidget'
 import { SecurityWidget } from '../widgets/SecurityWidget'
 import { SummaryWidget } from '../widgets/SummaryWidget'
@@ -22,6 +23,7 @@ import { FilterBar } from './FilterBar'
 import { Icon, IconButton, Skeleton } from './ui'
 
 export const WIDGETS: Record<WidgetType, { component: ComponentType<WidgetProps>; description: string }> = {
+  search: { component: SearchWidget, description: 'A saved GitHub search across every repo and org, like your open PRs everywhere. Pin one from Saved searches.' },
   summary: { component: SummaryWidget, description: 'Health tile per repo: default-branch status, running jobs, open PRs.' },
   runs: { component: RunsWidget, description: 'Live workflow runs with cancel / re-run, filterable by status and branch.' },
   prs: { component: PrsWidget, description: 'Open pull requests with checks, review state, approve and merge.' },
@@ -45,6 +47,18 @@ export function addWidget(type: WidgetType): void {
   void updateSettings({
     widgets: [...s.widgets, { id, type, repos: [], options: { ...d.options } }],
     layout: [...s.layout, { i: id, x: 0, y: bottom, w: d.w, h: d.h }]
+  })
+}
+
+/** Pins a saved search as a widget; the widget keeps its own copy of the query, so shared dashboards carry it too. */
+export function pinSearch(s: Pick<SavedSearch, 'name' | 'query' | 'kind'>): void {
+  const st = getSettings()
+  const id = `w-search-${Date.now().toString(36)}`
+  const d = WIDGET_DEFAULTS.search
+  const bottom = st.layout.reduce((max, l) => Math.max(max, l.y + l.h), 0)
+  void updateSettings({
+    widgets: [...st.widgets, { id, type: 'search', title: s.name, repos: [], options: { ...d.options, query: s.query, kind: s.kind } }],
+    layout: [...st.layout, { i: id, x: 0, y: bottom, w: d.w, h: d.h }]
   })
 }
 
@@ -111,7 +125,7 @@ function WidgetFrame({ widget, editing }: { widget: WidgetConfig; editing: boole
       {filtering && widget.type !== 'inbox' && (
         <FilterBar
           type={widget.type}
-          repos={widget.repos}
+          repos={widget.type === 'search' ? undefined : widget.repos}
           scope={widget.repos.length ? widget.repos : settings.repos}
           options={options}
           defaults={defaults}

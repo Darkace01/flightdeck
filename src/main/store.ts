@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path'
 import { DEFAULT_SETTINGS } from '../shared/defaults'
 import { normalizeNotifyRules } from '../shared/notifyRules'
+import { cleanSavedSearches } from '../shared/search'
 import type { AppEvent, Settings } from '../shared/types'
 
 const dir = () => app.getPath('userData')
@@ -54,6 +55,8 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
   )
   const known = new Set(settings.accounts.map((a) => a.id))
   settings.repoAccounts = Object.fromEntries(Object.entries(settings.repoAccounts ?? {}).filter(([, id]) => known.has(id)))
+  // Added in 0.10: absent in older files, and hand-editable, so keep only well-formed entries.
+  settings.savedSearches = cleanSavedSearches(rest.savedSearches)
   settings.openTabs = settings.openTabs.filter((t) => !settings.pinnedTabs.includes(t))
   if (settings.activeTab !== 'home' && ![...settings.openTabs, ...settings.pinnedTabs].includes(settings.activeTab)) settings.activeTab = 'home'
   return settings

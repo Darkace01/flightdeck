@@ -1,11 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { AccountInfo, ActionResult, AppEvent, CleanupRequest, DispatchResult, NewAccount, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, ReviewEvent, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
-import { limitFirstImport } from '../shared/repos'
 import { isSilenced, normalizeNotifyRules, withoutMuted } from '../shared/notifyRules'
 import * as git from './git'
 import * as gitTools from './gitTools'
@@ -17,10 +17,13 @@ import { fetchMergeStatus } from './mergeStatus'
 import { AccountClients, hasAccountToken, saveAccountToken } from './accounts'
 import { accountOf, apiUrlFor, hostOf, normalizeHost, GITHUB_HOST } from '../shared/accounts'
 import { applyCleanup, listOpenPrs } from './cleanup'
+import { runSearch } from './search'
 import { resolveEditor } from '../shared/defaults'
+import { attentionCount, badgeText } from '../shared/attention'
 import { Poller, toRun, type GhRun } from './poller'
+import { exportSettingsJson, importSettingsJson } from './importer'
 import { findTheme } from '../shared/themes'
-import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
+import { loadEvents, loadSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
 import { appIcon } from './icon'
 import { checkForUpdates, initUpdater, installUpdate, RELEASES_URL, updateStatus } from './updater'
 
@@ -80,11 +83,18 @@ function notify(events: AppEvent[]): void {
 
 function updateTray(): void {
   if (!tray) return
-  const unread = poller.snapshot.events.filter((e) => !e.read).length
+  const attention = attentionCount(poller.snapshot)
   const running = Object.values(poller.snapshot.repos).reduce((n, r) => n + r.runs.filter((x) => x.status !== 'completed').length, 0)
-  tray.setToolTip(`Pushback — ${running} running, ${unread} unread`)
-  if (process.platform === 'darwin') tray.setTitle(unread ? String(unread) : '')
-  if (process.platform !== 'win32') app.setBadgeCount(unread)
+  tray.setToolTip(`Pushback — ${running} running, ${attention} need attention`)
+  if (process.platform === 'darwin') tray.setTitle(badgeText(attention))
+  if (process.platform !== 'win32') app.setBadgeCount(attention)
+  tray.setContextMenu(trayMenu(attention))
+}
+
+/** Start with the OS login. Only for packaged builds: a dev or test run must not register electron.exe. */
+function applyLoginItem(): void {
+  if (!app.isPackaged) return
+  app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin, args: settings.startInTray ? ['--hidden'] : [] })
 }
 
 poller.on('update', (snapshot) => {
@@ -166,7 +176,9 @@ function createWindow(): void {
       nodeIntegration: false
     }
   })
-  win.once('ready-to-show', () => win?.show())
+  // Started by the login item with --hidden: sit in the tray until the user opens the window.
+  const hidden = process.argv.includes('--hidden') && settings.startInTray
+  win.once('ready-to-show', () => !hidden && win?.show())
   win.on('close', (e) => {
     if (settings.closeToTray && !quitting) {
       e.preventDefault()
@@ -187,11 +199,9 @@ function createWindow(): void {
   else void win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
-function createTray(): void {
-  tray = new Tray(appIcon(16))
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open Pushback', click: showWindow },
+function trayMenu(attention: number): Menu {
+  return Menu.buildFromTemplate([
+      { label: attention ? `Open Pushback (${attention} need attention)` : 'Open Pushback', click: showWindow },
       { label: 'Refresh now', click: () => poller.pollSoon() },
       {
         label: 'Check for updates',
@@ -208,8 +218,11 @@ function createTray(): void {
           app.quit()
         }
       }
-    ])
-  )
+  ])
+}
+
+function createTray(): void {
+  tray = new Tray(appIcon(16))
   tray.on('click', showWindow)
   updateTray()
 }
@@ -328,6 +341,7 @@ function registerIpc(): void {
     saveSettings(settings)
     if (patch.mode || patch.darkTheme || patch.lightTheme || patch.colorOverrides) paintWindow()
     if (reposChanged || intervalChanged) poller.pollSoon()
+    if (patch.launchAtLogin !== undefined || patch.startInTray !== undefined) applyLoginItem()
     return settings
   })
   ipcMain.handle('auth:set', async (_e, token: string | null): Promise<ActionResult> => {
@@ -443,23 +457,10 @@ function registerIpc(): void {
       )
     }, false)
   )
-  ipcMain.handle('settings:export', () => JSON.stringify(settings, null, 2))
+  ipcMain.handle('settings:export', () => exportSettingsJson(settings))
   ipcMain.handle('settings:import', (_e, json: string): ActionResult => {
     try {
-      const parsed = JSON.parse(json) as Partial<Settings>
-      if (typeof parsed !== 'object' || !parsed || !Array.isArray(parsed.repos)) throw new Error('Not a Pushback settings file')
-      // Imported settings may come from another machine; keep this machine's linked clones.
-      const imported = normalizeSettings(parsed)
-      // A first import (nothing watched yet) takes at most FIRST_IMPORT_LIMIT repos, favourites first.
-      const repos = limitFirstImport(imported.repos, imported.favoriteRepos, settings.repos.length)
-      settings = {
-        ...imported,
-        repos,
-        favoriteRepos: imported.favoriteRepos.filter((f) => repos.includes(f)),
-        localPaths: settings.localPaths,
-        accounts: settings.accounts,
-        repoAccounts: settings.repoAccounts
-      }
+      settings = importSettingsJson(settings, json)
       saveSettings(settings)
       send('settings', settings)
       paintWindow()
@@ -468,6 +469,22 @@ function registerIpc(): void {
     } catch (err) {
       return { ok: false, error: (err as Error).message }
     }
+  })
+  ipcMain.handle('file:save-text', async (_e, defaultName: string, content: string): Promise<ActionResult> => {
+    // The user picks the destination in a dialog; the renderer never names a path.
+    const pick = await dialog.showSaveDialog(win!, { defaultPath: basename(defaultName), filters: [{ name: 'Pushback JSON', extensions: ['json'] }] })
+    if (pick.canceled || !pick.filePath) return { ok: false }
+    try {
+      await writeFile(pick.filePath, content, 'utf8')
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  ipcMain.handle('file:open-text', async (): Promise<string | null> => {
+    const pick = await dialog.showOpenDialog(win!, { properties: ['openFile'], filters: [{ name: 'Pushback JSON', extensions: ['json'] }] })
+    if (pick.canceled || !pick.filePaths[0]) return null
+    return readFile(pick.filePaths[0], 'utf8')
   })
   ipcMain.handle('open', (_e, url: string) => {
     if (/^https:\/\//.test(url)) return shell.openExternal(url)
@@ -498,6 +515,7 @@ function registerIpc(): void {
   ipcMain.handle('issue:state', (_e, repo: string, num: number, state: 'open' | 'closed', reason?: string) =>
     run(() => clientFor(repo).send('PATCH', `/repos/${repo}/issues/${num}`, { state, ...(reason && { state_reason: reason }) }), false)
   )
+  ipcMain.handle('search:run', (_e, query: string, kind: 'pr' | 'issue') => runSearch(requireClient(), String(query), kind === 'issue' ? 'issue' : 'pr'))
   ipcMain.handle('labels:list', (_e, repo: string) => tools.listLabels(clientFor(repo), repo))
   ipcMain.handle('branches:list', (_e, repo: string, defaultBranch: string) => tools.listBranches(clientFor(repo), repo, defaultBranch))
   ipcMain.handle('branch:create', (_e, repo: string, name: string, from: string) => create(() => tools.createBranch(clientFor(repo), repo, name, from)))
@@ -507,6 +525,7 @@ function registerIpc(): void {
   ipcMain.handle('commits:list', (_e, repo: string, ref?: string) => tools.listCommits(clientFor(repo), repo, ref))
   ipcMain.handle('releases:list', (_e, repo: string) => tools.listReleases(clientFor(repo), repo))
   ipcMain.handle('release:create', (_e, repo: string, release: NewRelease) => create(() => tools.createRelease(clientFor(repo), repo, release)))
+  ipcMain.handle('release:draft', (_e, repo: string, base: string) => tools.releaseDraft(clientFor(repo), repo, base))
   ipcMain.handle('pr:create', (_e, repo: string, pr: NewPr) => create(() => tools.createPr(clientFor(repo), repo, pr)))
   ipcMain.handle('git:link', async (_e, repo: string): Promise<ActionResult> => {
     const pick = await dialog.showOpenDialog(win!, { title: `Choose your local clone of ${repo}`, properties: ['openDirectory'] })
@@ -688,6 +707,10 @@ function registerIpc(): void {
   })
 }
 
+// A throwaway profile for the end-to-end tests. Set before the single-instance lock, which is keyed on the
+// profile folder, so a test run doesn't collide with a Pushback you have open.
+if (process.env.PUSHBACK_USER_DATA) app.setPath('userData', process.env.PUSHBACK_USER_DATA)
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -695,9 +718,7 @@ if (!app.requestSingleInstanceLock()) {
   // Windows only shows toasts for an AppUserModelID that has a Start-menu shortcut. The installer
   // registers our appId; an unpackaged dev build has no shortcut, so use Electron's own exe path there.
   app.setAppUserModelId(app.isPackaged ? 'dev.pushback.app' : process.execPath)
-  // A throwaway profile for the end-to-end tests.
-  if (process.env.PUSHBACK_USER_DATA) app.setPath('userData', process.env.PUSHBACK_USER_DATA)
-  else migrateUserData()
+  if (!process.env.PUSHBACK_USER_DATA) migrateUserData()
 
   app.whenReady().then(() => {
     settings = loadSettings()
@@ -705,6 +726,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc()
     createWindow()
     createTray()
+    applyLoginItem()
     void connect()
     initUpdater(
       (s) => send('update', s),
