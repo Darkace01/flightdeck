@@ -189,8 +189,15 @@ test('the command palette finds repos and commands', async () => {
   ctx = await launch({ settings: WATCHING })
   const { page } = ctx
   await expect(page.locator('.widget').first()).toBeVisible()
-  await page.keyboard.press('Control+K')
+  // The button opens it…
+  await page.locator('.search-trigger').click()
   const input = page.getByPlaceholder(/Search/)
+  await expect(input).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(input).toBeHidden()
+  // …and so does the shortcut (Cmd+K on macOS), once the window has focus.
+  await page.locator('.crumbs').click()
+  await page.keyboard.press('ControlOrMeta+K')
   await input.fill('take the tour')
   await expect(page.getByText('Take the tour')).toBeVisible()
   await input.fill('acme/web')

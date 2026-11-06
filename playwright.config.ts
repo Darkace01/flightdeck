@@ -8,7 +8,8 @@ export default defineConfig({
   // One Electron app at a time: they share the machine's GPU and the fake server is per test anyway.
   workers: 1,
   fullyParallel: false,
-  retries: process.env.CI ? 1 : 0,
+  // No retries: a test that only passes on a second try is a bug to fix, not to hide.
+  retries: 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]] : 'list',
   outputDir: 'test-results'
 })
