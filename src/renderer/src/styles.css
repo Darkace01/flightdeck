@@ -126,6 +126,9 @@ code,
 }
 .search-trigger {
   flex: 0 1 360px;
+  min-width: 40px;
+  white-space: nowrap;
+  overflow: hidden;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -155,6 +158,8 @@ kbd {
   gap: 12px;
   color: var(--dim);
   font-size: 12px;
+  white-space: nowrap;
+  flex: none;
 }
 .pulse {
   width: 7px;
@@ -1953,9 +1958,15 @@ input[type='range'] {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel2);
-  min-width: 0;
+  /* Tabs give way before the search box does: they shrink to ellipses instead of spilling over it. */
+  min-width: 110px;
+  flex: 0 1 auto;
+  overflow: hidden;
 }
 .dash-tab {
+  /* min-width 0 lets a long name shrink (its span ellipsises); the overflow button below keeps its size. */
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1985,6 +1996,7 @@ input[type='range'] {
   font-weight: 600;
 }
 .dash-tab.more {
+  flex: none;
   padding: 3px 8px;
 }
 
