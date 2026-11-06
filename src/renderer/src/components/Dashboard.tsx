@@ -13,7 +13,7 @@ import { SummaryWidget } from '../widgets/SummaryWidget'
 import type { WidgetProps } from '../widgets/types'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { api } from '../lib/store'
-import { Icon, IconButton } from './ui'
+import { Icon, IconButton, Skeleton } from './ui'
 
 export const WIDGETS: Record<WidgetType, { component: ComponentType<WidgetProps>; description: string }> = {
   summary: { component: SummaryWidget, description: 'Health tile per repo: default-branch status, running jobs, open PRs.' },
@@ -86,7 +86,8 @@ function WidgetFrame({ widget, editing }: { widget: WidgetConfig; editing: boole
         </div>
       </header>
       <div className="widget-body">
-        <Body widget={widget} filter={filter} />
+        {/* Activity comes from disk, so it can show at once; everything else waits for the first poll. */}
+        {!snapshot.lastPoll && widget.type !== 'events' ? <Skeleton /> : <Body widget={widget} filter={filter} />}
       </div>
     </div>
   )

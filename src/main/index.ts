@@ -6,6 +6,8 @@ import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
 import * as git from './git'
+import { listEditors } from './editors'
+import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
 import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
@@ -384,12 +386,13 @@ function registerIpc(): void {
         const error = await shell.openPath(path)
         return error ? { ok: false, error } : { ok: true }
       }
-      await git.openIn(path, where, settings.editorCommand || 'code')
+      await git.openIn(path, where, resolveEditor(settings.editorCommand, where === 'editor' ? await listEditors() : undefined))
       return { ok: true }
     } catch (err) {
       return { ok: false, error: (err as Error).message }
     }
   })
+  ipcMain.handle('editors:list', () => listEditors())
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:install', () => {

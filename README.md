@@ -104,7 +104,7 @@ Press `E` or `Esc` when you're done. The layout saves automatically.
 
 ### 4. Set up more dashboards
 
-Click the dashboard name next to the logo (or press `Ctrl/⌘+K` and type `dashboard`) to switch dashboards or create a new one. Each dashboard keeps its own widgets and layout. Start from a template:
+Your dashboards are tabs next to the logo: click one to switch (or press `Ctrl/⌘+K` and type `dashboard`). The first five show as tabs; the **▾** menu holds the rest, plus **New dashboard…** and **Manage dashboards…**. Each dashboard keeps its own widgets and layout. Start from a template:
 
 | Template | What's on it |
 | --- | --- |
@@ -136,7 +136,7 @@ Links inside descriptions and READMEs that point to PRs, issues, runs or repos a
 
 ### 7. Work in repo tabs
 
-Click a repo tile, a repo link, or the **+** at the end of the tab bar to open a repo in its own tab. The **+** menu lists the repos you watch and every repo on your account (search as you type). It also opens any `owner/name` or GitHub URL, including public repos you don't own. Drag tabs to reorder them, close them with **×** or a middle-click, and cycle through them with `Ctrl+Tab` / `Ctrl+Shift+Tab`. Open tabs come back when you restart.
+Click a repo tile, a repo link, or the **+** at the end of the tab bar to open a repo in its own tab. The **+** button opens a dropdown with a search box at the top. It lists the repos you watch and every repo on your account (search as you type). It also opens any `owner/name` or GitHub URL, including public repos you don't own. Drag tabs to reorder them, close them with **×** or a middle-click, and cycle through them with `Ctrl+Tab` / `Ctrl+Shift+Tab`. Open tabs come back when you restart.
 
 Each repo tab has these sections:
 
@@ -159,7 +159,7 @@ In a repo tab, open **Working copy** and either **Link existing clone…** (pick
 - **Fetch**, **Pull** and **Push** show how far you are ahead of or behind the remote. Pull only fast-forwards, so it never creates a surprise merge commit. A branch that hasn't been pushed yet shows **Publish branch**.
 - **History**: recent commits with branch and tag labels.
 - **Branches**: switch between local branches or create a new one from the current branch.
-- **Open in editor** (VS Code by default; change the command in **Settings → Advanced**, e.g. `cursor`, `idea` or `zed`), **Terminal**, or click the path to open the folder.
+- **Open in** your editor or IDE, **Terminal**, or click the path to open the folder. Choose the default in **Settings → Advanced → Default editor / IDE**, which lists the ones installed on your computer (VS Code, Cursor, Windsurf, Zed, Sublime Text, JetBrains IDEs, Visual Studio and more), or enter any other command.
 
 Pushback runs your installed `git`, so it uses your existing credentials and config. Status refreshes every few seconds and whenever you switch back to the app.
 

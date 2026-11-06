@@ -55,6 +55,7 @@ const api: PushbackApi = {
   gitDiff: (repo, file, staged) => ipcRenderer.invoke('git:diff', repo, file, staged),
   gitRun: (repo, action, arg) => ipcRenderer.invoke('git:run', repo, action, arg),
   gitOpen: (repo, where) => ipcRenderer.invoke('git:open', repo, where),
+  listEditors: () => ipcRenderer.invoke('editors:list'),
   onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 

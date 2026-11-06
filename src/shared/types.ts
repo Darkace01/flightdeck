@@ -473,6 +473,13 @@ export interface UpdateStatus {
   error?: string
 }
 
+/** An editor or IDE found on this machine; `command` is what Settings.editorCommand is set to. */
+export interface EditorOption {
+  id: string
+  name: string
+  command: string
+}
+
 export interface PushbackApi {
   getState(): Promise<InitialState>
   onSnapshot(cb: (s: Snapshot) => void): () => void
@@ -524,6 +531,8 @@ export interface PushbackApi {
   gitDiff(repo: string, file: string, staged: boolean): Promise<string>
   gitRun(repo: string, action: GitAction, arg?: string | string[]): Promise<ActionResult & { output?: string }>
   gitOpen(repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult>
+  /** Editors and IDEs installed on this machine, for the default-editor setting. */
+  listEditors(): Promise<EditorOption[]>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */
   onNavigate(cb: (url: string) => void): () => void
 }

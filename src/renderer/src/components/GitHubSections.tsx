@@ -6,10 +6,10 @@ import { pushModal } from '../lib/ui'
 import { useLoad } from '../lib/useLoad'
 import { Markdown } from './Markdown'
 import type { SectionProps } from './RepoWorkspace'
-import { Avatar, Empty, IconButton, Segmented, StatusIcon } from './ui'
+import { Avatar, Empty, IconButton, Segmented, Skeleton, StatusIcon } from './ui'
 
 function Loading({ error }: { error?: string }) {
-  return error ? <p className="del">{error}</p> : <p className="dim">Loading…</p>
+  return error ? <p className="del">{error}</p> : <Skeleton rows={6} />
 }
 
 function Filter({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {

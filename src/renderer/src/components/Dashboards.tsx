@@ -1,50 +1,78 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import { TEMPLATES } from '../../../shared/templates'
 import type { LayoutItem, WidgetConfig } from '../../../shared/types'
 import { createDashboard, deleteDashboard, duplicateDashboard, moveDashboard, renameDashboard, switchDashboard } from '../lib/dashboards'
 import { useSettings } from '../lib/store'
+import { HOME } from '../lib/tabs'
 import { closeModal, openModal } from '../lib/ui'
-import { Icon, IconButton, Modal } from './ui'
+import { Icon, IconButton, Modal, Popover } from './ui'
 
-/** Top-bar menu for switching between saved dashboards. */
-export function DashboardSwitcher() {
+// More tabs than this crowd the search box, so the rest go in the overflow menu.
+const MAX_TABS = 5
+
+/** Saved dashboards as tabs in the top bar; past MAX_TABS they spill into a dropdown with New and Manage. */
+export function DashboardTabs() {
   const settings = useSettings()
   const [open, setOpen] = useState(false)
-  const current = settings.dashboards.find((d) => d.id === settings.activeDashboard)
+  const moreRef = useRef<HTMLButtonElement>(null)
   const isMac = navigator.userAgent.includes('Mac')
-  const go = (fn: () => void) => () => {
+  const all = settings.dashboards
+  const activeAt = all.findIndex((d) => d.id === settings.activeDashboard)
+  // Keep the open dashboard visible even when it lives past the cut-off.
+  const shown = activeAt >= MAX_TABS ? [...all.slice(0, MAX_TABS - 1), all[activeAt]] : all.slice(0, MAX_TABS)
+  const hidden = all.filter((d) => !shown.includes(d))
+  const show = (id: string) => {
     setOpen(false)
-    fn()
+    switchDashboard(id)
+  }
+  const shortcut = (id: string) => {
+    const i = all.findIndex((d) => d.id === id)
+    return i < 9 ? `${isMac ? '⌘' : 'Ctrl'}+${i + 1}` : undefined
   }
   return (
-    <div className="switcher">
-      <button className="switcher-btn" onClick={() => setOpen(!open)} aria-expanded={open} title="Switch dashboard">
-        {current?.name ?? 'Dashboard'} <span className="dim">▾</span>
+    <div className="dash-tabs" role="tablist" aria-label="Dashboards">
+      {shown.map((d) => {
+        const on = d.id === settings.activeDashboard && settings.activeTab === HOME
+        return (
+          <button
+            key={d.id}
+            role="tab"
+            aria-selected={on}
+            className={`dash-tab${d.id === settings.activeDashboard ? ' on' : ''}`}
+            title={[d.name, shortcut(d.id)].filter(Boolean).join(' · ')}
+            onClick={() => show(d.id)}
+          >
+            <span>{d.name}</span>
+          </button>
+        )
+      })}
+      <button ref={moreRef} className="dash-tab more" aria-expanded={open} title={hidden.length ? `${hidden.length} more dashboards` : 'Dashboards'} onClick={() => setOpen(!open)}>
+        {hidden.length > 0 && <span>+{hidden.length}</span>}
+        <span className="dim">▾</span>
       </button>
       {open && (
-        <>
-          <div className="menu-backdrop" onClick={() => setOpen(false)} />
-          <div className="menu" role="menu">
-            {settings.dashboards.map((d, i) => (
-              <button key={d.id} role="menuitem" className={d.id === settings.activeDashboard ? 'on' : ''} onClick={go(() => switchDashboard(d.id))}>
+        <Popover anchor={moreRef.current} onClose={() => setOpen(false)}>
+          <div role="menu" style={{ display: 'contents' }}>
+            {hidden.map((d) => (
+              <button key={d.id} role="menuitem" onClick={() => show(d.id)}>
                 <span>{d.name}</span>
-                {i < 9 && <kbd>{isMac ? '⌘' : 'Ctrl'} {i + 1}</kbd>}
+                {shortcut(d.id) && <kbd>{shortcut(d.id)}</kbd>}
               </button>
             ))}
-            <hr />
-            <button role="menuitem" onClick={go(() => openModal({ kind: 'new-dashboard' }))}>
+            {hidden.length > 0 && <hr />}
+            <button role="menuitem" onClick={() => (setOpen(false), openModal({ kind: 'new-dashboard' }))}>
               <span>
                 <Icon name="plus" /> New dashboard…
               </span>
             </button>
-            <button role="menuitem" onClick={go(() => openModal({ kind: 'dashboards' }))}>
+            <button role="menuitem" onClick={() => (setOpen(false), openModal({ kind: 'dashboards' }))}>
               <span>
                 <Icon name="gear" /> Manage dashboards…
               </span>
             </button>
           </div>
-        </>
+        </Popover>
       )}
     </div>
   )

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { COLOR_LABELS, findTheme, FONT_CHOICES, THEMES, type ThemeColors, type ThemePreset } from '../../../shared/themes'
 import type { NotifySettings, RepoOption, UpdateStatus } from '../../../shared/types'
+import { resolveEditor } from '../../../shared/defaults'
 import { applyTemplate } from '../lib/dashboards'
+import { useEditors } from '../lib/editors'
 import { api, toast, updateSettings, useSettings, useSnapshot, useUpdate } from '../lib/store'
 import { useAppearance } from '../lib/theme'
 import { closeModal } from '../lib/ui'
@@ -349,6 +351,47 @@ function UpdatesField() {
   )
 }
 
+const CUSTOM = '__custom'
+
+/** Default editor/IDE: pick one found on this machine, or type any command that takes a folder. */
+function EditorField() {
+  const settings = useSettings()
+  const editors = useEditors()
+  const current = resolveEditor(settings.editorCommand, editors)
+  const known = editors?.find((e) => e.command === current)
+  const [custom, setCustom] = useState(false)
+  const showInput = custom || (!!editors && !known)
+  return (
+    <div className="field">
+      <span>Default editor / IDE</span>
+      <select
+        value={showInput ? CUSTOM : (known?.command ?? '')}
+        disabled={!editors}
+        onChange={(e) => {
+          if (e.target.value === CUSTOM) return setCustom(true)
+          setCustom(false)
+          void updateSettings({ editorCommand: e.target.value })
+        }}
+      >
+        {!editors && <option value="">Looking for installed editors…</option>}
+        {editors?.map((e) => (
+          <option key={e.id} value={e.command}>
+            {e.name}
+          </option>
+        ))}
+        <option value={CUSTOM}>Custom command…</option>
+      </select>
+      {showInput && (
+        <input value={settings.editorCommand} placeholder="e.g. code, nvim-qt, /path/to/editor" onChange={(e) => void updateSettings({ editorCommand: e.target.value })} />
+      )}
+      <small>
+        Used by “Open in …” on a repo's Working copy, with the folder as the argument.
+        {editors && !editors.length && ' No known editors were found, so enter the command that starts yours.'}
+      </small>
+    </div>
+  )
+}
+
 function AdvancedSection() {
   const settings = useSettings()
   const [json, setJson] = useState('')
@@ -370,11 +413,7 @@ function AdvancedSection() {
         />
       </label>
       <p className="dim small">Unchanged data costs nothing: Pushback uses ETag requests, which GitHub doesn't count against your rate limit.</p>
-      <label className="field">
-        <span>Editor command</span>
-        <input value={settings.editorCommand} placeholder="code" onChange={(e) => void updateSettings({ editorCommand: e.target.value })} />
-        <small>Used by “Open in editor” on a repo's Working copy. The folder is passed as the argument: code, cursor, idea, subl, zed…</small>
-      </label>
+      <EditorField />
       <label className="check">
         <input type="checkbox" checked={settings.closeToTray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
         Keep running in the tray when the window is closed (so notifications keep coming)

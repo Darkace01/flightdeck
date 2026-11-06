@@ -12,7 +12,7 @@ import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
 import { BranchesSection, CommitsSection, IssuesSection, ReleasesSection } from './GitHubSections'
 import { LocalSection } from './LocalGit'
 import { Markdown } from './Markdown'
-import { Empty, runTone, StatusIcon } from './ui'
+import { Empty, runTone, Skeleton, StatusIcon } from './ui'
 
 export interface SectionProps {
   repo: string
@@ -30,7 +30,7 @@ interface Section {
 }
 
 function Overview({ repo, info }: SectionProps) {
-  if (!info) return <p className="dim">Loading…</p>
+  if (!info) return <Skeleton kind="text" rows={8} />
   return info.readmeHtml ? (
     <div className="readme">
       <Markdown html={info.readmeHtml} repo={repo} branch={info.defaultBranch} />
@@ -71,9 +71,13 @@ export function RepoWorkspace({ repo }: { repo: string }) {
     setSectionState(id)
   }
 
+  // Wait for sign-in: a tab restored at launch mounts before the first poll has loaded the token.
+  const signedIn = snapshot.auth === 'ok'
   useEffect(() => {
+    if (!signedIn) return
+    setError(undefined)
     api.repoInfo(repo).then(setInfo, (e: Error) => setError(e.message))
-  }, [repo])
+  }, [repo, signedIn])
 
   const latest = state?.runs.find((r) => r.branch === (info?.defaultBranch ?? state.defaultBranch) && r.status === 'completed')
   const running = state?.runs.filter((r) => r.status !== 'completed').length ?? 0
@@ -162,9 +166,11 @@ export function RepoWorkspace({ repo }: { repo: string }) {
 
         {error && <p className="del">Couldn't load {repo}: {error}</p>}
 
-        {current.component && <current.component repo={repo} info={info} />}
+        {current.component && !(error && !info) && <current.component repo={repo} info={info} />}
         {current.widget &&
-          (tracked ? (
+          (tracked && !state ? (
+            <Skeleton rows={6} />
+          ) : tracked ? (
             (() => {
               const [type, Body] = current.widget
               return (

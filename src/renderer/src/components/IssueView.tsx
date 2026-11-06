@@ -5,7 +5,7 @@ import { api, toast } from '../lib/store'
 import { closeModal } from '../lib/ui'
 import { invalidate, useLoad } from '../lib/useLoad'
 import { Markdown } from './Markdown'
-import { Avatar, Modal } from './ui'
+import { Avatar, Modal, Skeleton } from './ui'
 
 export function IssueModal({ repo, number }: { repo: string; number: number }) {
   const now = useNow()
@@ -90,7 +90,7 @@ export function IssueModal({ repo, number }: { repo: string; number: number }) {
       </div>
 
       {error && <p className="del">Couldn't load this issue: {error}</p>}
-      {!issue && !error && <p className="dim">Loading…</p>}
+      {!issue && !error && <Skeleton kind="text" rows={6} />}
       {issue && (
         <div className="timeline">
           <article className="comment">

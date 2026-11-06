@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { ChecksState, WorkflowRun } from '../../../shared/types'
 import { useToasts } from '../lib/store'
 
@@ -123,6 +124,74 @@ export function Modal({ title, onClose, children, width = 560 }: { title: string
 
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>
+}
+
+/**
+ * Placeholder shown while data loads, shaped like what replaces it so the page doesn't jump.
+ * `list` mimics icon + two-line rows; `text` mimics a heading and paragraphs (READMEs, PR bodies).
+ */
+export function Skeleton({ kind = 'list', rows = 4 }: { kind?: 'list' | 'text'; rows?: number }) {
+  if (kind === 'text')
+    return (
+      <div className="skeleton skeleton-text" aria-busy="true" aria-label="Loading">
+        <span className="sk sk-title" />
+        {Array.from({ length: rows }, (_, i) => (
+          <span key={i} className="sk sk-line" style={{ width: `${[96, 88, 92, 64][i % 4]}%` }} />
+        ))}
+      </div>
+    )
+  return (
+    <div className="skeleton" aria-busy="true" aria-label="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="sk-row">
+          <span className="sk sk-dot" />
+          <span className="sk-lines">
+            <span className="sk sk-line" style={{ width: `${[70, 55, 80, 62][i % 4]}%` }} />
+            <span className="sk sk-line sk-small" style={{ width: `${[40, 32, 46, 28][i % 4]}%` }} />
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A dropdown rendered at the top level of the page, under its anchor button, so containers that scroll or
+ * clip (the tab bar) can't cut it off.
+ */
+export function Popover({ anchor, onClose, children, className = '', align = 'left' }: {
+  anchor: HTMLElement | null
+  onClose: () => void
+  children: ReactNode
+  className?: string
+  align?: 'left' | 'right'
+}) {
+  const [pos, setPos] = useState<{ top: number; left?: number; right?: number }>()
+  useLayoutEffect(() => {
+    if (!anchor) return
+    const place = () => {
+      const r = anchor.getBoundingClientRect()
+      setPos(align === 'left' ? { top: r.bottom + 6, left: Math.max(8, r.left) } : { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [anchor, align])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  if (!pos) return null
+  return createPortal(
+    <>
+      <div className="menu-backdrop" onClick={onClose} />
+      <div className={`menu popover ${className}`} style={pos}>
+        {children}
+      </div>
+    </>,
+    document.body
+  )
 }
 
 export function Toasts() {

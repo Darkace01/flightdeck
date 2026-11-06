@@ -1,17 +1,20 @@
 import { duplicate, fromTemplate, TEMPLATES } from '../../../shared/templates'
 import type { SavedDashboard, Settings } from '../../../shared/types'
 import { getSettings, toast, updateSettings } from './store'
+import { HOME, selectTab } from './tabs'
 
 /** The saved list with the open dashboard's live widgets/layout written back into it. */
 function synced(s: Settings): SavedDashboard[] {
   return s.dashboards.map((d) => (d.id === s.activeDashboard ? { ...d, widgets: s.widgets, layout: s.layout } : d))
 }
 
+/** Opens a dashboard, bringing the dashboard tab to the front if a repo tab was showing. */
 export function switchDashboard(id: string): void {
   const s = getSettings()
   const target = s.dashboards.find((d) => d.id === id)
-  if (!target || id === s.activeDashboard) return
-  void updateSettings({ dashboards: synced(s), activeDashboard: id, widgets: target.widgets, layout: target.layout })
+  if (!target) return
+  if (id === s.activeDashboard) return selectTab(HOME)
+  void updateSettings({ dashboards: synced(s), activeDashboard: id, widgets: target.widgets, layout: target.layout, activeTab: HOME })
 }
 
 /** `source` is a template id, or the id of a saved dashboard to copy. */

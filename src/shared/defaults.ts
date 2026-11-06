@@ -1,5 +1,5 @@
 import { DEFAULT_DARK, DEFAULT_LIGHT } from './themes'
-import type { LayoutItem, Settings, WidgetConfig, WidgetType } from './types'
+import type { EditorOption, LayoutItem, Settings, WidgetConfig, WidgetType } from './types'
 
 export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: number; options: WidgetConfig['options'] }> = {
   summary: { title: 'Repositories', w: 12, h: 3, options: {} },
@@ -64,4 +64,14 @@ export const DEFAULT_SETTINGS: Settings = {
   activeTab: 'home',
   localPaths: {},
   editorCommand: 'code'
+}
+
+/**
+ * The editor command to run. If the user never changed the default (`code`) and VS Code isn't installed,
+ * use the first editor that is, so "Open in" works out of the box with Cursor, Insiders, Zed and the like.
+ */
+export function resolveEditor(command: string, installed: EditorOption[] | undefined): string {
+  const cmd = command.trim() || 'code'
+  if (cmd !== 'code' || !installed?.length || installed.some((e) => e.command === 'code')) return cmd
+  return installed[0].command
 }

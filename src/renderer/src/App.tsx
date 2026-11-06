@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { DispatchModal, MergeModal, RunDetailsModal } from './components/ActionModals'
 import { Dashboard } from './components/Dashboard'
-import { DashboardSwitcher, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
+import { DashboardTabs, ManageDashboardsModal, NewDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
 import { PrModal } from './components/PrView'
 import { NewIssueModal, NewPrModal, NewReleaseModal } from './components/CreateModals'
@@ -101,7 +101,7 @@ function TopBar() {
         <Logo />
         Pushback
       </div>
-      <DashboardSwitcher />
+      <DashboardTabs />
       <button className="search-trigger" onClick={() => openModal({ kind: 'palette' })}>
         <Icon name="search" />
         Search or run a command…
@@ -200,7 +200,9 @@ export function App() {
   useEffect(() => closeModal, [])
   useEffect(() => api.onNavigate(openInApp), [])
 
-  const ready = snapshot.auth === 'ok' && settings.repos.length > 0
+  // Until the first poll answers, auth reads as missing; show the dashboard's skeleton rather than flashing sign-in.
+  const starting = !snapshot.lastPoll && settings.repos.length > 0
+  const ready = starting || (snapshot.auth === 'ok' && settings.repos.length > 0)
   return (
     <div className="app">
       <TopBar />

@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useSnapshot } from './store'
 
 // Per-repo data versions: creating or changing something (an issue, branch, release) bumps the
 // repo's version, and every section showing that repo reloads.
@@ -23,8 +24,11 @@ function useRepoVersion(repo: string): number {
 /** Loads on-demand data for a repo view, reloading when `deps` change or the repo is invalidated. */
 export function useLoad<T>(repo: string, load: () => Promise<T>, deps: unknown[]) {
   const version = useRepoVersion(repo)
+  // Sections restored at launch mount before the first poll has loaded the token; wait for it.
+  const signedIn = useSnapshot().auth === 'ok'
   const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: true })
   useEffect(() => {
+    if (!signedIn) return
     let alive = true
     setState((s) => ({ ...s, loading: true }))
     load().then(
@@ -35,6 +39,6 @@ export function useLoad<T>(repo: string, load: () => Promise<T>, deps: unknown[]
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repo, version, ...deps])
+  }, [repo, version, signedIn, ...deps])
   return { ...state, reload: () => invalidate(repo) }
 }

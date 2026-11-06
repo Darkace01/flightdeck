@@ -3,7 +3,7 @@ import type { RepoOption } from '../../../shared/types'
 import { matches, timeAgo, useNow } from '../lib/format'
 import { closeTab, HOME, moveTab, openRepoTab, selectTab } from '../lib/tabs'
 import { api, useSettings, useSnapshot } from '../lib/store'
-import { Icon, runTone, StatusIcon } from './ui'
+import { Icon, Popover, runTone, Skeleton, StatusIcon } from './ui'
 
 /** Dashboard tab plus one tab per open repo. Drag to reorder, middle-click or × to close. */
 export function TabBar() {
@@ -11,6 +11,7 @@ export function TabBar() {
   const snapshot = useSnapshot()
   const [adding, setAdding] = useState(false)
   const [dragging, setDragging] = useState<string>()
+  const addRef = useRef<HTMLButtonElement>(null)
   const dashboard = settings.dashboards.find((d) => d.id === settings.activeDashboard)
 
   // Warm the picker's repo list in the background, so it's ready when + is clicked.
@@ -72,12 +73,10 @@ export function TabBar() {
           </button>
         )
       })}
-      <div className="switcher">
-        <button className="tab tab-add" title="Open a repository in a new tab" onClick={() => setAdding(!adding)}>
-          <Icon name="plus" />
-        </button>
-        {adding && <RepoPicker onPick={add} onClose={() => setAdding(false)} />}
-      </div>
+      <button ref={addRef} className="tab tab-add" title="Open a repository in a new tab" aria-expanded={adding} onClick={() => setAdding(!adding)}>
+        <Icon name="plus" />
+      </button>
+      {adding && <RepoPicker anchor={addRef.current} onPick={add} onClose={() => setAdding(false)} />}
     </nav>
   )
 }
@@ -93,7 +92,7 @@ function loadMyRepos(): Promise<RepoOption[]> {
 }
 
 /** Searchable list of watched repos and every repo on the account, plus any owner/name or URL typed in. */
-function RepoPicker({ onPick, onClose }: { onPick: (repo: string) => void; onClose: () => void }) {
+function RepoPicker({ anchor, onPick, onClose }: { anchor: HTMLElement | null; onPick: (repo: string) => void; onClose: () => void }) {
   const settings = useSettings()
   const now = useNow()
   const [q, setQ] = useState('')
@@ -122,9 +121,8 @@ function RepoPicker({ onPick, onClose }: { onPick: (repo: string) => void; onClo
   }, [sel])
 
   return (
-    <>
-      <div className="menu-backdrop" onClick={onClose} />
-      <div className="menu repo-picker" role="dialog" aria-label="Open a repository">
+    <Popover anchor={anchor} onClose={onClose} className="repo-picker">
+      <div role="dialog" aria-label="Open a repository" style={{ display: 'contents' }}>
         <input
           autoFocus
           placeholder="Search your repos, or type owner/name or a GitHub URL"
@@ -155,10 +153,10 @@ function RepoPicker({ onPick, onClose }: { onPick: (repo: string) => void; onClo
               {r.info && <span className="dim small">{timeAgo(r.info.pushedAt, now)}</span>}
             </button>
           ))}
-          {!mine && <p className="dim small picker-note">Loading your repositories…</p>}
+          {!mine && <Skeleton rows={5} />}
           {mine && !items.length && <p className="dim small picker-note">No repositories match. Type owner/name to open any public repo.</p>}
         </div>
       </div>
-    </>
+    </Popover>
   )
 }

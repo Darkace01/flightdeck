@@ -1605,15 +1605,6 @@ input[type='range'] {
 .tab-add {
   padding: 6px 8px;
 }
-.tabbar .menu {
-  top: calc(100% + 2px);
-}
-.tabbar .menu form {
-  padding: 4px;
-}
-.tabbar .menu input {
-  width: 100%;
-}
 .workspace {
   flex: 1;
   display: flex;
@@ -1749,6 +1740,7 @@ input[type='range'] {
   max-height: min(70vh, 520px);
 }
 .repo-picker > input {
+  width: auto;
   margin: 2px 2px 6px;
 }
 .picker-list {
@@ -1914,4 +1906,119 @@ input[type='range'] {
 }
 .chip-head {
   color: var(--accent);
+}
+
+/* --- Popovers and dashboard tabs ---------------------------------------------- */
+/* Popovers sit in a portal on <body>, positioned from their anchor's on-screen rect. */
+.menu.popover {
+  position: fixed;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+}
+.repo-picker.popover {
+  max-height: min(70vh, 520px);
+  overflow: hidden;
+}
+.dash-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel2);
+  min-width: 0;
+}
+.dash-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 150px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: calc(var(--radius) * 0.7);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dash-tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-tab:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.dash-tab.on {
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--border);
+  font-weight: 600;
+}
+.dash-tab.more {
+  padding: 3px 8px;
+}
+
+/* --- Skeleton loading ---------------------------------------------------------- */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+.sk {
+  display: block;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--hover) 25%, var(--border) 50%, var(--hover) 75%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--row-pad) 12px;
+}
+.sk-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: none;
+}
+.sk-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sk-line {
+  height: 10px;
+}
+.sk-small {
+  height: 8px;
+}
+.skeleton-text {
+  gap: 10px;
+  padding: 4px 0;
+}
+.skeleton-text .sk-title {
+  width: 40%;
+  height: 18px;
+  margin-bottom: 6px;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    animation: none;
+  }
 }

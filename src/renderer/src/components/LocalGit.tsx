@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { GitAction, GitFile, GitStatus } from '../../../shared/types'
 import { timeAgo, useNow } from '../lib/format'
+import { editorName, useEditors } from '../lib/editors'
 import { api, toast, useSettings } from '../lib/store'
 import { useLoad } from '../lib/useLoad'
 import type { SectionProps } from './RepoWorkspace'
-import { Empty, IconButton, Segmented } from './ui'
+import { Empty, IconButton, Segmented, Skeleton } from './ui'
 
 const LABEL: Record<string, string> = { M: 'Modified', A: 'Added', D: 'Deleted', R: 'Renamed', C: 'Copied', U: 'Conflict', T: 'Type changed', '?': 'Untracked' }
 
@@ -34,6 +35,7 @@ function useGitStatus(repo: string) {
 
 export function LocalSection({ repo }: SectionProps) {
   const settings = useSettings()
+  const editors = useEditors()
   const { status, error, refresh } = useGitStatus(repo)
   const [view, setView] = useState<'changes' | 'history' | 'branches'>('changes')
   const [busy, setBusy] = useState<string>()
@@ -50,10 +52,10 @@ export function LocalSection({ repo }: SectionProps) {
   }
   const open = async (where: 'editor' | 'terminal' | 'folder') => {
     const r = await api.gitOpen(repo, where)
-    if (!r.ok) toast(where === 'editor' ? `Couldn't run “${settings.editorCommand}”: ${r.error}. Change the editor in Settings → Advanced.` : (r.error ?? 'Failed'), 'error')
+    if (!r.ok) toast(where === 'editor' ? `Couldn't open ${editorName(settings.editorCommand, editors)}: ${r.error}. Choose another editor in Settings → Advanced.` : (r.error ?? 'Failed'), 'error')
   }
 
-  if (status === undefined && !error) return <p className="dim">Loading…</p>
+  if (status === undefined && !error) return <Skeleton rows={6} />
   if (!status)
     return (
       <div className="link-card">
@@ -134,7 +136,7 @@ export function LocalSection({ repo }: SectionProps) {
         />
         <span className="spacer" />
         <button className="btn btn-sm" onClick={() => void open('editor')}>
-          Open in {settings.editorCommand || 'editor'}
+          Open in {editorName(settings.editorCommand, editors)}
         </button>
         <button className="btn btn-sm" onClick={() => void open('terminal')}>
           Terminal
@@ -292,7 +294,7 @@ function Changes({ repo, status, staged, changed, act, busy }: { repo: string; s
 function History({ repo }: { repo: string }) {
   const now = useNow()
   const { data, error } = useLoad(repo, () => api.gitLog(repo), [])
-  if (!data) return error ? <p className="del">{error}</p> : <p className="dim">Loading…</p>
+  if (!data) return error ? <p className="del">{error}</p> : <Skeleton rows={6} />
   if (!data.length) return <Empty>No commits yet.</Empty>
   return (
     <ul className="list repo-tab">
@@ -331,7 +333,7 @@ function Branches({ repo, act, dirty }: { repo: string; act: Act; dirty: boolean
   const run = async (action: GitAction, arg: string, done: string) => {
     if (await act(action, arg, done)) reload()
   }
-  if (!data) return error ? <p className="del">{error}</p> : <p className="dim">Loading…</p>
+  if (!data) return error ? <p className="del">{error}</p> : <Skeleton rows={6} />
   return (
     <>
       <form

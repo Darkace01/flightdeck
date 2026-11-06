@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { Inbox } from '../../../shared/types'
-import { Avatar, checksTone, Empty, IconButton, Segmented, StatusIcon } from '../components/ui'
+import { Avatar, checksTone, Empty, IconButton, Segmented, Skeleton, StatusIcon } from '../components/ui'
 import { matches, timeAgo, useNow } from '../lib/format'
 import { api, updateSettings, useSettings, useSnapshot } from '../lib/store'
 import { openInApp } from '../lib/open'
@@ -34,7 +34,7 @@ export const InboxWidget = memo(function InboxWidget({ widget, filter }: WidgetP
         ]}
       />
       {!inbox ? (
-        <Empty>Loading…</Empty>
+        <Skeleton />
       ) : !items.length ? (
         <Empty>{tab === 'reviewRequests' ? 'No reviews waiting on you. 🎉' : 'Nothing here.'}</Empty>
       ) : (

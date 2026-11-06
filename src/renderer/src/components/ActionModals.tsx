@@ -4,7 +4,7 @@ import { duration, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSnapshot } from '../lib/store'
 import { closeModal } from '../lib/ui'
 import { cancel, rerun } from '../widgets/RunsWidget'
-import { Avatar, Modal, runTone, Segmented, StatusIcon } from './ui'
+import { Avatar, Modal, runTone, Segmented, Skeleton, StatusIcon } from './ui'
 
 export function DispatchModal({ workflow }: { workflow: Workflow }) {
   const snapshot = useSnapshot()
@@ -255,7 +255,7 @@ export function RunDetailsModal({ run: initial }: { run: WorkflowRun }) {
         </button>
       </div>
       {error && <p className="del">{error}</p>}
-      {!jobs && !error && <p className="dim">Loading jobs…</p>}
+      {!jobs && !error && <Skeleton rows={3} />}
       {jobs && (
         <div className="jobs">
           {jobs.map((job) => (
