@@ -39,6 +39,9 @@ export const RUNS: Record<string, object[]> = {
   'acme/web': [run('acme/web', 201, { status: 'in_progress', conclusion: null, display_title: 'Build site', created_at: ago(2), run_started_at: ago(2), updated_at: ago(1) })]
 }
 
+/** The run the fake creates when the Deploy workflow is dispatched. */
+export const DISPATCHED_RUN_ID = 9001
+
 const DEPLOY_YAML = `name: Deploy
 on:
   workflow_dispatch:
@@ -246,6 +249,7 @@ const body = (req: IncomingMessage) =>
 export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<FakeGitHub> {
   const rich = !!opts.rich
   const requests: { method: string; path: string; body?: string }[] = []
+  let dispatched = false
   const server: Server = createServer(async (req, res) => {
     const path = req.url ?? '/'
     const text = req.method === 'GET' ? '' : await body(req)
@@ -262,6 +266,18 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
         return
       }
       res.writeHead(200, headers).end(JSON.stringify({ data: graphql(query, variables ?? {}, rich) }))
+      return
+    }
+    // Dispatching the Deploy workflow queues a new run, which then shows up in that workflow's run list.
+    if (req.method === 'POST' && /^\/repos\/acme\/api\/actions\/workflows\/2\/dispatches$/.test(path)) {
+      dispatched = true
+      res.writeHead(204, headers).end()
+      return
+    }
+    if (req.method === 'GET' && /^\/repos\/acme\/api\/actions\/workflows\/2\/runs(\?|$)/.test(path)) {
+      const older = (RUNS['acme/api'] as { workflow_id: number }[]).filter((r) => r.workflow_id === 2)
+      const queued = run('acme/api', DISPATCHED_RUN_ID, { workflow_id: 2, name: 'Deploy', display_title: 'Deploy', status: 'in_progress', conclusion: null, event: 'workflow_dispatch', created_at: ago(0), run_started_at: ago(0), updated_at: ago(0) })
+      res.writeHead(200, headers).end(JSON.stringify({ workflow_runs: dispatched ? [queued, ...older] : older }))
       return
     }
     // Submitting a review is the one REST write the app is allowed to make in tests that ask for it.

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell, Tray } from 'electron'
 import { cpSync, existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import type { ActionResult, AppEvent, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, ReviewEvent, Settings } from '../shared/types'
+import type { ActionResult, AppEvent, DispatchResult, EventKind, GitAction, GitQuery, Job, NewPr, NewRelease, NotifySettings, RepoOption, ReviewEvent, Settings } from '../shared/types'
 import { fetchPrDetail, fetchRepoInfo } from './details'
 import { GitHub } from './github'
 import * as tools from './repoTools'
@@ -13,7 +13,7 @@ import { listEditors } from './editors'
 import { findClones } from './scan'
 import { listDeployments } from './deployments'
 import { resolveEditor } from '../shared/defaults'
-import { Poller } from './poller'
+import { Poller, toRun, type GhRun } from './poller'
 import { findTheme } from '../shared/themes'
 import { loadEvents, loadSettings, normalizeSettings, resolveToken, saveEvents, savePat, saveSettings } from './store'
 import { appIcon } from './icon'
@@ -314,9 +314,29 @@ function registerIpc(): void {
     }
     return repos.map((r) => ({ fullName: r.full_name, description: r.description, private: r.private, pushedAt: r.pushed_at }))
   })
-  ipcMain.handle('wf:dispatch', (_e, repo: string, id: number, ref: string, inputs: Record<string, string>) =>
-    run(() => requireClient().send('POST', `/repos/${repo}/actions/workflows/${id}/dispatches`, { ref, inputs }))
-  )
+  ipcMain.handle('wf:dispatch', async (_e, repo: string, id: number, ref: string, inputs: Record<string, string>): Promise<DispatchResult> => {
+    try {
+      const gh = requireClient()
+      const recent = () =>
+        gh
+          .get<{ workflow_runs: GhRun[] }>(`/repos/${repo}/actions/workflows/${id}/runs?event=workflow_dispatch&per_page=10`)
+          .then((d) => d.workflow_runs)
+          .catch(() => [] as GhRun[])
+      const known = new Set((await recent()).map((r) => r.id))
+      await gh.send('POST', `/repos/${repo}/actions/workflows/${id}/dispatches`, { ref, inputs })
+      poller.pollSoon()
+      // GitHub answers 204 without naming the run it queued, so look for the one that wasn't there before. It
+      // usually appears within a couple of seconds; if not, the caller falls back to "Started".
+      for (let i = 0; i < 8; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+        const fresh = (await recent()).find((r) => !known.has(r.id))
+        if (fresh) return { ok: true, run: toRun(repo, fresh) }
+      }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
   ipcMain.handle('run:rerun', (_e, repo: string, id: number, failedOnly: boolean) =>
     run(() => requireClient().send('POST', `/repos/${repo}/actions/runs/${id}/${failedOnly ? 'rerun-failed-jobs' : 'rerun'}`))
   )

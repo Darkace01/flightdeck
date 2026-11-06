@@ -283,6 +283,11 @@ export interface ActionResult {
   number?: number
 }
 
+export interface DispatchResult extends ActionResult {
+  /** The run that was started. GitHub doesn't say which one it is, so it's looked up; absent if it didn't show up in time. */
+  run?: WorkflowRun
+}
+
 export interface Label {
   name: string
   color: string
@@ -691,7 +696,7 @@ export interface PushbackApi {
   setToken(token: string | null): Promise<ActionResult>
   refresh(): Promise<void>
   listMyRepos(): Promise<RepoOption[]>
-  dispatch(repo: string, workflowId: number, ref: string, inputs: Record<string, string>): Promise<ActionResult>
+  dispatch(repo: string, workflowId: number, ref: string, inputs: Record<string, string>): Promise<DispatchResult>
   rerun(repo: string, runId: number, failedOnly: boolean): Promise<ActionResult>
   cancel(repo: string, runId: number): Promise<ActionResult>
   runJobs(repo: string, runId: number): Promise<Job[]>

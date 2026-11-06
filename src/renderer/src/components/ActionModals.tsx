@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Job, PullRequest, ReviewEvent, Workflow, WorkflowRun } from '../../../shared/types'
 import { duration, timeAgo, useNow } from '../lib/format'
 import { api, toast, useSnapshot } from '../lib/store'
-import { closeModal } from '../lib/ui'
+import { closeModal, pushModal } from '../lib/ui'
 import { cancel, rerun } from '../widgets/RunsWidget'
 import { Avatar, Modal, runTone, Segmented, Skeleton, StatusIcon } from './ui'
 
@@ -29,6 +29,8 @@ export function DispatchModal({ workflow }: { workflow: Workflow }) {
     if (r.ok) {
       toast(`Started ${workflow.name} on ${ref}`, 'ok')
       closeModal()
+      // Go straight to the run that was just queued, so you can watch its jobs and logs.
+      if (r.run) pushModal({ kind: 'run', run: r.run })
     } else toast(`Couldn't start workflow: ${r.error}`, 'error')
   }
 

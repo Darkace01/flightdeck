@@ -217,26 +217,7 @@ export class Poller extends EventEmitter<Events> {
 
   private async fetchRuns(gh: GitHub, repo: string): Promise<WorkflowRun[]> {
     const data = await gh.get<{ workflow_runs: GhRun[] }>(`/repos/${repo}/actions/runs?per_page=40`)
-    return data.workflow_runs.map((r) => ({
-      repo,
-      id: r.id,
-      workflowId: r.workflow_id,
-      name: r.name ?? 'workflow',
-      title: r.display_title,
-      status: r.status as WorkflowRun['status'],
-      conclusion: r.conclusion,
-      event: r.event,
-      branch: r.head_branch ?? '',
-      sha: r.head_sha,
-      actor: r.triggering_actor?.login ?? r.actor?.login ?? '',
-      actorAvatar: r.triggering_actor?.avatar_url ?? r.actor?.avatar_url ?? '',
-      runNumber: r.run_number,
-      attempt: r.run_attempt ?? 1,
-      createdAt: r.created_at,
-      startedAt: r.run_started_at ?? r.created_at,
-      updatedAt: r.updated_at,
-      url: r.html_url
-    }))
+    return data.workflow_runs.map((r) => toRun(repo, r))
   }
 
   private async fetchWorkflows(gh: GitHub, repo: string): Promise<Workflow[]> {
@@ -485,7 +466,30 @@ interface GqlRepo {
   }
 }
 
-interface GhRun {
+export function toRun(repo: string, r: GhRun): WorkflowRun {
+  return {
+    repo,
+    id: r.id,
+    workflowId: r.workflow_id,
+    name: r.name ?? 'workflow',
+    title: r.display_title,
+    status: r.status as WorkflowRun['status'],
+    conclusion: r.conclusion,
+    event: r.event,
+    branch: r.head_branch ?? '',
+    sha: r.head_sha,
+    actor: r.triggering_actor?.login ?? r.actor?.login ?? '',
+    actorAvatar: r.triggering_actor?.avatar_url ?? r.actor?.avatar_url ?? '',
+    runNumber: r.run_number,
+    attempt: r.run_attempt ?? 1,
+    createdAt: r.created_at,
+    startedAt: r.run_started_at ?? r.created_at,
+    updatedAt: r.updated_at,
+    url: r.html_url
+  }
+}
+
+export interface GhRun {
   id: number
   workflow_id: number
   name: string | null
