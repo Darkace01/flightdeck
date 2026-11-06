@@ -102,7 +102,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security' | 'cihealth'
 
 export interface WidgetConfig {
   id: string

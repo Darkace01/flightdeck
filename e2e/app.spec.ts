@@ -180,3 +180,19 @@ test('the security widget lists alerts, notes what is switched off, and shows De
   await sec.locator('select.filter-select').first().selectOption('dependabot-prs')
   await expect(sec.getByText('Bump lodash from 4.17.20 to 4.17.21')).toBeVisible()
 })
+
+test('the CI health widget ranks failing, flaky and slow workflows', async () => {
+  ctx = await launch({ settings: { ...WATCHING, widgets: [{ id: 'w-ci', type: 'cihealth', repos: [], options: { view: 'failing', days: 14, branch: '' } }], layout: [{ i: 'w-ci', x: 0, y: 0, w: 12, h: 9 }], dashboards: [] } })
+  const { page } = ctx
+  const w = page.locator('.widget', { has: page.getByRole('heading', { name: 'CI health' }) })
+  // acme/api's CI passed once and failed once, both on the same commit: 50% failures, and flaky.
+  await expect(w.locator('.health-tiles')).toContainText('flaky workflows')
+  await expect(w.locator('tbody tr', { hasText: 'CI' })).toContainText('50%')
+  await w.getByRole('button', { name: 'Filters' }).click()
+  await w.locator('select.filter-select').first().selectOption('flaky')
+  await expect(w.locator('tbody tr', { hasText: 'CI' })).toContainText('1')
+  await w.locator('select.filter-select').first().selectOption('slowest')
+  await expect(w.locator('tbody tr')).not.toHaveCount(0)
+  await w.locator('select.filter-select').first().selectOption('minutes')
+  await expect(w.locator('th').last()).toHaveText('Minutes (est.)')
+})

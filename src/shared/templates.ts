@@ -32,7 +32,8 @@ export const TEMPLATES: DashboardTemplate[] = [
       { type: 'runs', at: [0, 3, 6, 8], title: 'Running now', options: { filter: 'active' } },
       { type: 'runs', at: [6, 3, 6, 8], title: 'Failures', options: { filter: 'failed' } },
       { type: 'insights', at: [0, 11, 7, 8] },
-      { type: 'events', at: [7, 11, 5, 8] }
+      { type: 'events', at: [7, 11, 5, 8] },
+      { type: 'cihealth', at: [0, 19, 12, 9] }
     ]
   },
   {

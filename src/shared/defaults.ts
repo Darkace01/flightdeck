@@ -10,7 +10,8 @@ export const WIDGET_DEFAULTS: Record<WidgetType, { title: string; w: number; h: 
   inbox: { title: 'My work', w: 5, h: 8, options: { tab: 'reviewRequests' } },
   insights: { title: 'CI insights', w: 7, h: 8, options: {} },
   deployments: { title: 'Deployments', w: 12, h: 8, options: { view: 'environments' } },
-  security: { title: 'Security alerts', w: 6, h: 8, options: { view: 'alerts', kind: '', severity: '' } }
+  security: { title: 'Security alerts', w: 6, h: 8, options: { view: 'alerts', kind: '', severity: '' } },
+  cihealth: { title: 'CI health', w: 12, h: 9, options: { view: 'failing', days: 14, branch: '' } }
 }
 
 const widgets: WidgetConfig[] = [

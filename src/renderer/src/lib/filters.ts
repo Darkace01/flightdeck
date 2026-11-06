@@ -53,6 +53,11 @@ export const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
     { key: 'branch', label: 'Branch', kind: 'text', filter: true, placeholder: 'any branch', suggest: 'branches' },
     { key: 'workflow', label: 'Workflow', kind: 'text', filter: true, placeholder: 'any workflow', suggest: 'workflows' }
   ],
+  cihealth: [
+    { key: 'view', label: 'Show', kind: 'select', filter: true, choices: [['failing', 'Failure rate'], ['flaky', 'Flaky workflows'], ['slowest', 'Slowest workflows'], ['minutes', 'Actions minutes']] },
+    { key: 'branch', label: 'Branch', kind: 'text', filter: true, placeholder: 'any branch', suggest: 'branches' },
+    { key: 'days', label: 'Look back (days)', kind: 'number', min: 1, max: 90 }
+  ],
   security: [
     { key: 'view', label: 'Show', kind: 'select', filter: true, choices: [['alerts', 'Security alerts'], ['dependabot-prs', 'Dependabot pull requests']] },
     { key: 'kind', label: 'Source', kind: 'select', filter: true, choices: [['', 'All sources'], ['dependabot', 'Dependabot'], ['code-scanning', 'Code scanning'], ['secret-scanning', 'Secret scanning']] },

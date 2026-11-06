@@ -21,6 +21,7 @@ export default defineConfig({
         'src/main/deployments.ts',
         'src/main/security.ts',
         'src/shared/security.ts',
+        'src/shared/cihealth.ts',
         'src/renderer/src/lib/graph.ts',
         'src/renderer/src/lib/filters.ts'
       ],
