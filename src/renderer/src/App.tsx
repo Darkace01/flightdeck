@@ -61,12 +61,12 @@ function useShortcuts(): void {
   }, [editing])
 }
 
-/** The app icon (a launch arrow over a runway), drawn in the theme's accent colour. */
+/** The app icon (a launch arrow over a runway) in black and white, following the theme's text and background. */
 function Logo() {
   return (
     <svg className="brand-mark" viewBox="0 0 20 20" aria-hidden>
-      <rect width="20" height="20" rx="4.4" fill="var(--accent)" />
-      <g fill="var(--accent-fg)">
+      <rect width="20" height="20" rx="4.4" fill="var(--text)" />
+      <g fill="var(--bg)">
         <polygon transform="translate(10 9.2) rotate(45) translate(-10 -10)" points="10,2.4 14.2,8.4 11.4,8.4 11.4,14.8 8.6,14.8 8.6,8.4 5.8,8.4" />
         <g opacity="0.7">
           <rect x="4" y="15.6" width="2.4" height="1.2" />

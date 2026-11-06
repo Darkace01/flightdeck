@@ -975,7 +975,3 @@ details p {
   border-color: #fff;
   border-right-color: transparent;
 }
-.brand img,
-.final-icon {
-  filter: grayscale(1) contrast(1.2);
-}

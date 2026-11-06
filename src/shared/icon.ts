@@ -13,8 +13,9 @@ const RUNWAY_DASHES = [
   [0.44, 0.56],
   [0.68, 0.8]
 ]
-const TOP = [99, 102, 241] // indigo #6366f1 (r, g, b)
-const BOTTOM = [34, 211, 238] // cyan #22d3ee
+// Black and white: a charcoal-to-black tile with a white arrow and runway.
+const TOP = [46, 46, 46] // #2e2e2e (r, g, b)
+const BOTTOM = [0, 0, 0] // #000
 
 function inTriangle([px, py]: Pt, [a, b, c]: Pt[]): boolean {
   const side = (p: Pt, q: Pt) => (px - q[0]) * (p[1] - q[1]) - (p[0] - q[0]) * (py - q[1])
@@ -42,7 +43,7 @@ function sample(x: number, y: number): number {
 }
 
 /**
- * Draws the Pushback icon procedurally (a launch arrow over a runway on an indigo→cyan tile)
+ * Draws the Pushback icon procedurally (a white launch arrow over a runway on a black tile)
  * as RGBA pixels. The tray and window icons use it, and `npm run icon` renders build/icon.png from it.
  */
 export function drawIcon(size: number): Uint8Array {
