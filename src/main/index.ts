@@ -10,6 +10,7 @@ import * as gitTools from './gitTools'
 import { listEditors } from './editors'
 import { findClones } from './scan'
 import { listDeployments } from './deployments'
+import { listSecurity } from './security'
 import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
@@ -458,6 +459,8 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
+  // --- security alerts ---
+  ipcMain.handle('security:list', (_e, repo: string) => listSecurity(requireClient(), repo))
   ipcMain.handle('editors:list', () => listEditors())
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())

@@ -70,6 +70,16 @@ export const TEMPLATES: DashboardTemplate[] = [
     ]
   },
   {
+    id: 'security',
+    name: 'Security',
+    description: 'Dependabot, code-scanning and secret-scanning alerts, plus open Dependabot pull requests.',
+    widgets: [
+      { type: 'summary', at: [0, 0, 12, 3] },
+      { type: 'security', at: [0, 3, 7, 10] },
+      { type: 'security', at: [7, 3, 5, 10], title: 'Dependabot PRs', options: { view: 'dependabot-prs' } }
+    ]
+  },
+  {
     id: 'focus',
     name: 'Focus',
     description: 'Just the essentials: repo health, your work and the activity feed.',

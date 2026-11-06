@@ -19,6 +19,8 @@ export default defineConfig({
         'src/main/git.ts',
         'src/main/scan.ts',
         'src/main/deployments.ts',
+        'src/main/security.ts',
+        'src/shared/security.ts',
         'src/renderer/src/lib/graph.ts',
         'src/renderer/src/lib/filters.ts'
       ],

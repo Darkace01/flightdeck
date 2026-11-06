@@ -69,7 +69,7 @@ const pr = (number: number, over: object) => ({
 
 const PRS: Record<string, object[]> = {
   'acme/api': [pr(7, {}), pr(8, { title: 'WIP: tidy config', isDraft: true, author: { login: 'octo', avatarUrl: '' }, headRefName: 'chore/tidy', labels: { nodes: [] }, reviewRequests: { nodes: [] } })],
-  'acme/web': []
+  'acme/web': [pr(9, { title: 'Bump lodash from 4.17.20 to 4.17.21', url: 'https://github.com/acme/web/pull/9', headRefName: 'dependabot/npm_and_yarn/lodash', author: { login: 'dependabot', avatarUrl: '' }, labels: { nodes: [] }, reviewRequests: { nodes: [] } })]
 }
 
 // Screenshot mode adds more repos, runs, PRs and deployments so the website shows a lived-in dashboard.
@@ -151,6 +151,16 @@ function rest(path: string, rich: boolean): unknown {
   let m: RegExpMatchArray | null
   if (p === '/user') return { login: 'octo', avatar_url: '' }
   if (p === '/user/repos') return path.includes('page=1') ? [{ full_name: 'acme/api', description: 'The API', private: true, pushed_at: ago(5) }, { full_name: 'acme/web', description: 'The website', private: false, pushed_at: ago(60) }] : []
+  // Security alerts: acme/api has some, secret scanning is off there; acme/web has the features switched off.
+  if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/(dependabot|code-scanning|secret-scanning)\/alerts$/))) {
+    if (m[1] !== 'acme/api' || m[2] === 'secret-scanning') return { status: 404, body: { message: 'Not Found' } }
+    if (m[2] === 'dependabot')
+      return [
+        { number: 1, html_url: 'https://github.com/acme/api/security/dependabot/1', created_at: ago(300), dependency: { package: { name: 'lodash' } }, security_advisory: { summary: 'Prototype pollution in lodash', severity: 'high' } },
+        { number: 2, html_url: 'https://github.com/acme/api/security/dependabot/2', created_at: ago(900), dependency: { package: { name: 'minimist' } }, security_advisory: { summary: 'ReDoS in minimist', severity: 'low' } }
+      ]
+    return [{ number: 5, html_url: 'https://github.com/acme/api/security/code-scanning/5', created_at: ago(100), rule: { id: 'js/sql-injection', description: 'SQL injection', severity: 'error', security_severity_level: 'critical' }, most_recent_instance: { location: { path: 'src/db.ts' } } }]
+  }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/runs$/))) return { workflow_runs: [...(RUNS[m[1]] ?? []), ...(rich ? (RICH_RUNS[m[1]] ?? []) : [])] }
   if ((m = p.match(/^\/repos\/([^/]+\/[^/]+)\/actions\/workflows$/)))
     return {
@@ -259,7 +269,8 @@ export async function startFakeGitHub(opts: { rich?: boolean } = {}): Promise<Fa
       return
     }
     const data = req.method === 'GET' ? rest(path, rich) : undefined
-    if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
+    if (data && typeof data === 'object' && 'status' in data && 'body' in data) res.writeHead(data.status as number, headers).end(JSON.stringify(data.body))
+    else if (data === undefined) res.writeHead(404, headers).end(JSON.stringify({ message: 'Not Found' }))
     else if (typeof data === 'string') res.writeHead(200, { ...headers, 'Content-Type': 'text/html' }).end(data)
     else res.writeHead(200, headers).end(JSON.stringify(data))
   })

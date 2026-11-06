@@ -163,3 +163,20 @@ test('the command palette finds repos and commands', async () => {
   await page.keyboard.press('Enter')
   await expect(page.locator('.crumbs li').first()).toHaveText('acme/web')
 })
+
+test('the security widget lists alerts, notes what is switched off, and shows Dependabot PRs', async () => {
+  ctx = await launch({ settings: { ...WATCHING, widgets: [{ id: 'w-sec', type: 'security', repos: [], options: { view: 'alerts', kind: '', severity: '' } }], layout: [{ i: 'w-sec', x: 0, y: 0, w: 12, h: 9 }], dashboards: [] } })
+  const { page } = ctx
+  const sec = page.locator('.widget', { has: page.getByRole('heading', { name: 'Security alerts' }) })
+  await expect(sec.getByText('Prototype pollution in lodash')).toBeVisible()
+  await expect(sec.getByText('SQL injection')).toBeVisible()
+  await expect(sec.locator('.sec-summary')).toContainText('1 critical')
+  await expect(sec.locator('.sec-summary')).toContainText('1 high')
+  await expect(sec).toContainText('Secret scanning: Not enabled')
+
+  await sec.getByRole('button', { name: 'Filters' }).click()
+  await sec.locator('select.filter-select').nth(2).selectOption('critical')
+  await expect(sec.locator('.row')).toHaveCount(1)
+  await sec.locator('select.filter-select').first().selectOption('dependabot-prs')
+  await expect(sec.getByText('Bump lodash from 4.17.20 to 4.17.21')).toBeVisible()
+})

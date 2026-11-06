@@ -53,6 +53,11 @@ export const OPTIONS: Partial<Record<WidgetType, OptionSpec[]>> = {
     { key: 'branch', label: 'Branch', kind: 'text', filter: true, placeholder: 'any branch', suggest: 'branches' },
     { key: 'workflow', label: 'Workflow', kind: 'text', filter: true, placeholder: 'any workflow', suggest: 'workflows' }
   ],
+  security: [
+    { key: 'view', label: 'Show', kind: 'select', filter: true, choices: [['alerts', 'Security alerts'], ['dependabot-prs', 'Dependabot pull requests']] },
+    { key: 'kind', label: 'Source', kind: 'select', filter: true, choices: [['', 'All sources'], ['dependabot', 'Dependabot'], ['code-scanning', 'Code scanning'], ['secret-scanning', 'Secret scanning']] },
+    { key: 'severity', label: 'Severity', kind: 'select', filter: true, choices: [['', 'Any severity'], ['critical', 'Critical'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']] }
+  ],
   deployments: [
     { key: 'view', label: 'Show', kind: 'select', filter: true, choices: [['environments', 'Projects × environments'], ['clients', 'Clients × stages'], ['history', 'Deployment history']] },
     { key: 'environment', label: 'Environment', kind: 'text', filter: true, placeholder: 'any environment' },

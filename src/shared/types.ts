@@ -102,7 +102,7 @@ export interface AppEvent {
   read: boolean
 }
 
-export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments'
+export type WidgetType = 'summary' | 'runs' | 'prs' | 'workflows' | 'events' | 'inbox' | 'insights' | 'deployments' | 'security'
 
 export interface WidgetConfig {
   id: string
@@ -734,6 +734,33 @@ export interface PushbackApi {
   linkScanned(repos: string[]): Promise<number>
   /** Editors and IDEs installed on this machine, for the default-editor setting. */
   listEditors(): Promise<EditorOption[]>
+  // --- security alerts ---
+  /** Open Dependabot, code-scanning and secret-scanning alerts of a repo (a kind the token can't read is listed in `unavailable`). */
+  listSecurity(repo: string): Promise<RepoSecurity>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */
   onNavigate(cb: (url: string) => void): () => void
+}
+
+// --- security alerts ---
+
+export type AlertKind = 'dependabot' | 'code-scanning' | 'secret-scanning'
+export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface SecurityAlert {
+  repo: string
+  kind: AlertKind
+  number: number
+  severity: AlertSeverity
+  title: string
+  /** The package (Dependabot), file (code scanning) or secret type (secret scanning). */
+  detail: string
+  url: string
+  createdAt: string
+}
+
+export interface RepoSecurity {
+  repo: string
+  alerts: SecurityAlert[]
+  /** Kinds GitHub wouldn't list (feature off, or the token lacks access), with the reason. */
+  unavailable: Partial<Record<AlertKind, string>>
 }

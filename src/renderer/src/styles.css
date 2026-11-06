@@ -3009,3 +3009,46 @@ button.crumb:hover {
 .tour-dots span.on {
   background: var(--accent);
 }
+
+/* ---------- security ---------- */
+.security {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.sec-summary {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sec-note {
+  padding: 6px 12px;
+}
+.sev {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--border);
+  white-space: nowrap;
+}
+.sev.zero {
+  opacity: 0.45;
+}
+.sev-critical {
+  background: color-mix(in srgb, var(--bad, #f85149) 28%, transparent);
+  color: var(--bad, #f85149);
+}
+.sev-high {
+  background: color-mix(in srgb, var(--bad, #f85149) 16%, transparent);
+  color: var(--bad, #f85149);
+}
+.sev-medium {
+  background: color-mix(in srgb, var(--warn, #d29922) 20%, transparent);
+  color: var(--warn, #d29922);
+}
+.sev-low {
+  color: var(--dim);
+}

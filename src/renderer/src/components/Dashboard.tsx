@@ -11,6 +11,7 @@ import { InboxWidget } from '../widgets/InboxWidget'
 import { InsightsWidget } from '../widgets/InsightsWidget'
 import { PrsWidget } from '../widgets/PrsWidget'
 import { RunsWidget } from '../widgets/RunsWidget'
+import { SecurityWidget } from '../widgets/SecurityWidget'
 import { SummaryWidget } from '../widgets/SummaryWidget'
 import type { WidgetProps } from '../widgets/types'
 import { WorkflowsWidget } from '../widgets/WorkflowsWidget'
@@ -27,6 +28,7 @@ export const WIDGETS: Record<WidgetType, { component: ComponentType<WidgetProps>
   events: { component: EventsWidget, description: 'Feed of everything that changed — the same events you get notified about.' },
   inbox: { component: InboxWidget, description: 'Reviews requested from you, your PRs and assigned issues across all of GitHub.' },
   insights: { component: InsightsWidget, description: 'Pass rate, average duration and recent outcomes per workflow.' },
+  security: { component: SecurityWidget, description: 'Open Dependabot, code-scanning and secret-scanning alerts, and Dependabot pull requests.' },
   deployments: {
     component: DeploymentsWidget,
     description: 'What version is live in each environment or for each client, and a history of every deployment (like Octopus Deploy).'

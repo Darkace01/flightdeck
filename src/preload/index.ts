@@ -62,6 +62,8 @@ const api: PushbackApi = {
   listEditors: () => ipcRenderer.invoke('editors:list'),
   scanClones: (pick) => ipcRenderer.invoke('git:scan', pick),
   linkScanned: (repos) => ipcRenderer.invoke('git:link-scanned', repos),
+  // --- security alerts ---
+  listSecurity: (repo) => ipcRenderer.invoke('security:list', repo),
   onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 
