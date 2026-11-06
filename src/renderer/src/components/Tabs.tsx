@@ -104,10 +104,11 @@ const dragProps = (repo: string, onDrop?: (from: string) => void) => ({
 
 /** Warm the picker's repo list in the background, so it's ready when + is clicked. */
 function usePrefetchRepos() {
+  const active = useSettings().activeAccount
   useEffect(() => {
-    const t = setTimeout(() => void loadMyRepos().catch(() => {}), 4000)
+    const t = setTimeout(() => void loadMyRepos(active).catch(() => {}), 4000)
     return () => clearTimeout(t)
-  }, [])
+  }, [active])
 }
 
 /** Horizontal tabs: the dashboard, pinned repos as icons, then one tab per open repo. */
@@ -275,18 +276,27 @@ export function RepoSidebar() {
 }
 
 // The account's repos rarely change; fetch them once per session for the picker.
-let myRepos: Promise<RepoOption[]> | undefined
-function loadMyRepos(): Promise<RepoOption[]> {
-  myRepos ??= api.listMyRepos().catch((e) => {
-    myRepos = undefined // try again next time
-    throw e
-  })
-  return myRepos
+const myRepos = new Map<string, Promise<RepoOption[]>>()
+function loadMyRepos(account: string): Promise<RepoOption[]> {
+  let p = myRepos.get(account)
+  if (!p) {
+    p = api.listMyRepos(account).catch((e) => {
+      myRepos.delete(account) // try again next time
+      throw e
+    })
+    myRepos.set(account, p)
+  }
+  return p
 }
 
 /** Searchable list of watched repos and every repo on the account, plus any owner/name or URL typed in. */
-function RepoPicker({ anchor, onPick, onClose }: { anchor: HTMLElement | null; onPick: (repo: string) => void; onClose: () => void }) {
+function RepoPicker({ anchor, onPick: pick, onClose }: { anchor: HTMLElement | null; onPick: (repo: string) => void; onClose: () => void }) {
   const settings = useSettings()
+  // A repo chosen while another account is active belongs to that account: route it there before opening it.
+  const onPick = async (repo: string) => {
+    if (settings.activeAccount !== 'primary' && !settings.repoAccounts[repo] && !settings.repos.includes(repo)) await api.setRepoAccount(repo, settings.activeAccount)
+    pick(repo)
+  }
   const now = useNow()
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
@@ -294,8 +304,9 @@ function RepoPicker({ anchor, onPick, onClose }: { anchor: HTMLElement | null; o
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    loadMyRepos().then(setMine, () => setMine([]))
-  }, [])
+    setMine(undefined)
+    loadMyRepos(settings.activeAccount).then(setMine, () => setMine([]))
+  }, [settings.activeAccount])
 
   const typed = q.trim().match(/^(?:https:\/\/github\.com\/)?([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/)?.[1]
   const items = useMemo(() => {

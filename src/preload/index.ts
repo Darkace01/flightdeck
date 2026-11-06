@@ -72,6 +72,7 @@ const api: PushbackApi = {
   listAccounts: () => ipcRenderer.invoke('accounts:list'),
   addAccount: (account) => ipcRenderer.invoke('accounts:add', account),
   removeAccount: (id) => ipcRenderer.invoke('accounts:remove', id),
+  setActiveAccount: (id) => ipcRenderer.invoke('accounts:activate', id),
   setRepoAccount: (repo, accountId) => ipcRenderer.invoke('accounts:assign', repo, accountId),
   // --- stale cleanup ---
   listOpenPrs: (repo) => ipcRenderer.invoke('cleanup:prs', repo),

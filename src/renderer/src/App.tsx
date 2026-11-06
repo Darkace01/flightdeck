@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { DispatchModal, MergeModal, ReviewModal, RunDetailsModal } from './components/ActionModals'
 import { Dashboard } from './components/Dashboard'
 import { SavedSearchesModal } from './components/SavedSearches'
+import { AccountSwitcher } from './components/AccountSwitcher'
 import { DashboardTabs, ImportDashboardModal, ManageDashboardsModal, NewDashboardModal, ShareDashboardModal } from './components/Dashboards'
 import { Palette } from './components/Palette'
 import { PrModal } from './components/PrView'
@@ -112,6 +113,7 @@ function TopBar() {
         Pushback
       </div>
       <DashboardTabs />
+      <AccountSwitcher />
       <button className="search-trigger" onClick={() => openModal({ kind: 'palette' })}>
         <Icon name="search" />
         Search or run a command…

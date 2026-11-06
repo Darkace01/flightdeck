@@ -3,11 +3,11 @@ import { WIDGET_DEFAULTS } from '../../../shared/defaults'
 import { exportDashboard, exportTemplate } from '../../../shared/share'
 import { TEMPLATES } from '../../../shared/templates'
 import type { LayoutItem, WidgetConfig } from '../../../shared/types'
-import { createDashboard, deleteDashboard, duplicateDashboard, moveDashboard, renameDashboard, switchDashboard } from '../lib/dashboards'
+import { createDashboard, deleteDashboard, duplicateDashboard, moveDashboard, renameDashboard, setDashboardIcon, switchDashboard } from '../lib/dashboards'
 import { api, toast, useSettings } from '../lib/store'
 import { HOME } from '../lib/tabs'
 import { closeModal, openModal, pushModal } from '../lib/ui'
-import { Icon, IconButton, Modal, Popover } from './ui'
+import { DASHBOARD_ICONS, dashboardIcon, Icon, IconButton, Modal, Popover } from './ui'
 
 // More tabs than this crowd the search box, so the rest go in the overflow menu.
 const MAX_TABS = 5
@@ -23,6 +23,7 @@ export function DashboardTabs() {
   // Keep the open dashboard visible even when it lives past the cut-off.
   const shown = activeAt >= MAX_TABS ? [...all.slice(0, MAX_TABS - 1), all[activeAt]] : all.slice(0, MAX_TABS)
   const hidden = all.filter((d) => !shown.includes(d))
+  const crowded = shown.length > 3
   const show = (id: string) => {
     setOpen(false)
     switchDashboard(id)
@@ -44,7 +45,9 @@ export function DashboardTabs() {
             title={[d.name, shortcut(d.id)].filter(Boolean).join(' · ')}
             onClick={() => show(d.id)}
           >
-            <span>{d.name}</span>
+            <Icon name={dashboardIcon(d.icon)} />
+            {/* Crowded bar: inactive tabs show just their icon (the name is in the tooltip) instead of a truncated name. */}
+            {(!crowded || d.id === settings.activeDashboard) && <span>{d.name}</span>}
           </button>
         )
       })}
@@ -57,7 +60,9 @@ export function DashboardTabs() {
           <div role="menu" style={{ display: 'contents' }}>
             {hidden.map((d) => (
               <button key={d.id} role="menuitem" onClick={() => show(d.id)}>
-                <span>{d.name}</span>
+                <span>
+                  <Icon name={dashboardIcon(d.icon)} /> {d.name}
+                </span>
                 {shortcut(d.id) && <kbd>{shortcut(d.id)}</kbd>}
               </button>
             ))}
@@ -189,6 +194,20 @@ export function ManageDashboardsModal() {
                   onBlur={(e) => renameDashboard(d.id, e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 />
+                <div className="dash-icons" role="radiogroup" aria-label="Dashboard icon">
+                  {DASHBOARD_ICONS.map((name) => (
+                    <button
+                      key={name}
+                      role="radio"
+                      aria-checked={dashboardIcon(d.icon) === name}
+                      className={`dash-icon${dashboardIcon(d.icon) === name ? ' on' : ''}`}
+                      title={name}
+                      onClick={() => setDashboardIcon(d.id, name)}
+                    >
+                      <Icon name={name} />
+                    </button>
+                  ))}
+                </div>
                 <div className="row-meta">
                   <span>
                     {widgets.length} widget{widgets.length === 1 ? '' : 's'}

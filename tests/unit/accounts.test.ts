@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiUrlFor, graphqlUrl, hostOf, normalizeHost, parseRepoInput, repoUrl } from '../../src/shared/accounts'
+import { accountIdOf, apiUrlFor, graphqlUrl, hostOf, normalizeHost, parseRepoInput, repoUrl, reposOfAccount } from '../../src/shared/accounts'
 import type { Account } from '../../src/shared/types'
 
 // store.ts reads paths and encryption from Electron; neither is needed for normalising settings.
@@ -102,5 +102,25 @@ describe('GitHub client against another host', () => {
     vi.stubGlobal('fetch', fakeFetch)
     await new GitHub('t').get('/user')
     expect(calls[0].url).toBe('https://api.github.com/user')
+  })
+})
+
+describe('switching accounts', () => {
+  it('belongs to primary unless routed to an extra account', () => {
+    expect(accountIdOf('o/a', {})).toBe('primary')
+    expect(accountIdOf('o/a', { 'o/a': 'x' })).toBe('x')
+  })
+  it('keeps only the active account’s repos', () => {
+    const map = { 'o/b': 'x' }
+    expect(reposOfAccount(['o/a', 'o/b'], map, 'primary')).toEqual(['o/a'])
+    expect(reposOfAccount(['o/a', 'o/b'], map, 'x')).toEqual(['o/b'])
+  })
+  it('sends a pasted github.com URL to a second github.com login', () => {
+    const second: Account = { id: 'g2', name: 'Work', host: 'github.com', apiUrl: 'https://api.github.com' }
+    expect(parseRepoInput('https://github.com/o/r', [second], 'g2')).toEqual({ repo: 'o/r', accountId: 'g2' })
+    expect(parseRepoInput('https://github.com/o/r', [second])).toEqual({ repo: 'o/r' })
+  })
+  it('falls back to primary when the active account no longer exists', () => {
+    expect(normalizeSettings({ activeAccount: 'gone' } as never).activeAccount).toBe('primary')
   })
 })

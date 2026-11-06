@@ -70,6 +70,13 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS
 
+/** Icons a dashboard can use, in the order the picker shows them. */
+export const DASHBOARD_ICONS: IconName[] = ['grid', 'bell', 'branch', 'comment', 'pin', 'tabs', 'filter', 'check', 'play', 'gear']
+
+export function dashboardIcon(icon?: string): IconName {
+  return icon && icon in ICONS ? (icon as IconName) : 'grid'
+}
+
 export function Icon({ name, size = 14 }: { name: IconName; size?: number }) {
   return (
     <svg className="icon" width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -81,6 +81,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoLinkClones: false,
   accounts: [],
   repoAccounts: {},
+  activeAccount: 'primary',
   savedSearches: []
 }
 

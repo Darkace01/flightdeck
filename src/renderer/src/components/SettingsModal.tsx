@@ -84,8 +84,8 @@ function OtherAccounts() {
   const [busy, setBusy] = useState(false)
   // The settings change when an account is added or removed, which is when to ask again.
   useEffect(() => {
-    api.listAccounts().then((a) => setAccounts(a.filter((x) => !x.primary)), () => setAccounts([]))
-  }, [settings.accounts])
+    api.listAccounts().then((a) => setAccounts(a), () => setAccounts([]))
+  }, [settings.accounts, settings.activeAccount])
 
   const add = async () => {
     setBusy(true)
@@ -105,9 +105,10 @@ function OtherAccounts() {
 
   return (
     <section className="stack" aria-label="Other accounts">
-      <h3>GitHub Enterprise Server</h3>
+      <h3>Accounts</h3>
       <p className="dim small">
-        Add a server to watch its repositories next to your github.com ones. Each account has its own token, stored encrypted with your OS keychain and never sent to the app's
+        Add another github.com login or a GitHub Enterprise Server host, then switch between accounts from the top bar. The dashboard shows the active account's
+        repositories and inbox. Each account has its own token, stored encrypted with your OS keychain and never sent to the app's
         window. Use a token with <code>repo</code> and <code>workflow</code> scopes.
       </p>
       {accounts.map((a) => (
@@ -119,9 +120,18 @@ function OtherAccounts() {
             <div className={`small ${a.status === 'ok' ? 'dim' : 'del'}`}>{a.status === 'ok' ? `Signed in as ${a.login}` : (a.error ?? 'Not signed in')}</div>
           </div>
           <span className="spacer" />
-          <button className="btn btn-sm" onClick={() => void remove(a)}>
-            Remove
-          </button>
+          {a.active ? (
+            <span className="badge badge-ok">Active</span>
+          ) : (
+            <button className="btn btn-sm" disabled={a.status !== 'ok'} onClick={() => void api.setActiveAccount(a.primary ? 'primary' : a.id)}>
+              Switch to
+            </button>
+          )}
+          {!a.primary && (
+            <button className="btn btn-sm" onClick={() => void remove(a)}>
+              Remove
+            </button>
+          )}
         </div>
       ))}
       <form
@@ -132,7 +142,7 @@ function OtherAccounts() {
         }}
       >
         <input placeholder="Name (optional)" aria-label="Account name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input placeholder="ghe.example.com" aria-label="Host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} />
+        <input placeholder="github.com or ghe.example.com" aria-label="Host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} />
         <input type="password" placeholder="Token" aria-label="Token" value={form.token} onChange={(e) => setForm({ ...form, token: e.target.value })} />
         <button className="btn btn-primary" disabled={busy || !form.host.trim() || !form.token.trim()}>
           {busy ? 'Checking…' : 'Add account'}
@@ -148,9 +158,9 @@ export function ReposSection() {
   const [input, setInput] = useState('')
   const [mine, setMine] = useState<RepoOption[]>([])
   // Which account a plain owner/name belongs to and whose repos are suggested ('' is github.com).
-  const [accountId, setAccountId] = useState('')
+  const [accountId, setAccountId] = useState(settings.activeAccount === 'primary' ? '' : settings.activeAccount)
   useEffect(() => {
-    if (snapshot.auth === 'ok') api.listMyRepos(accountId || undefined).then(setMine, () => setMine([]))
+    if (snapshot.auth === 'ok') api.listMyRepos(accountId || 'primary').then(setMine, () => setMine([]))
   }, [snapshot.auth, accountId, settings.accounts])
 
   const add = async (text: string) => {

@@ -30,6 +30,20 @@ interface Events {
   events: [AppEvent[]]
 }
 
+/**
+ * Stretches the poll interval when the REST budget runs low, so what's left lasts until the reset instead of
+ * running dry mid-hour: remaining calls are spread over the time left, assuming a cycle costs about 20 calls.
+ * A fully spent or Retry-After pause waits for its end.
+ */
+export function paceForBudget(ms: number, gh?: { rate?: { limit: number; remaining: number; reset: number }; restBlockedUntil(): number | undefined }, now = Date.now()): number {
+  if (!gh) return ms
+  const blocked = gh.restBlockedUntil()
+  if (blocked) return Math.max(ms, blocked - now + 1000)
+  const r = gh.rate
+  if (!r || r.reset <= now || r.remaining > r.limit * 0.1) return ms
+  return Math.max(ms, Math.min((r.reset - now) / Math.max(1, r.remaining) * 20, r.reset - now))
+}
+
 export class Poller extends EventEmitter<Events> {
   snapshot: Snapshot
   private gh?: GitHub
@@ -130,7 +144,7 @@ export class Poller extends EventEmitter<Events> {
         Date.now() < this.boostUntil ||
         Object.values(this.snapshot.repos).some((r) => r.runs.some((run) => run.status !== 'completed'))
       const seconds = (active ? Math.min(settings.activePollSeconds, settings.pollSeconds) : settings.pollSeconds) * pollSlowdown(settings.repos.length)
-      this.schedule(this.queued ? 0 : Math.max(5, seconds) * 1000)
+      this.schedule(this.queued ? 0 : paceForBudget(Math.max(5, seconds) * 1000, this.gh))
       this.queued = false
       this.publish()
     }

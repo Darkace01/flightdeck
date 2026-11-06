@@ -34,6 +34,10 @@ export function renameDashboard(id: string, name: string): void {
   void updateSettings({ dashboards: synced(s).map((d) => (d.id === id ? { ...d, name: name.trim() } : d)) })
 }
 
+export function setDashboardIcon(id: string, icon: string): void {
+  void updateSettings({ dashboards: synced(getSettings()).map((d) => (d.id === id ? { ...d, icon } : d)) })
+}
+
 export function duplicateDashboard(id: string): void {
   const source = getSettings().dashboards.find((d) => d.id === id)
   if (source) createDashboard(`${source.name} copy`, id)

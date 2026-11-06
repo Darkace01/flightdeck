@@ -302,8 +302,18 @@ test('a GitHub Enterprise Server account polls its own repos with its own token'
     await expect(page.locator('.repo-list li', { hasText: 'corp/tools' })).toContainText('Corp')
     await page.keyboard.press('Escape')
     const runs = page.locator('.widget', { has: page.getByRole('heading', { name: 'Workflow runs' }) })
+    await expect(runs.getByText('Build site')).toBeVisible() // the active (github.com) account's repos
+
+    // Switching accounts swaps the dashboard to the other account's repos.
+    await page.getByTitle('Switch account').click()
+    await page.getByRole('menuitemradio', { name: /octo-ent/ }).click()
     await expect(runs.getByText('Ship it')).toBeVisible()
-    await expect(runs.getByText('Build site')).toBeVisible() // the github.com repos still update
+    await expect(runs.getByText('Build site')).toBeHidden()
+    expect(savedSettings(ctx).activeAccount).toBe(savedSettings(ctx).accounts[0].id)
+    await page.getByTitle('Switch account').click()
+    await page.getByRole('menuitemradio', { name: /github\.com/ }).click()
+    await expect(runs.getByText('Build site')).toBeVisible()
+    expect(savedSettings(ctx).activeAccount).toBe('primary')
 
     // Each server only ever saw its own account's token, and its own repos.
     expect([...ghes.tokens]).toEqual(['ghes-token'])

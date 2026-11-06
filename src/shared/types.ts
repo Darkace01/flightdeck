@@ -118,6 +118,8 @@ export interface WidgetConfig {
 export interface SavedDashboard {
   id: string
   name: string
+  /** An icon name from the renderer's icon set; unset or unknown falls back to the grid icon. */
+  icon?: string
   widgets: WidgetConfig[]
   layout: LayoutItem[]
 }
@@ -209,6 +211,8 @@ export interface Settings {
   accounts: Account[]
   /** Which extra account a repo belongs to, by full name. A repo that isn't listed uses the primary account. */
   repoAccounts: Record<string, string>
+  /** The account the dashboard follows: 'primary' (the github.com login) or an extra account's id. Its inbox and repos are polled. */
+  activeAccount: string
   /** Named GitHub searches the user saved; pinning one makes a `search` widget that carries its own copy of the query. */
   savedSearches: SavedSearch[]
 }
@@ -833,6 +837,8 @@ export interface PushbackApi {
   /** Checks the token against the host, then stores it encrypted in the main process. */
   addAccount(account: NewAccount): Promise<ActionResult & { id?: string }>
   removeAccount(id: string): Promise<ActionResult>
+  /** Switches the dashboard to another signed-in account ('primary' or an account id). */
+  setActiveAccount(id: string): Promise<ActionResult>
   /** Makes a repo use an extra account (null: the primary one). Call before tracking the repo. */
   setRepoAccount(repo: string, accountId: string | null): Promise<ActionResult>
   // --- stale cleanup ---
@@ -956,6 +962,8 @@ export interface Account {
 export interface AccountInfo extends Account {
   /** The github.com login (PAT or gh CLI); it can't be removed here. */
   primary: boolean
+  /** The account the dashboard currently follows. */
+  active?: boolean
   login?: string
   status: 'ok' | 'error' | 'missing'
   error?: string

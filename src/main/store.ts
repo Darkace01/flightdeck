@@ -55,6 +55,7 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
   )
   const known = new Set(settings.accounts.map((a) => a.id))
   settings.repoAccounts = Object.fromEntries(Object.entries(settings.repoAccounts ?? {}).filter(([, id]) => known.has(id)))
+  if (settings.activeAccount !== 'primary' && !known.has(settings.activeAccount)) settings.activeAccount = 'primary'
   // Added in 0.10: absent in older files, and hand-editable, so keep only well-formed entries.
   settings.savedSearches = cleanSavedSearches(rest.savedSearches)
   settings.openTabs = settings.openTabs.filter((t) => !settings.pinnedTabs.includes(t))

@@ -36,6 +36,15 @@ export const hostOf = (repo: string, repoAccounts: Record<string, string>, accou
 export const repoUrl = (repo: string, repoAccounts: Record<string, string>, accounts: Account[], path = ''): string =>
   `https://${hostOf(repo, repoAccounts, accounts)}/${repo}${path}`
 
+export const PRIMARY = 'primary'
+
+/** The account id a repo belongs to: an extra account's, or 'primary'. */
+export const accountIdOf = (repo: string, repoAccounts: Record<string, string>): string => repoAccounts[repo] ?? PRIMARY
+
+/** The tracked repos that belong to the active account: only they are polled. */
+export const reposOfAccount = (repos: string[], repoAccounts: Record<string, string>, active: string): string[] =>
+  repos.filter((r) => accountIdOf(r, repoAccounts) === active)
+
 export type ParsedRepo = { repo: string; accountId?: string } | { error: string }
 
 /**
@@ -48,7 +57,11 @@ export function parseRepoInput(input: string, accounts: Account[], defaultAccoun
   if (url) {
     const host = url[1].toLowerCase()
     const repo = `${url[2]}/${url[3].replace(/\.git$/, '')}`
-    if (host === GITHUB_HOST) return { repo }
+    if (host === GITHUB_HOST) {
+      // Several github.com logins can exist; a pasted URL goes to the chosen one when it's on github.com.
+      const chosen = accounts.find((a) => a.id === defaultAccountId && a.host === GITHUB_HOST)
+      return chosen ? { repo, accountId: chosen.id } : { repo }
+    }
     const account = accounts.find((a) => a.host === host)
     return account ? { repo, accountId: account.id } : { error: `No account for ${host}. Add it under Settings → Accounts first.` }
   }

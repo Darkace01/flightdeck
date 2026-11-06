@@ -16,7 +16,7 @@ import { listSecurity } from './security'
 import { listPackageOrgs, listPackages, packageVersions } from './packages'
 import { fetchMergeStatus } from './mergeStatus'
 import { AccountClients, hasAccountToken, saveAccountToken } from './accounts'
-import { accountOf, apiUrlFor, hostOf, normalizeHost, GITHUB_HOST } from '../shared/accounts'
+import { accountOf, apiUrlFor, hostOf, normalizeHost, reposOfAccount, GITHUB_HOST } from '../shared/accounts'
 import { applyCleanup, listOpenPrs } from './cleanup'
 import { runSearch } from './search'
 import { resolveEditor } from '../shared/defaults'
@@ -33,7 +33,10 @@ let tray: Tray | null = null
 let quitting = false
 let settings: Settings
 
-const poller = new Poller(() => settings, [])
+// The poller follows the active account, so it sees only that account's repos.
+const poller = new Poller(() => ({ ...settings, repos: reposOfAccount(settings.repos, settings.repoAccounts, settings.activeAccount) }), [])
+/** The signed-in github.com login (PAT or gh CLI). The poller's own client is whichever account is active. */
+let primaryClient: GitHub | undefined
 
 const REVIEW_EVENTS: ReviewEvent[] = ['COMMENT', 'APPROVE', 'REQUEST_CHANGES']
 
@@ -121,7 +124,9 @@ function failSignedOut(account: { name: string; host: string }): never {
 async function connect(): Promise<void> {
   wireAccounts()
   const auth = await resolveToken()
-  poller.setClient(auth ? new GitHub(auth.token) : undefined, auth?.source)
+  primaryClient = auth ? new GitHub(auth.token) : undefined
+  const active = settings.accounts.find((a) => a.id === settings.activeAccount)
+  poller.setClient(active ? accountClients.get(active) : primaryClient, active ? undefined : auth?.source)
   poller.pollSoon()
 }
 
@@ -297,9 +302,17 @@ function localPath(repo: string): string {
   return path
 }
 
+/** The primary github.com login's client: repos that aren't routed to an extra account use it. */
 function requireClient(): GitHub {
-  if (!poller.client) throw new Error('Not signed in to GitHub')
-  return poller.client
+  if (!primaryClient) throw new Error('Not signed in to GitHub')
+  return primaryClient
+}
+
+/** The active account's client: what search, packages and the repo picker use. */
+function activeClient(): GitHub {
+  const account = settings.accounts.find((a) => a.id === settings.activeAccount)
+  if (!account) return requireClient()
+  return accountClients.get(account) ?? failSignedOut(account)
 }
 
 const accountClients = new AccountClients()
@@ -360,7 +373,7 @@ function registerIpc(): void {
   })
   ipcMain.handle('poll:now', () => poller.pollSoon())
   ipcMain.handle('repos:mine', async (_e, accountId?: string): Promise<RepoOption[]> => {
-    const account = settings.accounts.find((a) => a.id === accountId)
+    const account = settings.accounts.find((a) => a.id === (accountId ?? settings.activeAccount))
     const gh = account ? (accountClients.get(account) ?? failSignedOut(account)) : requireClient()
     type GhRepo = { full_name: string; description: string | null; private: boolean; pushed_at: string }
     // Up to 500 repos, most recently pushed first; a short page means we've reached the end.
@@ -516,7 +529,7 @@ function registerIpc(): void {
   ipcMain.handle('issue:state', (_e, repo: string, num: number, state: 'open' | 'closed', reason?: string) =>
     run(() => clientFor(repo).send('PATCH', `/repos/${repo}/issues/${num}`, { state, ...(reason && { state_reason: reason }) }), false)
   )
-  ipcMain.handle('search:run', (_e, query: string, kind: 'pr' | 'issue') => runSearch(requireClient(), String(query), kind === 'issue' ? 'issue' : 'pr'))
+  ipcMain.handle('search:run', (_e, query: string, kind: 'pr' | 'issue') => runSearch(activeClient(), String(query), kind === 'issue' ? 'issue' : 'pr'))
   ipcMain.handle('labels:list', (_e, repo: string) => tools.listLabels(clientFor(repo), repo))
   ipcMain.handle('branches:list', (_e, repo: string, defaultBranch: string) => tools.listBranches(clientFor(repo), repo, defaultBranch))
   ipcMain.handle('branch:create', (_e, repo: string, name: string, from: string) => create(() => tools.createBranch(clientFor(repo), repo, name, from)))
@@ -611,23 +624,30 @@ function registerIpc(): void {
   })
   // --- accounts ---
   ipcMain.handle('accounts:list', async (): Promise<AccountInfo[]> => {
+    // The poller's viewer is the active account's, so ask for the primary login when another account is active.
+    const primaryLogin =
+      settings.activeAccount === 'primary'
+        ? poller.snapshot.viewer?.login
+        : await primaryClient?.get<{ login: string }>('/user').then((u) => u.login, () => undefined)
     const primary: AccountInfo = {
       id: 'primary',
       name: 'GitHub',
       host: GITHUB_HOST,
       apiUrl: apiUrlFor(GITHUB_HOST),
       primary: true,
-      login: poller.snapshot.viewer?.login,
-      status: poller.client ? 'ok' : 'missing'
+      active: settings.activeAccount === 'primary',
+      login: primaryLogin,
+      status: primaryClient ? 'ok' : 'missing'
     }
     const extra = await Promise.all(
       settings.accounts.map(async (a): Promise<AccountInfo> => {
         const client = accountClients.get(a)
-        if (!client) return { ...a, primary: false, status: 'missing', error: 'No token saved' }
+        const active = settings.activeAccount === a.id
+        if (!client) return { ...a, primary: false, active, status: 'missing', error: 'No token saved' }
         try {
-          return { ...a, primary: false, status: 'ok', login: (await client.get<{ login: string }>('/user')).login }
+          return { ...a, primary: false, active, status: 'ok', login: (await client.get<{ login: string }>('/user')).login }
         } catch (err) {
-          return { ...a, primary: false, status: 'error', error: (err as Error).message }
+          return { ...a, primary: false, active, status: 'error', error: (err as Error).message }
         }
       })
     )
@@ -637,14 +657,19 @@ function registerIpc(): void {
     try {
       const host = normalizeHost(input.host)
       if (!host) throw new Error('Enter the host name, such as ghe.example.com (https only)')
-      if (host === GITHUB_HOST) throw new Error('github.com is the primary account. Sign in with a token above instead.')
-      if (settings.accounts.some((a) => a.host === host)) throw new Error(`There is already an account for ${host}`)
       const name = input.name.trim() || host
       const token = input.token.trim()
       if (!token) throw new Error('Paste a personal access token for that host')
       // End-to-end tests point every Enterprise host at a fake server.
       const apiUrl = process.env.PUSHBACK_GHES_API_URL || apiUrlFor(host)
-      await AccountClients.probe(token, apiUrl).get('/user') // validate before saving
+      const login = (await AccountClients.probe(token, apiUrl).get<{ login: string }>('/user')).login // validate before saving
+      // One account per host and login: a second github.com login is fine, the same one twice is not.
+      const taken = await Promise.all(
+        settings.accounts
+          .filter((a) => a.host === host)
+          .map((a) => accountClients.get(a)?.get<{ login: string }>('/user').then((u) => u.login, () => undefined))
+      )
+      if (taken.includes(login)) throw new Error(`${login} is already added for ${host}`)
       const id = `acct-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
       saveAccountToken(id, token)
       settings = { ...settings, accounts: [...settings.accounts, { id, name, host, apiUrl }] }
@@ -666,7 +691,8 @@ function registerIpc(): void {
       settings = {
         ...settings,
         accounts: settings.accounts.filter((a) => a.id !== id),
-        repoAccounts: Object.fromEntries(Object.entries(settings.repoAccounts).filter(([, a]) => a !== id))
+        repoAccounts: Object.fromEntries(Object.entries(settings.repoAccounts).filter(([, a]) => a !== id)),
+        activeAccount: settings.activeAccount === id ? 'primary' : settings.activeAccount
       }
       saveSettings(settings)
       send('settings', settings)
@@ -676,6 +702,15 @@ function registerIpc(): void {
     } catch (err) {
       return { ok: false, error: (err as Error).message }
     }
+  })
+  ipcMain.handle('accounts:activate', (_e, id: string): ActionResult => {
+    if (id !== 'primary' && !settings.accounts.some((a) => a.id === id)) return { ok: false, error: 'No such account' }
+    if (id === settings.activeAccount) return { ok: true }
+    settings = { ...settings, activeAccount: id }
+    saveSettings(settings)
+    send('settings', settings)
+    void connect() // resets the poller's inbox and repo state, then polls the new account's repos
+    return { ok: true }
   })
   ipcMain.handle('accounts:assign', (_e, repo: string, accountId: string | null): ActionResult => {
     if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return { ok: false, error: 'Not a repository name' }
@@ -700,9 +735,9 @@ function registerIpc(): void {
   // --- security alerts ---
   ipcMain.handle('security:list', (_e, repo: string) => listSecurity(clientFor(repo), repo))
   // --- packages (the primary login's: GitHub Packages for you and your organisations) ---
-  ipcMain.handle('packages:list', (_e, owner: string) => listPackages(requireClient(), String(owner)))
-  ipcMain.handle('packages:orgs', () => listPackageOrgs(requireClient()))
-  ipcMain.handle('packages:versions', (_e, owner: string, type: string, name: string) => packageVersions(requireClient(), String(owner), String(type), String(name)))
+  ipcMain.handle('packages:list', (_e, owner: string) => listPackages(activeClient(), String(owner)))
+  ipcMain.handle('packages:orgs', () => listPackageOrgs(activeClient()))
+  ipcMain.handle('packages:versions', (_e, owner: string, type: string, name: string) => packageVersions(activeClient(), String(owner), String(type), String(name)))
   ipcMain.handle('editors:list', () => listEditors())
   ipcMain.handle('update:status', () => updateStatus())
   ipcMain.handle('update:check', () => checkForUpdates())
