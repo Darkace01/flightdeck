@@ -40,7 +40,8 @@ export function normalizeSettings(saved: Partial<Settings> & { theme?: string; a
   // Before 0.3 there was one dashboard: keep the user's layout as "Main".
   if (!rest.dashboards?.length) settings.dashboards = [{ id: 'main', name: 'Main', widgets: settings.widgets, layout: settings.layout }]
   if (!settings.dashboards.some((d) => d.id === settings.activeDashboard)) settings.activeDashboard = settings.dashboards[0].id
-  if (settings.activeTab !== 'home' && !settings.openTabs.includes(settings.activeTab)) settings.activeTab = 'home'
+  settings.openTabs = settings.openTabs.filter((t) => !settings.pinnedTabs.includes(t))
+  if (settings.activeTab !== 'home' && ![...settings.openTabs, ...settings.pinnedTabs].includes(settings.activeTab)) settings.activeTab = 'home'
   return settings
 }
 

@@ -167,8 +167,14 @@ export interface Settings {
   activeDashboard: string
   /** Repos open as tabs, in order. The dashboard tab is always first and isn't listed. */
   openTabs: string[]
-  /** "home" (the dashboard) or one of openTabs. */
+  /** Repos pinned as tabs: always open, shown as icons first. A repo is in pinnedTabs or openTabs, never both. */
+  pinnedTabs: string[]
+  /** "home" (the dashboard) or one of openTabs / pinnedTabs. */
   activeTab: string
+  /** Tabs across the top, or down a sidebar on the left. */
+  tabLayout: 'horizontal' | 'vertical'
+  /** Whether the left repo sidebar is shown. */
+  sidebarOpen: boolean
   /** Local clone folder for each repo that has one linked. */
   localPaths: Record<string, string>
   /** Command used for "Open in editor", given the folder as its argument (e.g. code, cursor, idea). */

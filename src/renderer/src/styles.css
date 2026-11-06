@@ -2055,3 +2055,185 @@ input[type='range'] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- Repo sidebar, pinned and vertical tabs ------------------------------------ */
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.repo-sidebar {
+  width: 236px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px 6px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+.pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.pinned-grid.empty {
+  display: block;
+  padding: 8px 6px 12px;
+  line-height: 1.4;
+}
+.pinned-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.2);
+  background: var(--panel2);
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pinned-tile:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.pinned-tile.on {
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.pinned-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repo-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.repo-owner {
+  position: absolute;
+  left: -3px;
+  bottom: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--panel);
+}
+.repo-initial {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.repo-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--panel);
+}
+.tone-ok {
+  background: var(--ok);
+}
+.tone-bad {
+  background: var(--bad);
+}
+.tone-warn {
+  background: var(--warn);
+}
+.tone-run {
+  background: var(--run);
+}
+.tone-muted {
+  background: var(--muted);
+}
+.tab-pinned {
+  padding: 5px 8px;
+}
+.side-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.side-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: calc(var(--radius) * 0.8);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.side-row .tab-name {
+  flex: 1;
+  min-width: 0;
+}
+.side-row:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.side-row.on {
+  background: var(--panel2);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.side-row .tab-close {
+  visibility: hidden;
+}
+.side-row:hover .tab-close {
+  visibility: visible;
+}
+.side-add {
+  opacity: 0.8;
+}
+.side-head {
+  padding: 12px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.side-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.tabbar > .icon-btn {
+  align-self: center;
+  margin-bottom: 2px;
+}

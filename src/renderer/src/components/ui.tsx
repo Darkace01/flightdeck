@@ -61,7 +61,10 @@ const ICONS = {
   bell: 'M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3',
   trash: 'M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5l.7 9h5.6l.7-9',
   comment: 'M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z',
-  branch: 'M5 2.5v11M5 10a3 3 0 0 0 3-3h1.5M11 7a1.5 1.5 0 1 0 0-.01'
+  branch: 'M5 2.5v11M5 10a3 3 0 0 0 3-3h1.5M11 7a1.5 1.5 0 1 0 0-.01',
+  sidebar: 'M2.5 3h11v10h-11zM6 3v10',
+  pin: 'M6 2.5h4l-.5 4 2 2v1h-7v-1l2-2zM8 9.5v4',
+  tabs: 'M2.5 5.5h11v8h-11zM2.5 5.5V3h4v2.5'
 } as const
 
 export type IconName = keyof typeof ICONS

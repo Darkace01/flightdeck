@@ -61,7 +61,10 @@ export const DEFAULT_SETTINGS: Settings = {
   dashboards: [{ id: 'main', name: 'Main', widgets, layout }],
   activeDashboard: 'main',
   openTabs: [],
+  pinnedTabs: [],
   activeTab: 'home',
+  tabLayout: 'horizontal',
+  sidebarOpen: false,
   localPaths: {},
   editorCommand: 'code',
   autoLinkClones: false

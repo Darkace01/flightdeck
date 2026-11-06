@@ -1,3 +1,4 @@
+import { rowHeight as gridRowHeight } from '../lib/layout'
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout'
 import { WIDGET_DEFAULTS } from '../../../shared/defaults'
@@ -102,7 +103,7 @@ export function Dashboard() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(saveTimer.current), [])
 
-  const rowHeight = settings.density === 'compact' ? 30 : 38
+  const rowHeight = gridRowHeight(settings.density)
   // Make sure every widget has a layout slot even if settings were hand-edited.
   const layout: LayoutItem[] = settings.widgets.map(
     (w) => settings.layout.find((l) => l.i === w.id) ?? { i: w.id, x: 0, y: 999, w: WIDGET_DEFAULTS[w.type].w, h: WIDGET_DEFAULTS[w.type].h }

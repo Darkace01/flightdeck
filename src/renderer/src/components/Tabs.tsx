@@ -1,29 +1,122 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import type { RepoOption } from '../../../shared/types'
 import { matches, timeAgo, useNow } from '../lib/format'
-import { closeTab, HOME, moveTab, openRepoTab, selectTab } from '../lib/tabs'
-import { api, useSettings, useSnapshot } from '../lib/store'
-import { Icon, Popover, runTone, Skeleton, StatusIcon } from './ui'
+import { api, toast, updateSettings, useSettings, useSnapshot } from '../lib/store'
+import { closeOtherTabs, closeTab, HOME, moveTab, openRepoTab, pinTab, selectTab, setTabLayout, toggleSidebar, unpinTab } from '../lib/tabs'
+import { Icon, IconButton, Popover, runTone, Skeleton, StatusIcon } from './ui'
 
-/** Dashboard tab plus one tab per open repo. Drag to reorder, middle-click or × to close. */
-export function TabBar() {
+/** A repo's CI state for its tab: running, or the latest default-branch run's result. */
+function useRepoTone(repo: string) {
+  const state = useSnapshot().repos[repo]
+  const latest = state?.runs.find((r) => r.branch === state.defaultBranch)
+  if (!latest) return undefined
+  return state.runs.some((r) => r.status !== 'completed') ? 'run' : runTone(latest)
+}
+
+/** Two letters from a repo name: "xstar.react.common" → "XR", "blank-page" → "BP", "pushback" → "PU". */
+const monogram = (name: string) => {
+  const words = name.split(/[-_.\s]+/).filter(Boolean)
+  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase()
+}
+
+/** A stable colour per repo, so pinned tabs from the same owner still look different. */
+const hue = (repo: string) => [...repo].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)
+
+/** A pinned tab's icon: the repo's monogram, the owner's avatar as a badge, and the CI state as a dot. */
+function RepoIcon({ repo, size = 22 }: { repo: string; size?: number }) {
+  const tone = useRepoTone(repo)
+  const [failed, setFailed] = useState(false)
+  const [owner, name] = repo.split('/')
+  return (
+    <span className="repo-icon" style={{ width: size, height: size }}>
+      <span className="repo-initial" style={{ background: `hsl(${hue(repo)} 55% 52%)`, fontSize: size * 0.42 }}>
+        {monogram(name)}
+      </span>
+      {size >= 22 && !failed && <img className="repo-owner" src={`https://github.com/${owner}.png?size=32`} alt="" onError={() => setFailed(true)} />}
+      {tone && <span className={`repo-dot tone-${tone}`} />}
+    </span>
+  )
+}
+
+const RepoName = ({ repo }: { repo: string }) => (
+  <span className="tab-name">
+    <span className="dim">{repo.split('/')[0]}/</span>
+    {repo.split('/')[1]}
+  </span>
+)
+
+type OnMenu = (e: MouseEvent<HTMLElement>) => void
+
+/** Right-click menu shared by every repo tab, pinned tile and sidebar row. */
+function useTabMenu() {
   const settings = useSettings()
-  const snapshot = useSnapshot()
-  const [adding, setAdding] = useState(false)
-  const [dragging, setDragging] = useState<string>()
-  const addRef = useRef<HTMLButtonElement>(null)
-  const dashboard = settings.dashboards.find((d) => d.id === settings.activeDashboard)
+  const [menu, setMenu] = useState<{ repo: string; anchor: HTMLElement }>()
+  const open =
+    (repo: string): OnMenu =>
+    (e) => {
+      e.preventDefault()
+      setMenu({ repo, anchor: e.currentTarget })
+    }
+  let element = null
+  if (menu) {
+    const { repo } = menu
+    const pinned = settings.pinnedTabs.includes(repo)
+    const isOpen = settings.openTabs.includes(repo)
+    const watched = settings.repos.includes(repo)
+    const item = (label: string, fn: () => void) => (
+      <button key={label} role="menuitem" onClick={() => (setMenu(undefined), fn())}>
+        <span>{label}</span>
+      </button>
+    )
+    element = (
+      <Popover anchor={menu.anchor} onClose={() => setMenu(undefined)}>
+        {pinned ? item('Unpin', () => unpinTab(repo)) : item('Pin tab', () => pinTab(repo))}
+        {isOpen && item('Close tab', () => closeTab(repo))}
+        {isOpen && settings.openTabs.length > 1 && item('Close other tabs', () => closeOtherTabs(repo))}
+        <hr />
+        {item(watched ? 'Stop watching' : 'Watch on the dashboard', () => {
+          void updateSettings({ repos: watched ? settings.repos.filter((r) => r !== repo) : [...settings.repos, repo] })
+          toast(watched ? `Stopped watching ${repo}` : `Watching ${repo}`, 'ok')
+        })}
+        {item('Open in browser', () => void api.openExternal(`https://github.com/${repo}`))}
+        {item('Copy name', () => void navigator.clipboard.writeText(repo))}
+      </Popover>
+    )
+  }
+  return { open, element }
+}
 
-  // Warm the picker's repo list in the background, so it's ready when + is clicked.
+/** Drag-and-drop between tabs: `onDrop` gets the repo that was dropped on this one. */
+const dragProps = (repo: string, onDrop?: (from: string) => void) => ({
+  draggable: true,
+  onDragStart: (e: DragEvent) => e.dataTransfer.setData('text/x-repo', repo),
+  ...(onDrop && {
+    onDragOver: (e: DragEvent) => e.preventDefault(),
+    onDrop: (e: DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const from = e.dataTransfer.getData('text/x-repo')
+      if (from && from !== repo) onDrop(from)
+    }
+  })
+})
+
+/** Warm the picker's repo list in the background, so it's ready when + is clicked. */
+function usePrefetchRepos() {
   useEffect(() => {
     const t = setTimeout(() => void loadMyRepos().catch(() => {}), 4000)
     return () => clearTimeout(t)
   }, [])
+}
 
-  const add = (repo: string) => {
-    setAdding(false)
-    openRepoTab(repo)
-  }
+/** Horizontal tabs: the dashboard, pinned repos as icons, then one tab per open repo. */
+export function TabBar() {
+  const settings = useSettings()
+  const [adding, setAdding] = useState(false)
+  const addRef = useRef<HTMLButtonElement>(null)
+  const menu = useTabMenu()
+  const dashboard = settings.dashboards.find((d) => d.id === settings.activeDashboard)
+  usePrefetchRepos()
 
   return (
     <nav className="tabbar" role="tablist">
@@ -31,53 +124,152 @@ export function TabBar() {
         <Icon name="grid" />
         <span className="tab-name">{dashboard?.name ?? 'Dashboard'}</span>
       </button>
-      {settings.openTabs.map((repo, i) => {
-        const state = snapshot.repos[repo]
-        const latest = state?.runs.find((r) => r.branch === state.defaultBranch)
-        const running = state?.runs.some((r) => r.status !== 'completed')
-        return (
-          <button
-            key={repo}
-            role="tab"
-            aria-selected={settings.activeTab === repo}
-            className={`tab${settings.activeTab === repo ? ' on' : ''}${dragging === repo ? ' dragging' : ''}`}
-            title={repo}
-            draggable
-            onDragStart={(e) => (setDragging(repo), e.dataTransfer.setData('text/plain', repo))}
-            onDragEnd={() => setDragging(undefined)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault()
-              const from = e.dataTransfer.getData('text/plain')
-              if (from && from !== repo) moveTab(from, i)
-            }}
-            onClick={() => selectTab(repo)}
-            onAuxClick={(e) => e.button === 1 && closeTab(repo)}
-          >
-            {latest ? <StatusIcon tone={running ? 'run' : runTone(latest)} size={12} /> : <span className="tab-dot" />}
-            <span className="tab-name">
-              <span className="dim">{repo.split('/')[0]}/</span>
-              {repo.split('/')[1]}
-            </span>
-            <span
-              className="tab-close"
-              role="button"
-              aria-label={`Close ${repo}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                closeTab(repo)
-              }}
-            >
-              <Icon name="close" />
-            </span>
-          </button>
-        )
-      })}
+      {settings.pinnedTabs.map((repo, i) => (
+        <button
+          key={repo}
+          role="tab"
+          aria-selected={settings.activeTab === repo}
+          className={`tab tab-pinned${settings.activeTab === repo ? ' on' : ''}`}
+          title={`${repo} (pinned)`}
+          onClick={() => selectTab(repo)}
+          onContextMenu={menu.open(repo)}
+          {...dragProps(repo, (from) => pinTab(from, i))}
+        >
+          <RepoIcon repo={repo} size={18} />
+        </button>
+      ))}
+      {settings.openTabs.map((repo, i) => (
+        <RepoTab key={repo} repo={repo} on={settings.activeTab === repo} onMenu={menu.open(repo)} onDrop={(from) => moveTab(from, i)} className="tab" />
+      ))}
       <button ref={addRef} className="tab tab-add" title="Open a repository in a new tab" aria-expanded={adding} onClick={() => setAdding(!adding)}>
         <Icon name="plus" />
       </button>
-      {adding && <RepoPicker anchor={addRef.current} onPick={add} onClose={() => setAdding(false)} />}
+      {adding && <RepoPicker anchor={addRef.current} onPick={(r) => (setAdding(false), openRepoTab(r))} onClose={() => setAdding(false)} />}
+      <span className="spacer" />
+      <IconButton icon="tabs" title="Switch to vertical tabs" onClick={() => setTabLayout('vertical')} />
+      {menu.element}
     </nav>
+  )
+}
+
+/** One repo as a tab (horizontal) or a sidebar row (vertical, watched list). */
+function RepoTab({ repo, on, onMenu, onDrop, onClick, className, closable = true }: {
+  repo: string
+  on: boolean
+  onMenu: OnMenu
+  onDrop?: (from: string) => void
+  onClick?: () => void
+  className: string
+  closable?: boolean
+}) {
+  const tone = useRepoTone(repo)
+  return (
+    <button
+      role="tab"
+      aria-selected={on}
+      className={`${className}${on ? ' on' : ''}`}
+      title={repo}
+      onClick={onClick ?? (() => selectTab(repo))}
+      onAuxClick={(e) => closable && e.button === 1 && closeTab(repo)}
+      onContextMenu={onMenu}
+      {...dragProps(repo, onDrop)}
+    >
+      {tone ? <StatusIcon tone={tone} size={12} /> : <span className="tab-dot" />}
+      <RepoName repo={repo} />
+      {closable && (
+        <span
+          className="tab-close"
+          role="button"
+          aria-label={`Close ${repo}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            closeTab(repo)
+          }}
+        >
+          <Icon name="close" />
+        </span>
+      )}
+    </button>
+  )
+}
+
+/**
+ * The left sidebar. Pinned repos sit at the top as a grid of tiles (like a browser's pinned tabs); in
+ * vertical-tab mode the dashboard and open tabs follow; then every other watched repo, one click away.
+ */
+export function RepoSidebar() {
+  const settings = useSettings()
+  const vertical = settings.tabLayout === 'vertical'
+  const [adding, setAdding] = useState(false)
+  const addRef = useRef<HTMLButtonElement>(null)
+  const menu = useTabMenu()
+  const dashboard = settings.dashboards.find((d) => d.id === settings.activeDashboard)
+  usePrefetchRepos()
+  const others = settings.repos.filter((r) => !settings.pinnedTabs.includes(r) && !(vertical && settings.openTabs.includes(r)))
+  const dropAtEnd = (e: DragEvent, fn: (from: string) => void) => {
+    e.preventDefault()
+    const from = e.dataTransfer.getData('text/x-repo')
+    if (from) fn(from)
+  }
+
+  return (
+    <aside className="repo-sidebar" aria-label="Repositories">
+      <div className={`pinned-grid${settings.pinnedTabs.length ? '' : ' empty'}`} onDragOver={(e) => e.preventDefault()} onDrop={(e) => dropAtEnd(e, (r) => pinTab(r))}>
+        {settings.pinnedTabs.map((repo, i) => (
+          <button
+            key={repo}
+            className={`pinned-tile${settings.activeTab === repo ? ' on' : ''}`}
+            title={repo}
+            onClick={() => selectTab(repo)}
+            onContextMenu={menu.open(repo)}
+            {...dragProps(repo, (from) => pinTab(from, i))}
+          >
+            <RepoIcon repo={repo} size={24} />
+            <span className="pinned-name">{repo.split('/')[1]}</span>
+          </button>
+        ))}
+        {!settings.pinnedTabs.length && <span className="dim small">Drag a repo here, or right-click one and choose Pin tab.</span>}
+      </div>
+
+      {vertical && (
+        <>
+          <button className={`side-row${settings.activeTab === HOME ? ' on' : ''}`} onClick={() => selectTab(HOME)}>
+            <Icon name="grid" />
+            <span className="tab-name">{dashboard?.name ?? 'Dashboard'}</span>
+          </button>
+          <div className="side-list" onDragOver={(e) => e.preventDefault()} onDrop={(e) => dropAtEnd(e, (r) => moveTab(r, settings.openTabs.length))}>
+            {settings.openTabs.map((repo, i) => (
+              <RepoTab key={repo} repo={repo} on={settings.activeTab === repo} onMenu={menu.open(repo)} onDrop={(from) => moveTab(from, i)} className="side-row" />
+            ))}
+            <button ref={addRef} className="side-row side-add" aria-expanded={adding} onClick={() => setAdding(!adding)}>
+              <Icon name="plus" />
+              <span>Open a repo…</span>
+            </button>
+          </div>
+          {adding && <RepoPicker anchor={addRef.current} onPick={(r) => (setAdding(false), openRepoTab(r))} onClose={() => setAdding(false)} />}
+        </>
+      )}
+
+      {others.length > 0 && (
+        <>
+          <div className="side-head">Watched</div>
+          <div className="side-list">
+            {others.map((repo) => (
+              <RepoTab key={repo} repo={repo} on={settings.activeTab === repo} onMenu={menu.open(repo)} onClick={() => openRepoTab(repo)} className="side-row" closable={false} />
+            ))}
+          </div>
+        </>
+      )}
+
+      <span className="spacer" />
+      <div className="side-foot">
+        <IconButton icon="tabs" title={vertical ? 'Switch to tabs across the top' : 'Switch to vertical tabs'} onClick={() => setTabLayout(vertical ? 'horizontal' : 'vertical')} />
+        <span className="dim small">{vertical ? 'Vertical tabs' : 'Horizontal tabs'}</span>
+        <span className="spacer" />
+        <IconButton icon="sidebar" title="Hide sidebar (Ctrl+B)" onClick={toggleSidebar} />
+      </div>
+      {menu.element}
+    </aside>
   )
 }
 
@@ -106,14 +298,14 @@ function RepoPicker({ anchor, onPick, onClose }: { anchor: HTMLElement | null; o
 
   const typed = q.trim().match(/^(?:https:\/\/github\.com\/)?([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/)?.[1]
   const items = useMemo(() => {
-    const open = new Set(settings.openTabs)
+    const open = new Set([...settings.openTabs, ...settings.pinnedTabs])
     const watched = settings.repos.map((r) => ({ fullName: r, description: mine?.find((m) => m.fullName === r)?.description ?? null, watched: true }))
     const others = (mine ?? []).filter((m) => !settings.repos.includes(m.fullName)).map((m) => ({ ...m, watched: false }))
     const all = [...watched, ...others].filter((r) => !q.trim() || matches(`${r.fullName} ${r.description ?? ''}`, q.trim()))
     // Anything typed that isn't in the list (e.g. someone else's public repo) can still be opened.
     if (typed && !all.some((r) => r.fullName.toLowerCase() === typed.toLowerCase())) all.unshift({ fullName: typed, description: null, watched: false })
     return all.map((r) => ({ ...r, open: open.has(r.fullName), info: mine?.find((m) => m.fullName === r.fullName) }))
-  }, [mine, settings.repos, settings.openTabs, q, typed])
+  }, [mine, settings.repos, settings.openTabs, settings.pinnedTabs, q, typed])
 
   useEffect(() => setSel(0), [q])
   useEffect(() => {

@@ -4,6 +4,7 @@ import type { NotifySettings, RepoOption, UpdateStatus } from '../../../shared/t
 import { resolveEditor } from '../../../shared/defaults'
 import { applyTemplate } from '../lib/dashboards'
 import { useEditors } from '../lib/editors'
+import { setTabLayout } from '../lib/tabs'
 import { api, toast, updateSettings, useSettings, useSnapshot, useUpdate } from '../lib/store'
 import { useAppearance } from '../lib/theme'
 import { closeModal, pushModal } from '../lib/ui'
@@ -299,6 +300,18 @@ function LookSection() {
         <span>Text size · {settings.fontSize}px</span>
         <input type="range" min={11} max={18} value={settings.fontSize} onChange={(e) => void updateSettings({ fontSize: Number(e.target.value) })} />
       </label>
+      <div className="field">
+        <span>Tabs</span>
+        <Segmented
+          value={settings.tabLayout}
+          onChange={(layout) => setTabLayout(layout)}
+          options={[
+            ['horizontal', 'Across the top'],
+            ['vertical', 'Down the side']
+          ]}
+        />
+        <small>Vertical tabs live in the repo sidebar (Ctrl+B), with pinned repos as tiles at the top. Right-click any tab to pin it.</small>
+      </div>
       <div className="field">
         <span>Density</span>
         <Segmented

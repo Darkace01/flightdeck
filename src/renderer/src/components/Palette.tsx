@@ -7,7 +7,7 @@ import { api, getSettings, updateSettings, useSettings, useSnapshot } from '../l
 import { closeModal, openModal, setEditing } from '../lib/ui'
 import { switchDashboard } from '../lib/dashboards'
 import { openInApp } from '../lib/open'
-import { openRepoTab } from '../lib/tabs'
+import { HOME, isPinned, openRepoTab, pinTab, setTabLayout, toggleSidebar, unpinTab } from '../lib/tabs'
 import { addWidget } from './Dashboard'
 import { checksTone, runTone, StatusIcon } from './ui'
 
@@ -38,6 +38,30 @@ export function Palette() {
     const commands: Item[] = [
       { id: 'c-refresh', kind: 'Command', label: 'Refresh now', keywords: 'reload poll', action: () => (closeModal(), void api.refresh()) },
       { id: 'c-settings', kind: 'Command', label: 'Open settings', keywords: 'preferences config', action: () => openModal({ kind: 'settings' }) },
+      { id: 'c-sidebar', kind: 'Command', label: 'Toggle repo sidebar', keywords: 'sidebar left panel ctrl+b', action: () => (toggleSidebar(), closeModal()) },
+      {
+        id: 'c-tab-layout',
+        kind: 'Command',
+        label: getSettings().tabLayout === 'vertical' ? 'Use horizontal tabs' : 'Use vertical tabs',
+        keywords: 'tabs vertical horizontal sidebar layout',
+        action: () => (setTabLayout(getSettings().tabLayout === 'vertical' ? 'horizontal' : 'vertical'), closeModal())
+      },
+      ...(getSettings().activeTab !== HOME
+        ? [
+            {
+              id: 'c-pin',
+              kind: 'Command' as const,
+              label: isPinned(getSettings().activeTab) ? `Unpin ${getSettings().activeTab}` : `Pin ${getSettings().activeTab}`,
+              keywords: 'pin tab',
+              action: () => {
+                const repo = getSettings().activeTab
+                if (isPinned(repo)) unpinTab(repo)
+                else pinTab(repo)
+                closeModal()
+              }
+            }
+          ]
+        : []),
       {
         id: 'c-find-clones',
         kind: 'Command',

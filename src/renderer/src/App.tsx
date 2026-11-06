@@ -8,7 +8,7 @@ import { NewIssueModal, NewPrModal, NewReleaseModal } from './components/CreateM
 import { IssueModal } from './components/IssueView'
 import { RepoWorkspace } from './components/RepoWorkspace'
 import { FindClonesModal } from './components/FindClones'
-import { TabBar } from './components/Tabs'
+import { RepoSidebar, TabBar } from './components/Tabs'
 import { AccountSection, ReposSection, SettingsModal } from './components/SettingsModal'
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
 import { AddWidgetModal, WidgetSettingsModal } from './components/WidgetModals'
@@ -16,7 +16,7 @@ import { timeAgo, useNow } from './lib/format'
 import { api, getSettings, useSettings, useSnapshot, useUpdate } from './lib/store'
 import { switchDashboard } from './lib/dashboards'
 import { openInApp } from './lib/open'
-import { cycleTab, HOME } from './lib/tabs'
+import { cycleTab, HOME, toggleSidebar } from './lib/tabs'
 import { useApplyAppearance } from './lib/theme'
 import { closeModal, openModal, setEditing, useEditing, useModal } from './lib/ui'
 
@@ -36,6 +36,9 @@ function useShortcuts(): void {
         e.preventDefault()
         const d = getSettings().dashboards[Number(e.key) - 1]
         if (d) switchDashboard(d.id)
+      } else if (mod && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        toggleSidebar()
       } else if (mod && e.key === ',') {
         e.preventDefault()
         openModal({ kind: 'settings' })
@@ -92,12 +95,14 @@ function UpdateButton() {
 
 function TopBar() {
   const snapshot = useSnapshot()
+  const settings = useSettings()
   const editing = useEditing()
   const now = useNow(5000)
   const rate = snapshot.rateLimit
   const isMac = navigator.userAgent.includes('Mac')
   return (
     <header className="topbar">
+      <IconButton icon="sidebar" title="Show or hide the repo sidebar (Ctrl+B)" active={settings.sidebarOpen} onClick={toggleSidebar} />
       <div className="brand">
         <Logo />
         Pushback
@@ -210,10 +215,13 @@ export function App() {
     <div className="app">
       <TopBar />
       {ready ? (
-        <>
-          <TabBar />
-          {settings.activeTab === HOME ? <Dashboard /> : <RepoWorkspace key={settings.activeTab} repo={settings.activeTab} />}
-        </>
+        <div className="app-body">
+          {settings.sidebarOpen && <RepoSidebar />}
+          <div className="app-main">
+            {settings.tabLayout === 'horizontal' && <TabBar />}
+            {settings.activeTab === HOME ? <Dashboard /> : <RepoWorkspace key={settings.activeTab} repo={settings.activeTab} />}
+          </div>
+        </div>
       ) : (
         <Onboarding />
       )}
