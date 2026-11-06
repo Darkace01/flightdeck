@@ -6,7 +6,7 @@ import { applyTemplate } from '../lib/dashboards'
 import { useEditors } from '../lib/editors'
 import { api, toast, updateSettings, useSettings, useSnapshot, useUpdate } from '../lib/store'
 import { useAppearance } from '../lib/theme'
-import { closeModal } from '../lib/ui'
+import { closeModal, pushModal } from '../lib/ui'
 import { Avatar, IconButton, Modal, Segmented } from './ui'
 
 type Tab = 'account' | 'repos' | 'notify' | 'look' | 'advanced'
@@ -117,6 +117,9 @@ export function ReposSection() {
         </datalist>
         <button className="btn btn-primary" type="submit" disabled={!input.trim()}>
           Add
+        </button>
+        <button className="btn" type="button" title="Find clones of GitHub repos on this computer, link them and watch them" onClick={() => pushModal({ kind: 'find-clones' })}>
+          Find on this computer…
         </button>
       </form>
       <ul className="repo-list">

@@ -63,7 +63,8 @@ export const DEFAULT_SETTINGS: Settings = {
   openTabs: [],
   activeTab: 'home',
   localPaths: {},
-  editorCommand: 'code'
+  editorCommand: 'code',
+  autoLinkClones: false
 }
 
 /**

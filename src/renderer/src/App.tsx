@@ -7,6 +7,7 @@ import { PrModal } from './components/PrView'
 import { NewIssueModal, NewPrModal, NewReleaseModal } from './components/CreateModals'
 import { IssueModal } from './components/IssueView'
 import { RepoWorkspace } from './components/RepoWorkspace'
+import { FindClonesModal } from './components/FindClones'
 import { TabBar } from './components/Tabs'
 import { AccountSection, ReposSection, SettingsModal } from './components/SettingsModal'
 import { Avatar, Icon, IconButton, Toasts } from './components/ui'
@@ -189,6 +190,8 @@ function Modals() {
       return <NewDashboardModal />
     case 'dashboards':
       return <ManageDashboardsModal />
+    case 'find-clones':
+      return <FindClonesModal />
   }
 }
 

@@ -56,6 +56,8 @@ const api: PushbackApi = {
   gitRun: (repo, action, arg) => ipcRenderer.invoke('git:run', repo, action, arg),
   gitOpen: (repo, where) => ipcRenderer.invoke('git:open', repo, where),
   listEditors: () => ipcRenderer.invoke('editors:list'),
+  scanClones: (pick) => ipcRenderer.invoke('git:scan', pick),
+  linkScanned: (repos) => ipcRenderer.invoke('git:link-scanned', repos),
   onNavigate: (cb) => subscribe<string>('navigate', cb)
 }
 

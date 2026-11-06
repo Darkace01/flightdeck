@@ -7,6 +7,7 @@ import { GitHub } from './github'
 import * as tools from './repoTools'
 import * as git from './git'
 import { listEditors } from './editors'
+import { findClones } from './scan'
 import { resolveEditor } from '../shared/defaults'
 import { Poller } from './poller'
 import { findTheme } from '../shared/themes'
@@ -190,12 +191,44 @@ async function create(action: () => Promise<ActionResult>): Promise<ActionResult
 }
 
 function setLocalPath(repo: string, path: string | null): void {
+  setLocalPaths({ [repo]: path })
+}
+
+function setLocalPaths(changes: Record<string, string | null>): void {
   const localPaths = { ...settings.localPaths }
-  if (path) localPaths[repo] = path
-  else delete localPaths[repo]
+  for (const [repo, path] of Object.entries(changes)) {
+    if (path) localPaths[repo] = path
+    else delete localPaths[repo]
+  }
   settings = { ...settings, localPaths }
   saveSettings(settings)
   send('settings', settings)
+}
+
+// The clones found by the last scan, by lower-case repo name. Linking reads paths from here, so the
+// renderer can only ever link folders the scanner itself found.
+let scanned = new Map<string, string>()
+
+/** A found repo under the name the app already uses for it (GitHub names are case-insensitive). */
+function knownName(repo: string): string {
+  const all = [...settings.repos, ...Object.keys(settings.localPaths), ...settings.openTabs]
+  return all.find((r) => r.toLowerCase() === repo.toLowerCase()) ?? repo
+}
+
+async function scan(root?: string) {
+  const clones = (await findClones(root)).map((c) => ({ ...c, repo: knownName(c.repo) }))
+  scanned = new Map()
+  for (const c of clones) if (!scanned.has(c.repo.toLowerCase())) scanned.set(c.repo.toLowerCase(), c.path)
+  return clones
+}
+
+/** At startup, link clones of repos that have no folder linked yet (opt-in: Settings.autoLinkClones). */
+async function autoLinkClones(): Promise<void> {
+  if (!settings.autoLinkClones) return
+  await scan()
+  const linked = new Set(Object.keys(settings.localPaths).map((r) => r.toLowerCase()))
+  const changes = Object.fromEntries([...scanned].filter(([r]) => !linked.has(r)).map(([r, path]) => [knownName(r), path]))
+  if (Object.keys(changes).length) setLocalPaths(changes)
 }
 
 /** The linked clone for a repo. Only folders the user picked in a dialog ever end up here. */
@@ -364,6 +397,20 @@ function registerIpc(): void {
       return { ok: false, error: (err as Error).message }
     }
   })
+  ipcMain.handle('git:scan', async (_e, pick: boolean) => {
+    if (!pick) return scan()
+    const r = await dialog.showOpenDialog(win!, { title: 'Look for GitHub repos in…', properties: ['openDirectory'] })
+    return r.canceled || !r.filePaths[0] ? undefined : scan(r.filePaths[0])
+  })
+  ipcMain.handle('git:link-scanned', (_e, repos: string[]) => {
+    const changes: Record<string, string> = {}
+    for (const repo of repos) {
+      const path = scanned.get(repo.toLowerCase())
+      if (path) changes[knownName(repo)] = path
+    }
+    setLocalPaths(changes)
+    return Object.keys(changes).length
+  })
   ipcMain.handle('git:unlink', (_e, repo: string) => setLocalPath(repo, null))
   ipcMain.handle('git:status', (_e, repo: string) => (settings.localPaths[repo] ? git.status(localPath(repo)) : null))
   ipcMain.handle('git:log', (_e, repo: string) => git.log(localPath(repo)))
@@ -422,6 +469,8 @@ if (!app.requestSingleInstanceLock()) {
       () => settings.autoUpdate
     )
     app.on('activate', showWindow)
+    // After the first poll, so the scan's disk reads don't slow down startup.
+    setTimeout(() => void autoLinkClones().catch(() => {}), 15_000)
   })
 
   app.on('before-quit', () => {

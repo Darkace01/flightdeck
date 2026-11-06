@@ -26,7 +26,7 @@
 - **Pull requests, in the app**: open any PR to read its description and conversation, see its commits and checks, browse the changed files as a diff, and comment, approve or merge (squash, merge or rebase), all without leaving Pushback. Every view has an **Open in browser** button for when you want GitHub itself.
 - **A tab for each repo**: open any repo, from your account or anywhere on GitHub, in its own tab, and switch with a click or `Ctrl+Tab`. Each repo tab is a full workspace with its README, PRs, runs, workflows and insights.
 - **GitHub tools**: browse, read, comment on, create and close **issues**; see **branches** with how far each is ahead of or behind the default branch, and create, delete or open a PR from them; browse **commits**; read and publish **releases** with generated notes; and open **new pull requests** from any branch.
-- **Local git tools**: link your clone of a repo (or clone it from the app) to see changes with diffs, stage, commit, stash, switch and create branches, fetch, pull and push, and open it in your editor or a terminal.
+- **Local git tools**: find every GitHub clone on your computer in one go (or link or clone repos one at a time) to see changes with diffs, stage, commit, stash, switch and create branches, fetch, pull and push, and open it in your editor or a terminal.
 - **Desktop notifications** when runs fail, succeed or start; when PRs are opened, merged, closed or marked ready; when your review is requested; and when checks fail on your PRs. Each type can be switched off, and "only mine" limits them to your own activity. Pushback keeps running in the tray so you don't miss any.
 - **Fast and cheap on your rate limit**: it polls with ETag requests, which GitHub doesn't count against your limit when nothing changed, and polls faster while runs are active.
 - **Command palette** (`Ctrl/⌘+K`) to jump to any PR, run, workflow, repo, theme or command.
@@ -153,7 +153,9 @@ Each repo tab has these sections:
 
 ### 8. Use git without leaving the app
 
-In a repo tab, open **Working copy** and either **Link existing clone…** (pick the folder; its remote must point at that repo) or **Clone into…** (pick a parent folder). Then:
+**Add all your clones at once:** in **Settings → Repositories**, click **Find on this computer…** (or run *Find repos on this computer* from `Ctrl/⌘+K`). Pushback looks through your home folder for git repos with a GitHub remote (`origin` first) and lists them, including clones whose folder name differs from the repo. Pick the ones you want, and each gets linked as that repo's working copy. You can also start watching them on the dashboard, and have new clones linked automatically each time Pushback starts. Kept your code somewhere else, like another drive? Use **Look in another folder…**.
+
+To link a single repo instead, open **Working copy** in its tab and choose **Link existing clone…** (pick the folder; its remote must point at that repo) or **Clone into…** (pick a parent folder). Then:
 
 - **Changes**: every modified, new and deleted file, with a diff of the selected one. Stage (**+**) or unstage files one at a time or all together, discard changes (you're asked to confirm), write a message and **Commit** (`Ctrl+Enter`). **Stash** puts everything aside, including new files, and **Pop stash** brings it back.
 - **Fetch**, **Pull** and **Push** show how far you are ahead of or behind the remote. Pull only fast-forwards, so it never creates a surprise merge commit. A branch that hasn't been pushed yet shows **Publish branch**.

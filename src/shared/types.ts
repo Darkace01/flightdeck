@@ -173,6 +173,8 @@ export interface Settings {
   localPaths: Record<string, string>
   /** Command used for "Open in editor", given the folder as its argument (e.g. code, cursor, idea). */
   editorCommand: string
+  /** Look for new clones in the home folder at startup and link them (watching is still up to the user). */
+  autoLinkClones: boolean
 }
 
 export interface InboxItem {
@@ -473,6 +475,12 @@ export interface UpdateStatus {
   error?: string
 }
 
+/** A clone of a GitHub repo found on disk by "Find repos on this computer". */
+export interface FoundClone {
+  repo: string
+  path: string
+}
+
 /** An editor or IDE found on this machine; `command` is what Settings.editorCommand is set to. */
 export interface EditorOption {
   id: string
@@ -531,6 +539,13 @@ export interface PushbackApi {
   gitDiff(repo: string, file: string, staged: boolean): Promise<string>
   gitRun(repo: string, action: GitAction, arg?: string | string[]): Promise<ActionResult & { output?: string }>
   gitOpen(repo: string, where: 'editor' | 'terminal' | 'folder'): Promise<ActionResult>
+  /**
+   * Looks for clones of GitHub repos in the home folder, or in a folder picked in a dialog (`pick`).
+   * Undefined if the dialog was cancelled.
+   */
+  scanClones(pick: boolean): Promise<FoundClone[] | undefined>
+  /** Links clones from the last scan (by repo name; the paths come from the scan, not the caller). */
+  linkScanned(repos: string[]): Promise<number>
   /** Editors and IDEs installed on this machine, for the default-editor setting. */
   listEditors(): Promise<EditorOption[]>
   /** Fired when a notification is clicked: open this GitHub URL inside the app. */

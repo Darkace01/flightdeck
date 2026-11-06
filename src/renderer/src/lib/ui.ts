@@ -16,6 +16,7 @@ export type ModalState =
   | { kind: 'new-release'; repo: string }
   | { kind: 'new-dashboard' }
   | { kind: 'dashboards' }
+  | { kind: 'find-clones' }
   | null
 
 let modal: ModalState = null

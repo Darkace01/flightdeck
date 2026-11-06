@@ -38,6 +38,13 @@ export function Palette() {
     const commands: Item[] = [
       { id: 'c-refresh', kind: 'Command', label: 'Refresh now', keywords: 'reload poll', action: () => (closeModal(), void api.refresh()) },
       { id: 'c-settings', kind: 'Command', label: 'Open settings', keywords: 'preferences config', action: () => openModal({ kind: 'settings' }) },
+      {
+        id: 'c-find-clones',
+        kind: 'Command',
+        label: 'Find repos on this computer',
+        keywords: 'local clone scan import link folder git',
+        action: () => openModal({ kind: 'find-clones' })
+      },
       { id: 'c-edit', kind: 'Command', label: 'Edit dashboard layout', keywords: 'customize arrange move resize', action: () => (setEditing(true), closeModal()) },
       {
         id: 'c-mode',
