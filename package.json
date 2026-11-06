@@ -38,6 +38,10 @@
     "react-grid-layout": "^2.3.0",
     "yaml": "^2.9.1"
   },
+  "overrides": {
+    "minimatch@^9.0.0": "^11.0.1",
+    "minimatch@^10.0.0": "^11.0.1"
+  },
   "productName": "Pushback",
   "build": {
     "appId": "dev.pushback.app",
